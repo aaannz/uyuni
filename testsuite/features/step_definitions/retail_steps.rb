@@ -68,12 +68,12 @@ When(/^I enable repositories before installing branch server$/) do
 
   # Distribution
   repos = 'os_pool_repo os_update_repo'
-  puts $proxy.run("zypper mr --enable #{repos}")
+  log $proxy.run("zypper mr --enable #{repos}")
 
   # Server Applications
   if os_family =~ /^sles/ && os_version =~ /^15/
     repos = 'module_server_applications_pool_repo module_server_applications_update_repo'
-    puts $proxy.run("zypper mr --enable #{repos}")
+    log $proxy.run("zypper mr --enable #{repos}")
   end
 end
 
@@ -82,12 +82,12 @@ When(/^I disable repositories after installing branch server$/) do
 
   # Distribution
   repos = 'os_pool_repo os_update_repo'
-  puts $proxy.run("zypper mr --disable #{repos}")
+  log $proxy.run("zypper mr --disable #{repos}")
 
   # Server Applications
   if os_family =~ /^sles/ && os_version =~ /^15/
     repos = 'module_server_applications_pool_repo module_server_applications_update_repo'
-    puts $proxy.run("zypper mr --disable #{repos}")
+    log $proxy.run("zypper mr --disable #{repos}")
   end
 end
 
@@ -322,7 +322,7 @@ When(/^I delete all the imported terminals$/) do
   terminals = read_terminals_from_yaml
   terminals.each do |terminal|
     next if (terminal.include? 'minion') || (terminal.include? 'client')
-    puts "Deleting terminal with name: #{terminal}"
+    log "Deleting terminal with name: #{terminal}"
     steps %(
       When I follow "#{terminal}" terminal
       And I follow "Delete System"
