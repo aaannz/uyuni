@@ -36,7 +36,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       susemanager-schema-core
 Requires:       susemanager-schema-sanity
 
-Provides:       spacewalk-reportdb-schema = %{version}
+Provides:       uyuni-reportdb-schema = %{version}
 
 %if 0%{?suse_version}
 BuildRequires:  fdupes
