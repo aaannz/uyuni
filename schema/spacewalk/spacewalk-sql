@@ -9,15 +9,16 @@ use Getopt::Long ();
 use Cwd 'abs_path';
 
 sub usage {
-        die "Usage: $0 [-i | [ OPTIONS ] [sql-file-to-use.sql | - ]]\n    where possible OPTIONS are\n        --verbose\n        --select-mode or --select-mode-direct\n";
+        die "Usage: $0 [-i | [ OPTIONS ] [sql-file-to-use.sql | - ]]\n    where possible OPTIONS are\n        --verbose\n        --reportdb\n        --select-mode or --select-mode-direct\n";
 }
 
-my ($verbose, $select_mode, $select_direct, $interactive);
+my ($verbose, $select_mode, $select_direct, $interactive, $reportdb);
 if (not Getopt::Long::GetOptions(
         'verbose' => \$verbose,
         'select-mode' => \$select_mode,
         'select-mode-direct' => \$select_direct,
         'interactive' => \$interactive,
+        'reportdb' => \$reportdb,
         )) {
         usage();
 }
@@ -48,6 +49,12 @@ if (not -e $config_file) {
 
 my %options;
 Spacewalk::Setup::read_config($config_file, \%options);
+
+if ($reportdb) {
+    for my $n (qw( db_backend db_name db_user db_password db_host db_port db_ssl_enabled )) {
+        $options{$n} = $options{'report_'.$n} if (defined $options{'report_'.$n});
+    }
+}
 
 my @missing;
 for my $n (qw( db_backend db_name db_user db_password )) {
