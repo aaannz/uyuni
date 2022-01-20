@@ -41,6 +41,8 @@ BuildRequires:  fdupes
 %endif
 
 %define rhnroot /etc/sysconfig/rhn/
+
+#TODO the folder should be the same where spacewalk-startup-helper expects to have schema files  
 %define postgres %{rhnroot}/postgres
 
 %description
