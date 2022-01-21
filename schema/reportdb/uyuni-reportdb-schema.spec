@@ -24,7 +24,7 @@ Summary:        Report DB SQL schema for Spacewalk server
 License:        GPL-2.0-only
 Group:          Applications/Internet
 
-Version:        4.3.4
+Version:        4.3.0
 Release:        1
 Source0:        %{name}-%{version}.tar.gz
 Source1:        %{name}-rpmlintrc
@@ -33,10 +33,8 @@ URL:            https://github.com/uyuni-project/uyuni
 BuildArch:      noarch
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
-Requires:       susemanager-schema-core
+Requires:       susemanager-schema-utility
 Requires:       susemanager-schema-sanity
-
-Provides:       uyuni-reportdb-schema = %{version}
 
 %if 0%{?suse_version}
 BuildRequires:  fdupes
@@ -55,25 +53,10 @@ install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
 #install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
 #install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
 
+
 #TODO Install SQL Upgrade Script
 #install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade
 #( cd upgrade && tar cf - --exclude='*.sql' . | ( cd $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade && tar xf - ) )
-
-%if 0%{?suse_version}
-mkdir -p $RPM_BUILD_ROOT/usr/share/susemanager/
-install -m 0644 update-reportdb-messages.txt $RPM_BUILD_ROOT/usr/share/susemanager/
-%fdupes %{buildroot}/%{rhnroot}
-%endif
-
-%if 0%{?suse_version}
-%post
-if [ $1 -eq 2 ] ; then
-    cp /usr/share/susemanager/update-reportdb-messages.txt /var/adm/update-reportdb-messages/%{name}-%{version}-%{release}
-else
-    # new install: empty messages are not shown
-    touch /var/adm/update-reportdb-messages/%{name}-%{version}-%{release}
-fi
-%endif
 
 %posttrans
 #TODO Run uyuni-check-reportdb.service. We should probably not start report service if it fails
@@ -89,8 +72,6 @@ fi
 %{postgres}
 %if 0%{?suse_version}
 %dir /usr/share/susemanager
-/usr/share/susemanager/update-reportdb-messages.txt
-%ghost /var/adm/update-reportdb-messages/%{name}-%{version}-%{release}
 %endif
 
 %changelog

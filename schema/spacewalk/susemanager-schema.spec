@@ -122,12 +122,12 @@ systemctl try-restart uyuni-check-database.service ||:
 %dir /usr/share/susemanager
 /usr/share/susemanager/update-messages.txt
 %ghost /var/adm/update-messages/%{name}-%{version}-%{release}
+%{postgres}
 %endif
 
 %files utility
 %defattr(-,root,root)
 %dir %{rhnroot}
-%{postgres}
 %{rhnroot}/schema-upgrade
 %{_bindir}/spacewalk-schema-upgrade
 %{_bindir}/spacewalk-sql
