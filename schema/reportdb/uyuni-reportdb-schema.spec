@@ -43,22 +43,22 @@ BuildRequires:  fdupes
 %define rhnroot /etc/sysconfig/rhn/
 
 #TODO the folder should be the same where spacewalk-startup-helper expects to have schema files  
-%define postgres %{rhnroot}/postgres
+%define postgres %{rhnroot}/reportdb
 
 %description
 susemanager-reportdb-schema is the SQL schema for the SUSE Manager server.
 
 %install
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}
-install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
+install -m 0755 -d $RPM_BUILD_ROOT%{reportdb}
 #TODO Install SQL Script
-#install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
-#install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
+#install -m 0644 reportdb/main.sql $RPM_BUILD_ROOT%{reportdb}
+#install -m 0644 reportdb/end.sql $RPM_BUILD_ROOT%{reportdb}/upgrade-end.sql
 
 
 #TODO Install SQL Upgrade Script
-#install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade
-#( cd upgrade && tar cf - --exclude='*.sql' . | ( cd $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade && tar xf - ) )
+#install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}/reportdb-upgrade
+#( cd upgrade && tar cf - --exclude='*.sql' . | ( cd $RPM_BUILD_ROOT%{rhnroot}/reportdb-upgrade && tar xf - ) )
 
 %posttrans
 #TODO Run uyuni-check-reportdb.service. We should probably not start report service if it fails
@@ -71,7 +71,7 @@ install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
 %files
 %defattr(-,root,root)
 %dir %{rhnroot}
-%{postgres}
+%{reportdb}
 %if 0%{?suse_version}
 %dir /usr/share/susemanager
 %endif
