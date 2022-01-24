@@ -38,6 +38,7 @@ BuildRequires:  fdupes
 BuildRequires:  python3
 BuildRequires:  perl(Digest::SHA)
 Requires:       %{sbinpath}/restorecon
+Requires:       %{name}-utility
 
 Provides:       spacewalk-schema = %{version}
 Obsoletes:      rhn-satellite-schema <= 5.1.0
