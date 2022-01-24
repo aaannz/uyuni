@@ -23,19 +23,47 @@ use constant {
 };
 
 sub get_schema_version_query {
-    die "Report db query not implemented yet";
+    return "
+     SELECT name || '-' || version || '-' || release
+       FROM versioninfo
+      WHERE label = 'schema';
+";
 }
 
 sub get_migration_dir_query {
-    die "Report db query not implemented yet";
+    return "
+     SELECT label
+       FROM versioninfo
+      WHERE label LIKE 'schema-from%'
+   ORDER BY label DESC;
+";
 }
 
 sub update_migration_dir {
-    die "Report db query not implemented yet";
+    shift if $_[0] eq __PACKAGE__;
+    my ($migration_dir) = @_;
+
+    return "
+     UPDATE versioninfo
+        SET label = '$migration_dir'
+                , modified = current_timestamp
+      WHERE label = 'schema';
+";
 }
 
 sub insert_version_info {
-    die "Report db query not implemented yet";
+    shift if $_[0] eq __PACKAGE__;
+    my ($schema_name, $schema_version, $schema_release) = @_;
+
+    return "
+INSERT INTO versioninfo( label, name, version, release )
+     VALUES ('schema'
+                , '$schema_name'
+                , '$schema_version'
+                , '$schema_release'
+            );
+     COMMIT;
+";
 }
 
 1;
