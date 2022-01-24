@@ -49,6 +49,7 @@ BuildRequires:  fdupes
 
 %define rhnroot /etc/sysconfig/rhn/
 %define postgres %{rhnroot}/postgres
+%define schema_upgrade_lib lib/Spacewalk/SchemaUpgrade
 
 %description
 susemanager-schema is the SQL schema for the SUSE Manager server.
@@ -86,6 +87,9 @@ install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
 install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
 install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}
 install -m 0755 spacewalk-schema-upgrade $RPM_BUILD_ROOT%{_bindir}
+install -m 0755 %{schema_upgrade_lib}/MainDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
+install -m 0755 %{schema_upgrade_lib}/ReportDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
+
 install -m 0755 spacewalk-sql $RPM_BUILD_ROOT%{_bindir}
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade
 ( cd upgrade && tar cf - --exclude='*.sql' . | ( cd $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade && tar xf - ) )
@@ -130,6 +134,8 @@ systemctl try-restart uyuni-check-database.service ||:
 %defattr(-,root,root)
 %dir %{rhnroot}
 %{rhnroot}/schema-upgrade
+%{_bindir}/%{schema_upgrade_lib}/MainDb.pm
+%{_bindir}/%{schema_upgrade_lib}/ReportDb.pm
 %{_bindir}/spacewalk-schema-upgrade
 %{_bindir}/spacewalk-sql
 %{_mandir}/man1/spacewalk-schema-upgrade*
