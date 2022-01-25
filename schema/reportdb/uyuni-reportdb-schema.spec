@@ -16,7 +16,6 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%define build_tar_ball 0
 %{!?fedora: %global sbinpath /sbin}%{?fedora: %global sbinpath %{_sbindir}}
 
 Name:           uyuni-reportdb-schema
@@ -26,11 +25,7 @@ Group:          Applications/Internet
 
 Version:        4.3.0
 Release:        1
-%if %{build_tar_ball}
 Source0:        %{name}-%{version}.tar.gz
-%else
-Source0:        _service
-%endif
 
 Source1:        %{name}-rpmlintrc
 
