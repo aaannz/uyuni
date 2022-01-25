@@ -137,6 +137,7 @@ systemctl try-restart uyuni-check-database.service ||:
 %defattr(-,root,root)
 %dir %{rhnroot}
 %{rhnroot}/schema-upgrade
+%dir %{_bindir}/%{schema_upgrade_lib}
 %{_bindir}/%{schema_upgrade_lib}/MainDb.pm
 %{_bindir}/%{schema_upgrade_lib}/ReportDb.pm
 %{_bindir}/spacewalk-schema-upgrade
