@@ -28,9 +28,9 @@ Version:        4.3.4
 Release:        1
 %if %{build_tar_ball}
 Source0:        %{name}-%{version}.tar.gz
-%{else}
+%else
 Source0:        _service
-%{endif}
+%endif
 Source1:        %{name}-rpmlintrc
 
 URL:            https://github.com/uyuni-project/uyuni
