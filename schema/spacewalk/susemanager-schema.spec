@@ -50,7 +50,8 @@ BuildRequires:  fdupes
 
 %define rhnroot /etc/sysconfig/rhn/
 %define postgres %{rhnroot}/postgres
-%define schema_upgrade_lib lib/Spacewalk/SchemaUpgrade
+%define spacewalk_lib lib/Spacewalk
+%define schema_upgrade_lib %{spacewalk_lib}/SchemaUpgrade
 
 %description
 susemanager-schema is the SQL schema for the SUSE Manager server.
@@ -137,6 +138,7 @@ systemctl try-restart uyuni-check-database.service ||:
 %defattr(-,root,root)
 %dir %{rhnroot}
 %{rhnroot}/schema-upgrade
+%dir %{_bindir}/%{spacewalk_lib}
 %dir %{_bindir}/%{schema_upgrade_lib}
 %{_bindir}/%{schema_upgrade_lib}/MainDb.pm
 %{_bindir}/%{schema_upgrade_lib}/ReportDb.pm
