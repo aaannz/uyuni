@@ -58,13 +58,13 @@ BuildRequires:  fdupes
 susemanager-schema is the SQL schema for the SUSE Manager server.
 
 %package sanity
-Summary:        Schema source sanity check for Spacewalk database scripts.
+Summary:        Schema source sanity check for Spacewalk database scripts
 Group:          Applications/Internet
 
 Requires:       perl(Digest::SHA)
 
 %package utility
-Summary:        Utility used by any DB schema in Spacewalk.
+Summary:        Utility used by any DB schema in Spacewalk
 Group:          Applications/Internet
 
 %description sanity
