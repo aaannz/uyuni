@@ -50,7 +50,7 @@ susemanager-reportdb-schema is the SQL schema for the SUSE Manager server.
 
 %install
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}
-install -m 0755 -d $RPM_BUILD_ROOT%{reportdb}
+install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
 #TODO Install SQL Script
 #install -m 0644 reportdb/main.sql $RPM_BUILD_ROOT%{reportdb}
 #install -m 0644 reportdb/end.sql $RPM_BUILD_ROOT%{reportdb}/upgrade-end.sql

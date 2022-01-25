@@ -1,0 +1,3 @@
+include ../spacewalk/Makefile.schema
+
+SANITY_CHECK_SCRIPT := # SANITY SCRIPT PL
