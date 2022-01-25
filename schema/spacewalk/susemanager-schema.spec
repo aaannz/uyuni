@@ -76,7 +76,12 @@ Provides spacewalk-schema-upgrade and spacewalk-sql.
 
 %prep
 
-%setup -q
+%if %{build_tar_ball}
+ %setup -q
+%else
+ %setup -q -n %_sourcedir/%name-%version -T -D
+%endif
+
 
 %build
 find . -name '*.91' | while read i ; do mv $i ${i%%.91} ; done
