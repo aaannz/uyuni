@@ -50,8 +50,9 @@ BuildRequires:  fdupes
 
 %define rhnroot /etc/sysconfig/rhn/
 %define postgres %{rhnroot}/postgres
-%define spacewalk_lib lib/Spacewalk
-%define schema_upgrade_lib %{spacewalk_lib}/SchemaUpgrade
+%define lib_folder lib
+%define spacewalk_lib_folder %{lib_folder}/Spacewalk
+%define schema_upgrade_lib_folder %{spacewalk_lib_folder}/SchemaUpgrade
 
 %description
 susemanager-schema is the SQL schema for the SUSE Manager server.
@@ -90,9 +91,9 @@ install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
 install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
 install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}
 install -m 0755 spacewalk-schema-upgrade $RPM_BUILD_ROOT%{_bindir}
-install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
-install -m 0755 %{schema_upgrade_lib}/MainDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
-install -m 0755 %{schema_upgrade_lib}/ReportDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
+install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib_folder}
+install -m 0755 %{schema_upgrade_lib_folder}/MainDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib_folder}
+install -m 0755 %{schema_upgrade_lib_folder}/ReportDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib_folder}
 
 install -m 0755 spacewalk-sql $RPM_BUILD_ROOT%{_bindir}
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}/schema-upgrade
@@ -138,11 +139,11 @@ systemctl try-restart uyuni-check-database.service ||:
 %defattr(-,root,root)
 %dir %{rhnroot}
 %{rhnroot}/schema-upgrade
-%dir %{_bindir}
-%dir %{_bindir}/%{spacewalk_lib}
-%dir %{_bindir}/%{schema_upgrade_lib}
-%{_bindir}/%{schema_upgrade_lib}/MainDb.pm
-%{_bindir}/%{schema_upgrade_lib}/ReportDb.pm
+%dir %{_bindir}/%{lib_folder}
+%dir %{_bindir}/%{spacewalk_lib_folder}
+%dir %{_bindir}/%{schema_upgrade_lib_folder}
+%{_bindir}/%{schema_upgrade_lib_folder}/MainDb.pm
+%{_bindir}/%{schema_upgrade_lib_folder}/ReportDb.pm
 %{_bindir}/spacewalk-schema-upgrade
 %{_bindir}/spacewalk-sql
 %{_mandir}/man1/spacewalk-schema-upgrade*
