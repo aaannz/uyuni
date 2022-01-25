@@ -79,7 +79,7 @@ Provides spacewalk-schema-upgrade and spacewalk-sql.
 %if %{build_tar_ball}
  %setup -q
 %else
- %setup -q -n %_sourcedir/%name-%version -T -D
+ %setup -q -n %_sourcedir/_service:obs_scm:%name-%version.obscpio -T -D
 %endif
 
 
