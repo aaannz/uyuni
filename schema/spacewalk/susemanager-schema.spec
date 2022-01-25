@@ -16,7 +16,7 @@
 # Please submit bugfixes or comments via https://bugs.opensuse.org/
 #
 
-%define build_tar_ball 0
+
 %{!?fedora: %global sbinpath /sbin}%{?fedora: %global sbinpath %{_sbindir}}
 
 Name:           susemanager-schema
@@ -26,11 +26,8 @@ Group:          Applications/Internet
 
 Version:        4.3.4
 Release:        1
-%if %{build_tar_ball}
 Source0:        %{name}-%{version}.tar.gz
-%else
-Source0:        _service
-%endif
+
 Source1:        %{name}-rpmlintrc
 
 URL:            https://github.com/uyuni-project/uyuni
@@ -76,11 +73,7 @@ Provides spacewalk-schema-upgrade and spacewalk-sql.
 
 %prep
 
-%if %{build_tar_ball}
- %setup -q
-%else
- %setup -q -n %_sourcedir/_service:obs_scm:%name-%version.obscpio -T -D
-%endif
+%setup -q
 
 
 %build
