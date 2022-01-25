@@ -89,6 +89,7 @@ install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
 install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
 install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}
 install -m 0755 spacewalk-schema-upgrade $RPM_BUILD_ROOT%{_bindir}
+install -m 0755 -d $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
 install -m 0755 %{schema_upgrade_lib}/MainDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
 install -m 0755 %{schema_upgrade_lib}/ReportDb.pm $RPM_BUILD_ROOT%{_bindir}/%{schema_upgrade_lib}
 
