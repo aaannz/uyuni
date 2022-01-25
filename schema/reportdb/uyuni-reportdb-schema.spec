@@ -76,7 +76,7 @@ install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
 %files
 %defattr(-,root,root)
 %dir %{rhnroot}
-%{reportdb}
+%{postgres}
 %if 0%{?suse_version}
 %dir /usr/share/susemanager
 %endif
