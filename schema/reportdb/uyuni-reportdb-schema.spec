@@ -58,9 +58,8 @@ make -f Makefile.schema SCHEMA=%{name} VERSION=%{version} RELEASE=%{release}
 %install
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}
 install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
-#TODO Install SQL Script
-#install -m 0644 reportdb/main.sql $RPM_BUILD_ROOT%{reportdb}
-#install -m 0644 reportdb/end.sql $RPM_BUILD_ROOT%{reportdb}/upgrade-end.sql
+install -m 0644 postgres/main.sql $RPM_BUILD_ROOT%{postgres}
+install -m 0644 postgres/end.sql $RPM_BUILD_ROOT%{postgres}/upgrade-end.sql
 
 
 #TODO Install SQL Upgrade Script
