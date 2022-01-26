@@ -48,6 +48,13 @@ BuildRequires:  fdupes
 %description
 susemanager-reportdb-schema is the SQL schema for the SUSE Manager server.
 
+%prep
+
+%setup -q
+
+%build
+make -f Makefile.schema SCHEMA=%{name} VERSION=%{version} RELEASE=%{release}
+
 %install
 install -m 0755 -d $RPM_BUILD_ROOT%{rhnroot}
 install -m 0755 -d $RPM_BUILD_ROOT%{postgres}
