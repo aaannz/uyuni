@@ -21,7 +21,12 @@ ExecStart=/usr/bin/podman run \
     --cidfile %t/uyuni-proxy-httpd.ctr-id \
     --cgroups=no-conmon \
     --pod-id-file %t/uyuni-proxy-pod.pod-id -d \
-    --replace -dt -v /etc/uyuni/proxy:/etc/uyuni:ro -v uyuni-proxy-rhn-cache:/var/cache/rhn -v uyuni-proxy-tftpboot:/srv/tftpboot \
+    --replace -dt \
+    -v /etc/uyuni/proxy:/etc/uyuni:ro \
+    -v uyuni-proxy-rhn-cache:/var/cache/rhn \
+    -v uyuni-proxy-tftpboot:/srv/tftpboot \
+    -v /etc/uyuni/proxy/httpd/conf.d:/etc/apache2/custom_conf.d:ro \
+    -v /etc/uyuni/proxy/httpd/vhost.d:/etc/apache2/custom_vhost.d:ro \
     --name uyuni-proxy-httpd ${NAMESPACE}/proxy-httpd:${TAG}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/uyuni-proxy-httpd.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/uyuni-proxy-httpd.ctr-id

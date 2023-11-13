@@ -45,6 +45,10 @@ This package contains systemd services to run the Uyuni proxy containers using p
 
 %install
 install -d -m 755 %{buildroot}/%{_sysconfdir}/uyuni/proxy
+install -d -m 755 %{buildroot}/%{_sysconfdir}/uyuni/proxy/squid
+install -d -m 755 %{buildroot}/%{_sysconfdir}/uyuni/proxy/httpd
+install -d -m 755 %{buildroot}/%{_sysconfdir}/uyuni/proxy/httpd/vhost.d
+install -d -m 755 %{buildroot}/%{_sysconfdir}/uyuni/proxy/httpd/conf.d
 install -d -m 755 %{buildroot}/%{_localstatedir}/lib/uyuni/proxy-squid-cache
 install -d -m 755 %{buildroot}/%{_localstatedir}/lib/uyuni/proxy-rhn-cache
 install -d -m 755 %{buildroot}/%{_localstatedir}/lib/uyuni/proxy-tftpboot

@@ -30,6 +30,9 @@ COPY squid.conf /etc/squid/squid.conf
 RUN chown squid:squid /etc/squid/squid.conf
 RUN mkdir -p /run/squid && chown squid:squid /run/squid
 
+# Custom mountable configurations
+RUN mkdir -p /etc/squid/custom_conf.d
+
 # Ensure the cache is owned by squid user
 RUN chown squid:squid /var/cache/squid
 RUN chmod a+x /var/log

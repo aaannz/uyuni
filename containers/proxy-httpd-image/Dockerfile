@@ -31,6 +31,9 @@ COPY mod_log_config.conf /etc/apache2/mod_log_config.conf
 COPY uyuni-configure.py /usr/bin/uyuni-configure.py
 RUN chmod +x /usr/bin/uyuni-configure.py
 
+# Custom config directories
+RUN mkdir -p /etc/apache2/custom_conf.d /etc/apache2/custom_vhost.d
+
 # Define slim image
 ARG BASE=registry.suse.com/bci/bci-base:15.5
 FROM $BASE AS slim
