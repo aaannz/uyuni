@@ -16,7 +16,7 @@ COPY remove_unused.sh .
 RUN echo "rpm.install.excludedocs = yes" >>/etc/zypp/zypp.conf
 RUN zypper --gpg-auto-import-keys --non-interactive install --auto-agree-with-licenses  \
     spacewalk-proxy-html \
-    apache2 \
+    apache2 apache2-prefork \
     python3-rhnlib \
     python3-PyYAML && \
     sh remove_unused.sh
@@ -57,14 +57,17 @@ LABEL org.uyuni.version="${PRODUCT_VERSION}"
 EXPOSE 80/tcp
 EXPOSE 443/tcp
 
-VOLUME ["/etc/uyuni", "/srv/tftpboot", "/var/cache/rhn"]
+VOLUME ["/etc/uyuni", "/var/cache/apache2"]
 
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES headers
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy_http
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache_disk
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES expires
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy
-RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES ssl
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES headers && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy_http && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache_disk && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES expires && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES ssl && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES rewrite && \
+    sysconf_addword /etc/sysconfig/apache2 APACHE_SERVER_FLAGS SSL
+
 
 CMD uyuni-configure.py && /usr/sbin/start_apache2 -DFOREGROUND -k start
