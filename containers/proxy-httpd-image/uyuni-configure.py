@@ -81,16 +81,18 @@ with open(config_path + "httpd.yaml") as httpdSource:
                 stdout=subprocess.PIPE, universal_newlines=True).stdout
         if not container_version.startswith(major_version):
             logging.critical("Proxy container image version (%s) doesn't match server major version (%s)", container_version, major_version)
-            sys.exit(1)
+            #sys.exit(1)
     
     # store the systemid content
+    os.mkdir("/etc/sysconfig/rhn")
+    os.mkdir("/etc/rhn")
     with open("/etc/sysconfig/rhn/systemid", "w") as file:
         file.write(httpdConfig.get("system_id"))
     
     # store SSL CA certificate
     with open("/etc/pki/trust/anchors/RHN-ORG-TRUSTED-SSL-CERT", "w") as file:
         file.write(config.get("ca_crt"))
-    os.symlink("/etc/pki/trust/anchors/RHN-ORG-TRUSTED-SSL-CERT", "/usr/share/rhn/RHN-ORG-TRUSTED-SSL-CERT")
+    #os.symlink("/etc/pki/trust/anchors/RHN-ORG-TRUSTED-SSL-CERT", "/usr/share/rhn/RHN-ORG-TRUSTED-SSL-CERT")
     os.system("/usr/sbin/update-ca-certificates")
 
     # store server certificate files
@@ -154,23 +156,6 @@ with open(config_path + "httpd.yaml") as httpdSource:
         tftpsync.proxy_fqdn = {config['proxy_fqdn']}
         tftpsync.tftpboot = /srv/tftpboot''')
 
-    with open("/etc/apache2/conf.d/susemanager-tftpsync-recv.conf", "w") as file:
-        requireIPv4 = ""
-        requireIPv6 = ""
-        if len(proxyIPv4) > 0:
-           requireIPv4 = f"Require ip {proxyIPv4}"
-        if len(proxyIPv6) > 0:
-           requireIPv6 = f"Require ip {proxyIPv6}"
-        file.write(f'''<Directory "/srv/www/tftpsync">
-    <RequireAny>
-        {requireIPv4}
-        {requireIPv6}
-    </RequireAny>
-</Directory>
-
-WSGIScriptAlias /tftpsync/add /srv/www/tftpsync/add
-WSGIScriptAlias /tftpsync/delete /srv/www/tftpsync/delete''')
-
     with open("/etc/apache2/conf.d/cobbler-proxy.conf", "w") as file:
         file.write(f'''ProxyPass /cobbler_api https://{config['server']}/download/cobbler_api
 ProxyPassReverse /cobbler_api https://{config['server']}/download/cobbler_api
@@ -181,9 +166,6 @@ ProxyPassReverse /cblr https://{config['server']}/cblr
 ProxyPass /cobbler https://{config['server']}/cobbler
 ProxyPassReverse /cobbler https://{config['server']}/cobbler
         ''')
-
-    with open("/etc/apache2/conf.d/susemanager-pub.conf", "w") as file:
-        file.write("WSGIScriptAlias /pub /usr/share/rhn/wsgi/xmlrpc.py")
 
     with open("/etc/apache2/vhosts.d/ssl.conf", "w") as file:
         file.write(f'''
@@ -212,34 +194,43 @@ ProxyPassReverse /cobbler https://{config['server']}/cobbler
 </IfDefine>
 </IfDefine>
 ''')
+#    os.remove("/etc/apache2/conf.d/spacewalk-proxy-wsgi.conf")
+#    os.remove("/etc/apache2/conf.d/susemanager-pub.conf")
+#    os.remove("/etc/apache2/conf.d/susemanager-tftpsync-recv.conf")
+    with open("/etc/apache2/conf.d/uyuni-proxy.conf", "w") as file:
+        file.write(f'''
+# enable caching for all requests; cache content on local disk
+CacheEnable disk /
+CacheRoot /var/cache/apache2/
 
-    # Adjust logs format in apache httpd:
-    # Modify the other configurations so that the var HANDLER_TYPE gets set based on a directory of a script executed
-    insert_under_line(
-        "/etc/apache2/conf.d/spacewalk-proxy-wsgi.conf",
-        "<Directory /usr/share/rhn>",
-        'SetEnv HANDLER_TYPE "proxy-broker"'
-    )
-    insert_under_line(
-        "/etc/apache2/conf.d/spacewalk-proxy.conf",
-        '<Directory "/srv/www/htdocs/pub/*">',
-        'SetEnv HANDLER_TYPE "proxy-html"'
-    )
-    insert_under_line(
-        "/etc/apache2/conf.d/spacewalk-proxy.conf",
-        '<Directory "/srv/www/htdocs/docs/*">',
-        'SetEnv HANDLER_TYPE "proxy-docs"'
-    )
+# cache control
+CacheIgnoreNoLastMod On
+CacheIgnoreCacheControl On
 
-    # redirect /saltboot to the server
-    insert_under_line(
-        "/etc/apache2/conf.d/spacewalk-proxy-wsgi.conf",
-        "WSGIScriptAlias /tftp /usr/share/rhn/wsgi/xmlrpc.py",
-        "WSGIScriptAlias /saltboot /usr/share/rhn/wsgi/xmlrpc.py"
-    )
+# unset headers from upstream server
+Header unset Expires
+Header unset Cache-Control
+Header unset Pragma
 
-    os.system('chown root:www /etc/rhn/rhn.conf')
-    os.system('chmod 640 /etc/rhn/rhn.conf')
+# set expiration headers for static content
+ExpiresActive On
+
+<LocationMatch "^/os-images/.*$">
+  <ExpireDefault "modification 1 year"/>
+</LocationMatch>
+<LocationMatch "^/saltboot/.*$">
+  <ExpireDefault "modification 1 year"/>
+</LocationMatch>
+
+# reverse proxy requests to upstream server
+ProxyRequests Off # used for forward proxying
+SSLProxyEngine On # required if proxying to https
+ProxyPass / https://{config['server']}
+ProxyPassReverse / https://{config['server']}
+''')
+
+os.system('chown root:www /etc/rhn/rhn.conf')
+os.system('chmod 640 /etc/rhn/rhn.conf')
 
 # Make sure permissions are set as desired
 os.system('chown -R wwwrun:www /var/spool/rhn-proxy')

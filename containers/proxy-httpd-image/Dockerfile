@@ -15,11 +15,8 @@ RUN sh add_repos.sh ${PRODUCT_REPO}
 COPY remove_unused.sh .
 RUN echo "rpm.install.excludedocs = yes" >>/etc/zypp/zypp.conf
 RUN zypper --gpg-auto-import-keys --non-interactive install --auto-agree-with-licenses  \
-    spacewalk-proxy-broker \
-    spacewalk-proxy-redirect \
     spacewalk-proxy-html \
-    susemanager-tftpsync-recv \
-    release-notes-susemanager-proxy \
+    apache2 \
     python3-rhnlib \
     python3-PyYAML && \
     sh remove_unused.sh
@@ -64,5 +61,10 @@ VOLUME ["/etc/uyuni", "/srv/tftpboot", "/var/cache/rhn"]
 
 RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES headers
 RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy_http
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES cache_disk
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES expires
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES proxy
+RUN sysconf_addword /etc/sysconfig/apache2 APACHE_MODULES ssl
 
 CMD uyuni-configure.py && /usr/sbin/start_apache2 -DFOREGROUND -k start
