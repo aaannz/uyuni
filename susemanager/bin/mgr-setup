@@ -50,7 +50,6 @@ if [ ! $UID -eq 0 ]; then
 fi
 
 # check for uppercase chars in hostname
-HOSTNAME=`hostname -f`
 if [ "$HOSTNAME" != "$(echo $HOSTNAME | tr '[:upper:]' '[:lower:]')" ]
 then
     echo "Uppercase characters are not allowed for $PRODUCT_NAME hostname."
@@ -524,8 +523,7 @@ ssl-server-key = $SERVER_KEY" >> /root/spacewalk-answers
         SWRET=$?
     fi
     if [ "x" = "x$MANAGER_MAIL_FROM" ]; then
-        MY_DOMAIN=`hostname -d`
-        MANAGER_MAIL_FROM="$PRODUCT_NAME ($REALHOSTNAME) <root@$MY_DOMAIN>"
+        MANAGER_MAIL_FROM="$PRODUCT_NAME ($HOSTNAME) <root@$HOSTNAME>"
     fi
     if ! grep "^web.default_mail_from" /etc/rhn/rhn.conf > /dev/null; then
         echo "web.default_mail_from = $MANAGER_MAIL_FROM" >> /etc/rhn/rhn.conf
@@ -913,8 +911,14 @@ do_setup() {
         MANAGER_DB_HOST="localhost"
     fi
 
+    if [ -z "$UYUNI_FQDN" ]; then
+        echo "Missing FQDN value"
+        exit $EXIT_VALIDATION_ERROR
+    fi
+    HOSTNAME=$UYUNI_FQDN
+
     case $MANAGER_DB_HOST in
-        "localhost"|$(hostname -s)|$(hostname -f)|"")
+        "localhost"|$HOSTNAME|"")
             EXTERNALDB=0 ;;
         *)
             EXTERNALDB=1 ;;
@@ -922,9 +926,6 @@ do_setup() {
 
     if [ -z "$NO_SSL" ]; then
         NO_SSL=
-    fi
-    if [ -n "$UYUNI_FQDN" ]; then
-        HOSTNAME=$UYUNI_FQDN
     fi
 
     check_re_install
