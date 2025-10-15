@@ -147,26 +147,29 @@ class Responder:
             and not self._is_salt_mine_event(tag, data)
             and not self._is_presence_ping(tag, data)
         ):
-            try:
-                queue = self._get_queue(data.get("id"))
-                log.debug("%s: Adding event to queue %d -> %s", __name__, queue, tag)
-                self.cursor.execute(
-                    "INSERT INTO suseSaltEvent (minion_id, data, queue) VALUES (%s, %s, %s);",
-                    (data.get("id"), json.dumps({"tag": tag, "data": data}), queue),
-                )
-                self.counters[queue] += 1
-                self.attempt_commit()
-            # pylint: disable-next=broad-exception-caught
-            except Exception as err:
-                log.error("%s: %s", __name__, err)
+            retry_counter = 5
+            while retry_counter > 0:
                 try:
-                    self.connection.commit()
+                    queue = self._get_queue(data.get("id"))
+                    log.debug(
+                        "%s: Adding event to queue %d -> %s", __name__, queue, tag
+                    )
+                    self.cursor.execute(
+                        "INSERT INTO suseSaltEvent (minion_id, data, queue) VALUES (%s, %s, %s);",
+                        (data.get("id"), json.dumps({"tag": tag, "data": data}), queue),
+                    )
+                    self.counters[queue] += 1
+                    self.attempt_commit()
+                    break
                 # pylint: disable-next=broad-exception-caught
-                except Exception as err2:
-                    log.error("%s: Error commiting: %s", __name__, err2)
+                except Exception as err:
+                    log.warning("%s: %s", __name__, err)
                     self.connection.close()
-            finally:
-                log.debug("%s: %s", __name__, self.cursor.query)
+                    self.db_keepalive()
+                    retry_counter -= 1
+            if retry_counter == 0:
+                log.error("%s: Error commiting event: %s", __name__, tag)
+            log.debug("%s: %s", __name__, self.cursor.query)
         else:
             log.debug("%s: Discarding event -> %s", __name__, tag)
 
