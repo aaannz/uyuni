@@ -31,6 +31,7 @@ import com.redhat.rhn.manager.system.SystemManager;
 import com.redhat.rhn.manager.system.entitling.SystemEntitlementManager;
 
 import com.suse.manager.saltboot.SaltbootException;
+import com.suse.manager.saltboot.SaltbootGroup;
 import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.utils.Maps;
 import com.suse.utils.Opt;
@@ -188,10 +189,16 @@ public class FormulaFactory {
         if (PROMETHEUS_EXPORTERS.equals(formulaName)) {
             saveGroupForPrometheusExporters(formData, group);
         }
-        // Handle Saltboot group - create Cobbler profile
+        // Handle Saltboot group - create new saltboot group or update
         else if (SALTBOOT_GROUP.equals(formulaName)) {
             try {
-                SaltbootUtils.createSaltbootProfile(group);
+                group.getSaltbootGroup().ifPresentOrElse(
+                    SaltbootGroup::updateDataFromGroup,
+                    () -> {
+                        SaltbootGroup sg = new SaltbootGroup(group);
+                        group.setSaltbootGroup(sg);
+                    }
+                );
             }
             catch (SaltbootException e) {
                 LOG.warn(e.getMessage());

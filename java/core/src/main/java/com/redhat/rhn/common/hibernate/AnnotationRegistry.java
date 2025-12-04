@@ -386,6 +386,8 @@ import com.suse.manager.model.hub.IssPeripheral;
 import com.suse.manager.model.hub.IssPeripheralChannels;
 import com.suse.manager.model.maintenance.MaintenanceCalendar;
 import com.suse.manager.model.maintenance.MaintenanceSchedule;
+import com.suse.manager.saltboot.SaltbootGroup;
+import com.suse.manager.saltboot.SaltbootServer;
 import com.suse.scc.proxy.SCCProxyRecord;
 
 import java.util.List;
@@ -680,6 +682,8 @@ public class AnnotationRegistry {
             RollbackAction.class,
             RollbackConfigAction.class,
             RollbackListTransactionsAction.class,
+            SaltbootGroup.class,
+            SaltbootServer.class,
             SAPWorkload.class,
             SCCCredentials.class,
             SCCOrderItem.class,

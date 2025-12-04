@@ -22,6 +22,8 @@ import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.configuration.SaltConfigSubscriptionService;
 import com.redhat.rhn.manager.configuration.SaltConfigurable;
 
+import com.suse.manager.saltboot.SaltbootGroup;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -44,6 +46,7 @@ import javax.persistence.InheritanceType;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
@@ -78,6 +81,9 @@ public class ServerGroup extends BaseDomainHelper implements SaltConfigurable  {
 
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<Pillar> pillars = new HashSet<>();
+
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "serverGroup")
+    private SaltbootGroup saltbootGroup;
 
     /**
      * Getter for id
@@ -240,6 +246,22 @@ public class ServerGroup extends BaseDomainHelper implements SaltConfigurable  {
      */
     public Optional<Pillar> getPillarByCategory(String category) {
         return pillars.stream().filter(pillar -> pillar.getCategory().equals(category)).findFirst();
+    }
+
+    /**
+     * Get associated SaltbootGroup
+     * @return Optional of SaltbootGroup or empty if not a SaltbootGroup
+     */
+    public Optional<SaltbootGroup> getSaltbootGroup() {
+        return Optional.ofNullable(saltbootGroup);
+    }
+
+    /**
+     * Set group as SaltbootGroup
+     * @param saltbootGroupIn SaltbootGroup to set
+     */
+    public void setSaltbootGroup(SaltbootGroup saltbootGroupIn) {
+        this.saltbootGroup = saltbootGroupIn;
     }
 
     /**
