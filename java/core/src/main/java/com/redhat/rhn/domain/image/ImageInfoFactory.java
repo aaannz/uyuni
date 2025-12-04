@@ -517,6 +517,66 @@ public class ImageInfoFactory extends HibernateFactory {
     }
 
     /**
+     * Lookup an image info by name, version and org. In case of more images, takes the highest revision
+     *
+     * @param name             the name
+     * @param version          the version/tag
+     * @param org              the organization
+     * @return the optional ImageInfo
+     */
+    public static Optional<ImageInfo> lookupByName(String name, String version, Org org) {
+        CriteriaBuilder builder = getSession().getCriteriaBuilder();
+        CriteriaQuery<ImageInfo> query = builder.createQuery(ImageInfo.class);
+
+        Root<ImageInfo> root = query.from(ImageInfo.class);
+        query.where(builder.and(
+                builder.equal(root.get("name"), name),
+                builder.equal(root.get("version"), version),
+                builder.equal(root.get("org"), org)));
+        query.orderBy(builder.desc(root.get("revisionNumber")));
+        return getSession().createQuery(query).setMaxResults(1).uniqueResultOptional();
+    }
+
+    /**
+     * Lookup an image info by name.
+     * In case of more images, takes the one with the highest version and the highest revision
+     *
+     * @param name             the name
+     * @param org              the organization
+     * @return the optional ImageInfo
+     */
+    public static Optional<ImageInfo> lookupByName(String name, Org org) {
+        CriteriaBuilder builder = getSession().getCriteriaBuilder();
+        CriteriaQuery<ImageInfo> query = builder.createQuery(ImageInfo.class);
+
+        Root<ImageInfo> root = query.from(ImageInfo.class);
+        query.where(builder.and(
+                builder.equal(root.get("name"), name),
+                builder.equal(root.get("org"), org)));
+
+        // version is in M.m.b format where last component is optional
+        var majorExpr = builder.function("SPLIT_PART", String.class, root.get("version"),
+                builder.literal("."), builder.literal(1));
+        var minorExpr = builder.function("SPLIT_PART", String.class, root.get("version"),
+                builder.literal("."), builder.literal(2));
+        var buildExpr = builder.function("SPLIT_PART", String.class, root.get("version"),
+                builder.literal("."), builder.literal(3));
+
+        // if a part is missing, SPLIT_PART returns an empty string
+        // convert empty strings to '0' for correct numeric sorting
+        var major = builder.coalesce(builder.nullif(majorExpr, ""), "0");
+        var minor = builder.coalesce(builder.nullif(minorExpr, ""), "0");
+        var build = builder.coalesce(builder.nullif(buildExpr, ""), "0");
+
+        // order by major, minor, build (all numeric, descending), then by revision number
+        query.orderBy(builder.desc(major.as(Long.class)),
+                builder.desc(minor.as(Long.class)),
+                builder.desc(build.as(Long.class)),
+                builder.desc(root.get("revisionNumber")));
+        return getSession().createQuery(query).setMaxResults(1).uniqueResultOptional();
+    }
+
+    /**
      * List all image overviews from a given organization
      * @param org the organization
      * @return Returns a list of ImageProfiles
