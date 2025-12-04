@@ -30,7 +30,6 @@ import org.apache.logging.log4j.Logger;
 import org.cobbler.XmlRpcException;
 
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 public class PXEEventMessageAction implements MessageAction {
@@ -47,24 +46,12 @@ public class PXEEventMessageAction implements MessageAction {
 
         try {
             // Part 1 - update PXE entries
-            if (pxeEvent.getRoot().isEmpty()) {
-                throw new SaltbootException("Root device not specified in PXE event for minion " +
-                        pxeEvent.getMinionId());
-            }
-            String kernelParameters = "root=" + pxeEvent.getRoot();
-
-            Optional<String> saltDevice = pxeEvent.getSaltDevice();
-            if (saltDevice.isPresent()) {
-                kernelParameters += " salt_device=" + saltDevice.get();
-            }
-
-            Optional<String> kernelParams = pxeEvent.getKernelParameters();
-            if (kernelParams.isPresent()) {
-                kernelParameters += " " + kernelParams.get();
-            }
-
-            SaltbootUtils.createSaltbootSystem(minion, pxeEvent.getBootImage(),
-                    pxeEvent.getSaltbootGroup(), pxeEvent.getHwAddresses(), kernelParameters);
+            minion.getSaltbootServer().ifPresentOrElse(
+                    saltbootServer -> saltbootServer.updateFromEvent(pxeEvent),
+                    () -> {
+                        minion.setSaltbootServer(new SaltbootServer(minion, pxeEvent));
+                    }
+            );
         }
         catch (SaltbootException | XmlRpcException e) {
             LOG.error("Error during processing saltboot system entry for minion {}: {}",
