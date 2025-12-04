@@ -15,9 +15,17 @@
 
 package com.suse.manager.webui.controllers;
 
+import static com.suse.manager.webui.utils.SparkApplicationHelper.badRequest;
+import static com.suse.manager.webui.utils.SparkApplicationHelper.notFound;
+import static spark.Spark.get;
+
 import com.redhat.rhn.domain.image.ImageInfoFactory;
 import com.redhat.rhn.domain.org.Org;
 import com.redhat.rhn.domain.org.OrgFactory;
+
+import com.suse.manager.saltboot.SaltbootException;
+import com.suse.manager.saltboot.SaltbootGroup;
+import com.suse.manager.saltboot.SaltbootServer;
 
 import org.apache.http.HttpStatus;
 import org.apache.logging.log4j.LogManager;
@@ -32,6 +40,7 @@ import java.util.Optional;
 import spark.Request;
 import spark.Response;
 import spark.Spark;
+
 
 /**
  * Controller class for image file upload.
@@ -48,7 +57,11 @@ public class SaltbootController {
      */
     public static void initRoutes() {
 
-        Spark.get("/saltboot/*", SaltbootController::redirectImage);
+        get("/saltboot/system/grub/:mac", SaltbootController::getSystemGrubEntry);
+        get("/saltboot/system/pxe/:mac", SaltbootController::getSystemPXEEntry);
+        get("/saltboot/group/grub/:fqdn", SaltbootController::getGroupGrubEntry);
+        get("/saltboot/group/pxe/:fqdn", SaltbootController::getGroupPXEEntry);
+        get("/saltboot/*", SaltbootController::redirectImage);
     }
 
 
@@ -139,5 +152,88 @@ public class SaltbootController {
             Spark.halt(HttpStatus.SC_NOT_FOUND, "Image not found in pillars");
         }
         return "";
+    }
+
+    /**
+     * Returns rendered grub entry for the saltboot grub
+     * @param request the request
+     * @param response the response
+     * @return rendered grub entry
+     */
+    public static String getGroupGrubEntry(Request request, Response response) {
+        String branchFQDN = request.params("fqdn");
+        return SaltbootGroup.getSaltbootGroupByBranchFQDN(branchFQDN).map(
+                group -> {
+                    try {
+                        return group.getGrubEntry();
+                    }
+                    catch (SaltbootException e) {
+                        return badRequest(response, e.getMessage());
+                    }
+                }).orElseGet(
+                () -> notFound(response, "Saltboot group not found")
+        );
+    }
+    /**
+     * Returns rendered grub entry for the saltboot grub
+     * @param request the request
+     * @param response the response
+     * @return rendered pxelinux entry
+     */
+    public static String getGroupPXEEntry(Request request, Response response) {
+        String branchFQDN = request.params("fqdn");
+        return SaltbootGroup.getSaltbootGroupByBranchFQDN(branchFQDN).map(
+                group -> {
+                    try {
+                        return group.getPXEEntry();
+                    }
+                    catch (SaltbootException e) {
+                        return badRequest(response, e.getMessage());
+                    }
+                }).orElseGet(
+                () -> notFound(response, "Saltboot group not found")
+        );
+    }
+
+    /**
+     * Returns rendered grub entry for the saltboot grub
+     * @param request the request
+     * @param response the response
+     * @return rendered grub entry
+     */
+    public static String getSystemGrubEntry(Request request, Response response) {
+        String hwAddress = request.params("mac");
+        return SaltbootServer.getSaltbootServerByHwAddress(hwAddress).map(
+                server -> {
+                    try {
+                        return server.getGrubEntry();
+                    }
+                    catch (SaltbootException e) {
+                        return badRequest(response, e.getMessage());
+                    }
+                }).orElseGet(
+                () -> notFound(response, "Saltboot system not found")
+        );
+    }
+
+    /**
+     * Returns rendered grub entry for the saltboot grub
+     * @param request the request
+     * @param response the response
+     * @return rendered pxelinux entry
+     */
+    public static String getSystemPXEEntry(Request request, Response response) {
+        String hwAddress = request.params("mac");
+        return SaltbootServer.getSaltbootServerByHwAddress(hwAddress).map(
+                server -> {
+                    try {
+                        return server.getGrubEntry();
+                    }
+                    catch (SaltbootException e) {
+                        return badRequest(response, e.getMessage());
+                    }
+                }).orElseGet(
+                () -> notFound(response, "Saltboot system not found")
+        );
     }
 }
