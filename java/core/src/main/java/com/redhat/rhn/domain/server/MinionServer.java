@@ -19,6 +19,7 @@ import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.configuration.SaltConfigSubscriptionService;
 import com.redhat.rhn.manager.configuration.SaltConfigurable;
 
+import com.suse.manager.saltboot.SaltbootServer;
 import com.suse.manager.webui.controllers.utils.ContactMethodUtil;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -38,6 +39,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
 import javax.persistence.PrimaryKeyJoinColumn;
 import javax.persistence.Table;
 
@@ -63,6 +65,9 @@ public class MinionServer extends Server implements SaltConfigurable {
 
     @OneToMany(mappedBy = "minion", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Set<Pillar> pillars = new HashSet<>();
+
+    @OneToOne(mappedBy = "minion", fetch = FetchType.LAZY)
+    private SaltbootServer saltbootServer;
 
     @Column(name = "reboot_required_after")
     private Date rebootRequiredAfter;
@@ -409,6 +414,22 @@ public class MinionServer extends Server implements SaltConfigurable {
     @Override
     public void setOsFamilySuse() {
         this.osFamily = ServerConstants.OS_FAMILY_SUSE;
+    }
+
+    /**
+     * Getter for SaltbootServer
+     * @return Optional of SaltbootServer entry associated with this MinionServer or empty
+     */
+    public Optional<SaltbootServer> getSaltbootServer() {
+        return Optional.ofNullable(this.saltbootServer);
+    }
+
+    /**
+     * Setter for SaltbootServer
+     * @param saltbootServerIn SaltbootServer entry to set for this MinionServer
+     */
+    public void setSaltbootServer(SaltbootServer saltbootServerIn) {
+        this.saltbootServer = saltbootServerIn;
     }
 
 }
