@@ -57,7 +57,7 @@ public class SaltbootServer extends BaseDomainHelper {
     private static final String GRUB_TEMPLATE = """
 menuentry '${cobbler_name}' --class gnu-linux --class gnu --class os {
 echo 'Loading kernel ...'
-clinux /images/${kernel_file} root=${root_device} salt_device=${salt_device} ${kernel_options} MINION_ID_PREFIX=${branch_name} MASTER=${salt_master}
+clinux /images/${kernel_file} panic=60 splash=silent root=${root_device} salt_device=${salt_device} ${kernel_options} MINION_ID_PREFIX=${branch_name} MASTER=${salt_master}
 echo 'Loading initial ramdisk ...'
 cinitrd /images/${initrd_file}
 echo '...done'
@@ -69,7 +69,7 @@ echo '...done'
 LABEL ${cobbler_name}
     MENU LABEL ${cobbler_name}
     kernel /images/${kernel_file}
-    append initrd=/images/${initrd_file} root=${root_device} salt_device=${salt_device} ${kernel_options} MINION_ID_PREFIX=${branch_name} MASTER=${salt_master}
+    append initrd=/images/${initrd_file} panic=60 splash=silent root=${root_device} salt_device=${salt_device} ${kernel_options} MINION_ID_PREFIX=${branch_name} MASTER=${salt_master}
     ipappend 2
 """;
 
@@ -176,9 +176,8 @@ LABEL ${cobbler_name}
     /**
      * Update existing SaltbootServer entry from the received PXEEvent
      * @param pxeEvent PXEEvent received from the minion
-     * @return Updated SaltbootServer entry
      */
-    public SaltbootServer updateFromEvent(PXEEvent pxeEvent) throws SaltbootException {
+    public void updateFromEvent(PXEEvent pxeEvent) throws SaltbootException {
         if (pxeEvent.getRoot().isEmpty()) {
             throw new SaltbootException("Root device not specified in PXE event for minion " +
                     minion.getMinionId());
@@ -188,17 +187,32 @@ LABEL ${cobbler_name}
                 () -> new SaltbootException("Unable to find image " + pxeEvent.getBootImage() +
                         " for minion id " + minion.getMinionId()));
 
-        SaltbootGroup group = SaltbootGroup.getSaltbootGroupByBranchId(pxeEvent.getSaltbootGroup(), minion.getOrg()).
+        this.saltbootGroup = SaltbootGroup.getSaltbootGroupByBranchId(pxeEvent.getSaltbootGroup(), minion.getOrg()).
                 orElseThrow(() -> new SaltbootException("Unable to find saltboot group for the branch id " +
                         pxeEvent.getSaltbootGroup()));
-
-        this.saltbootGroup = group;
         this.rootDevice = pxeEvent.getRoot();
         this.saltDevice = pxeEvent.getSaltDevice().orElse(null);
         this.image = imageIn;
         this.kernelParameters = pxeEvent.getKernelParameters().orElse(null);
         HibernateFactory.getSession().save(this);
-        return this;
+    }
+
+    /**
+     * Update existing SaltbootServer entry from the received options
+     * @param group SaltbootGroup to which terminal belongs
+     * @param rootDeviceIn Root device of the terminal
+     * @param saltDeviceIn Device with salt configuration
+     * @param imageIn Assigned image
+     * @param kernelParametersIn Kernel options
+     */
+    public void updateFromOptions(SaltbootGroup group, String rootDeviceIn, String saltDeviceIn,
+                                  ImageInfo imageIn, String kernelParametersIn) {
+        this.saltbootGroup = group;
+        this.rootDevice = rootDeviceIn;
+        this.saltDevice = saltDeviceIn;
+        this.kernelParameters = kernelParametersIn;
+        this.image = imageIn;
+        HibernateFactory.getSession().save(this);
     }
 
     /**

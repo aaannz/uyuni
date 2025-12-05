@@ -44,6 +44,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.YAMLException;
 
+import javax.persistence.PersistenceException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -402,9 +403,14 @@ public class FormulaFactory {
         // Try to remove SaltbootProfile first. It this fails, stop removing formulas
         if (deletedFormulas.contains(SALTBOOT_GROUP)) {
             try {
-                SaltbootUtils.deleteSaltbootProfile(group.getName(), group.getOrg());
+                group.getSaltbootGroup().ifPresent(
+                        saltbootGroup -> {
+                            HibernateFactory.getSession().remove(saltbootGroup);
+                            group.setSaltbootGroup(null);
+                        }
+                );
             }
-            catch (SaltbootException e) {
+            catch (PersistenceException e) {
                 throw new ValidatorException(e.getMessage());
             }
         }

@@ -25,6 +25,7 @@ import com.redhat.rhn.common.messaging.EventMessage;
 import com.redhat.rhn.common.messaging.MessageAction;
 import com.redhat.rhn.common.util.FileUtils;
 import com.redhat.rhn.domain.formula.FormulaFactory;
+import com.redhat.rhn.domain.image.ImageInfo;
 import com.redhat.rhn.domain.server.MinionServer;
 import com.redhat.rhn.domain.server.MinionServerFactory;
 import com.redhat.rhn.domain.server.Pillar;
@@ -34,6 +35,9 @@ import com.redhat.rhn.domain.server.ServerGroupFactory;
 import com.redhat.rhn.manager.system.SystemManager;
 
 import com.suse.manager.saltboot.SaltbootException;
+import com.suse.manager.saltboot.SaltbootGroup;
+import com.suse.manager.saltboot.SaltbootImage;
+import com.suse.manager.saltboot.SaltbootServer;
 import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.manager.webui.services.SaltConstants;
 import com.suse.manager.webui.services.iface.SaltApi;
@@ -52,8 +56,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public class ProxyBackupEventAction implements MessageAction {
     private static final Logger LOG = LogManager.getLogger(ProxyBackupEventAction.class);
@@ -330,18 +337,47 @@ public class ProxyBackupEventAction implements MessageAction {
             return false;
         }
 
-        // Lookup distro to check if exists
-        String probableBootImage = entry.get("probable_boot_image");
-        String image = SaltbootUtils.findImageSaltbootProfile(probableBootImage, proxy.getOrg())
-                .orElseGet(() -> {
+        try {
+            // Lookup distro to check if exists
+            String probableBootImage = Optional.ofNullable(entry.get("probable_boot_image")).orElseGet(
+                () -> {
+                    messages.add(LocalizationService.getInstance().getMessage("event.pxemigrationnoimage",
+                            minionId, ""));
+                    return SaltbootUtils.DEFAULT_BOOT_IMAGE;
+                }
+            );
+            ImageInfo image = SaltbootImage.lookupImageFromImageString(probableBootImage, minion.getOrg()).orElseGet(
+                () -> {
                     messages.add(LocalizationService.getInstance().getMessage("event.pxemigrationnoimage",
                             minionId, probableBootImage));
-                    return SaltbootUtils.DEFAULT_BOOT_IMAGE;
-                });
+                    return SaltbootImage.getOrgDefaultImage(minion.getOrg()).orElseThrow(
+                            () -> new SaltbootException("Unable to find default image for organization " +
+                                    minion.getOrg().getName())
+                    );
+                }
+            );
 
-        try {
-            SaltbootUtils.createSaltbootSystem(minions.get(0), image, branchid,
-                    List.of(mac), entry.get("args"));
+            SaltbootGroup group = branchGroup.getSaltbootGroup().orElseThrow(
+                    () -> new SaltbootException("Unable to find saltboot group for the branch id " + branchid)
+            );
+
+            String kernelOptions = entry.getOrDefault("kernel_options", "");
+            var pattern = Pattern.compile("\\b(root|saltdevice)=((?:'[^']*'|\"[^\"]*\"|[^\\s]+))");
+            var matcher = pattern.matcher(kernelOptions);
+            Map<String, String> optionsMap = matcher.results()
+                    .collect(Collectors.toMap(match -> match.group(1), match -> match.group(2), (a, b) -> b));
+
+            String root = optionsMap.get("root");
+            if (root == null || root.isBlank()) {
+                throw new SaltbootException("Kernel options must contain a 'root' parameter for minion " + minionId);
+            }
+            // The value can be quoted, we should remove the quotes
+            String saltDevice = optionsMap.getOrDefault("saltdevice", "").replaceAll("^['\"]|['\"]$", "");
+
+            String remainingKernelOptions = matcher.replaceAll("").trim().replaceAll("\\s+", " ");
+
+            minion.setSaltbootServer(
+                    new SaltbootServer(minion, group, root.replaceAll("^['\"]|['\"]$", ""), saltDevice, image, remainingKernelOptions));
         }
         catch (SaltbootException e) {
             messages.add(LocalizationService.getInstance().getMessage("event.pxemigrationsaltboot",

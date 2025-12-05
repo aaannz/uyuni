@@ -15,46 +15,23 @@
 
 package com.suse.manager.saltboot.test;
 
+import static com.suse.manager.saltboot.test.SaltbootTestUtils.createImageHelper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.redhat.rhn.domain.formula.FormulaFactory;
 import com.redhat.rhn.domain.image.ImageInfo;
-import com.redhat.rhn.domain.image.ImageProfile;
-import com.redhat.rhn.domain.image.ImageProfileFactory;
-import com.redhat.rhn.domain.server.MinionServer;
-import com.redhat.rhn.domain.server.MinionServerFactory;
-import com.redhat.rhn.domain.server.Pillar;
-import com.redhat.rhn.domain.server.ServerFactory;
-import com.redhat.rhn.domain.server.ServerGroup;
-import com.redhat.rhn.domain.server.test.MinionServerFactoryTest;
-import com.redhat.rhn.domain.token.ActivationKey;
-import com.redhat.rhn.domain.user.User;
-import com.redhat.rhn.testing.ImageTestUtils;
 import com.redhat.rhn.testing.JMockBaseTestCaseWithUser;
-import com.redhat.rhn.testing.ServerGroupTestUtils;
-import com.redhat.rhn.testing.TestUtils;
 
-import com.suse.manager.saltboot.SaltbootException;
 import com.suse.manager.saltboot.SaltbootUtils;
 
 import org.cobbler.CobblerConnection;
 import org.cobbler.Distro;
-import org.cobbler.Network;
 import org.cobbler.Profile;
-import org.cobbler.SystemRecord;
 import org.cobbler.test.MockConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Test for {@link SaltbootUtils}.
@@ -74,59 +51,6 @@ public class SaltbootUtilsTest extends JMockBaseTestCaseWithUser {
     public void teardown() throws Exception {
         MockConnection.clear();
         super.tearDown();
-    }
-
-    static ImageInfo createImageHelper(User user, String label, String version, int revision) throws Exception {
-        MinionServer server = MinionServerFactory.findByMinionId("minion.local").orElseGet(
-                () -> {
-                    MinionServer s = MinionServerFactoryTest.createTestMinionServer(user);
-                    s.setMinionId("minion.local");
-                    s.setServerArch(ServerFactory.lookupServerArchByLabel("x86_64-redhat-linux"));
-                    ServerFactory.save(s);
-                    return s;
-                }
-        );
-        ActivationKey key = ImageTestUtils.createActivationKey(user);
-        ImageProfile profile = ImageProfileFactory.lookupByLabelAndOrg(label, user.getOrg()).orElseGet(
-                () -> ImageTestUtils.createKiwiImageProfile(label, key, user)
-        );
-        ImageInfo image = ImageTestUtils.createImageInfo(profile, server, version, user);
-        image.setRevisionNumber(revision);
-        image.setImageType(ImageProfile.TYPE_KIWI);
-        image.setBuilt(true);
-        ImageTestUtils.createImageFile(image, "kernel", "kernel");
-        ImageTestUtils.createImageFile(image, "initrd", "initrd");
-        ImageTestUtils.createImageFile(image, "image", "image");
-        return image;
-    }
-
-    static ServerGroup createSaltbootGroupHelper(User user, String label) {
-        return createSaltbootGroupHelper(user, label, null, null);
-    }
-
-    static ServerGroup createSaltbootGroupHelper(User user, String label, String image, String version) {
-        ServerGroup group = ServerGroupTestUtils.createManaged(user);
-        group.setName(label);
-
-        Map<String, Object> saltboot = new HashMap<>();
-        saltboot.put("download_server", "mybranch.example.com");
-        saltboot.put("disable_id_prefix", true);
-        saltboot.put("disable_unique_suffix", false);
-        saltboot.put("minion_id_naming", "Hostname");
-        saltboot.put("default_kernel_parameters", "");
-        if (image != null && !image.isEmpty()) {
-            saltboot.put("default_boot_image", image);
-            if (version != null && !version.isEmpty()) {
-                saltboot.put("default_boot_image_version", version);
-            }
-        }
-
-        Map<String, Object> pillar = new HashMap<>();
-        pillar.put("saltboot", saltboot);
-
-        group.getPillars().add(new Pillar(FormulaFactory.SALTBOOT_PILLAR, pillar, group));
-        TestUtils.saveAndFlush(group);
-        return group;
     }
 
     @Test
@@ -270,213 +194,5 @@ public class SaltbootUtilsTest extends JMockBaseTestCaseWithUser {
         assertNotNull(Profile.lookupByName(client, nameV));
         assertNotNull(Profile.lookupByName(client, name));
         assertNotNull(Profile.lookupByName(client, defaultName));
-    }
-
-    @Test
-    public void testCreateSaltbootProfile() throws Exception {
-        // Create a server group and an image
-        ServerGroup group = createSaltbootGroupHelper(user, "my-saltboot-group");
-        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-
-        // Call the method to be tested
-        String imageProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-image-1.0.0");
-        SaltbootUtils.createSaltbootProfile(group, imageProfileName, false, client);
-
-        // Verify the profile was created correctly
-        String groupProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-saltboot-group");
-        Profile groupProfile = Profile.lookupByName(client, groupProfileName);
-        assertNotNull(groupProfile);
-
-        // Verify parent and kernel options
-        assertEquals(imageProfileName, groupProfile.getParent());
-        Map<String, Object> kernelOptions = groupProfile.getKernelOptions().get();
-        assertEquals("my-saltboot-group", kernelOptions.get("MINION_ID_PREFIX"));
-        assertEquals("mybranch.example.com", kernelOptions.get("MASTER"));
-        assertEquals("1", kernelOptions.get("DISABLE_ID_PREFIX"));
-    }
-
-    @Test
-    public void testCreateSaltbootProfileWithDefault() throws Exception {
-        // Create a server group and an image
-        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-
-        // Create Saltboot Profile for group
-        ServerGroup group = createSaltbootGroupHelper(user, "my-saltboot-group-2");
-        SaltbootUtils.createSaltbootProfile(group, client);
-
-        // Verify the profile was created correctly
-        String groupProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-saltboot-group-2");
-        Profile groupProfile = Profile.lookupByName(client, groupProfileName);
-        assertNotNull(groupProfile);
-
-        // Verify parent and kernel options
-        String imageProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), SaltbootUtils.DEFAULT_BOOT_IMAGE);
-        assertEquals(imageProfileName, groupProfile.getParent());
-        Map<String, Object> kernelOptions = groupProfile.getKernelOptions().get();
-        assertEquals("my-saltboot-group-2", kernelOptions.get("MINION_ID_PREFIX"));
-        assertEquals("mybranch.example.com", kernelOptions.get("MASTER"));
-        assertEquals("1", kernelOptions.get("DISABLE_ID_PREFIX"));
-    }
-
-    @Test
-    public void testCreateSaltbootProfileWithImage() throws Exception {
-        // Create a server group and an image
-        ImageInfo image = createImageHelper(user, "my-branch-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-
-        // Create Saltboot Profile for group
-        ServerGroup group = createSaltbootGroupHelper(user, "my-saltboot-group-3", "my-branch-image", null);
-        SaltbootUtils.createSaltbootProfile(group, client);
-
-        // Verify the profile was created correctly
-        String groupProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-saltboot-group-3");
-        Profile groupProfile = Profile.lookupByName(client, groupProfileName);
-        assertNotNull(groupProfile);
-
-        // Verify parent and kernel options
-        String imageProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-branch-image");
-        assertEquals(imageProfileName, groupProfile.getParent());
-        Map<String, Object> kernelOptions = groupProfile.getKernelOptions().get();
-        assertEquals("my-saltboot-group-3", kernelOptions.get("MINION_ID_PREFIX"));
-        assertEquals("mybranch.example.com", kernelOptions.get("MASTER"));
-        assertEquals("1", kernelOptions.get("DISABLE_ID_PREFIX"));
-    }
-
-    @Test
-    public void testCreateSaltbootProfileWithImageVersion() throws Exception {
-        // Create a server group and an image
-        ImageInfo image = createImageHelper(user, "my-branch-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-
-        // Create Saltboot Profile for group
-        ServerGroup group = createSaltbootGroupHelper(user, "my-saltboot-group-4", "my-branch-image", "1.0.0");
-        SaltbootUtils.createSaltbootProfile(group, client);
-
-        // Verify the profile was created correctly
-        String groupProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-saltboot-group-4");
-        Profile groupProfile = Profile.lookupByName(client, groupProfileName);
-        assertNotNull(groupProfile);
-
-        // Verify parent and kernel options
-        String imageProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-branch-image-1.0.0");
-        assertEquals(imageProfileName, groupProfile.getParent());
-        Map<String, Object> kernelOptions = groupProfile.getKernelOptions().get();
-        assertEquals("my-saltboot-group-4", kernelOptions.get("MINION_ID_PREFIX"));
-        assertEquals("mybranch.example.com", kernelOptions.get("MASTER"));
-        assertEquals("1", kernelOptions.get("DISABLE_ID_PREFIX"));
-    }
-
-    @Test
-    public void testDeleteSaltbootProfile() throws Exception {
-        // 1. Test successful deletion
-        ServerGroup group = createSaltbootGroupHelper(user, "my-group-to-delete");
-        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-        String imageProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-image-1.0.0");
-        SaltbootUtils.createSaltbootProfile(group, imageProfileName, false, client);
-
-        String groupProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-group-to-delete");
-        assertNotNull(Profile.lookupByName(client, groupProfileName));
-
-        SaltbootUtils.deleteSaltbootProfile(groupProfileName, client);
-        assertNull(Profile.lookupByName(client, groupProfileName));
-
-        // 2. Test deletion of non-existent profile (should not throw)
-        SaltbootUtils.deleteSaltbootProfile("non-existent-profile", client);
-
-        // 3. Test deletion of a profile with associated systems (should throw)
-        ServerGroup groupWithSystems = createSaltbootGroupHelper(user, "my-group-with-systems");
-        SaltbootUtils.createSaltbootProfile(groupWithSystems, imageProfileName, false, client);
-        String groupWithSystemsProfileName = SaltbootUtils.makeCobblerName(user.getOrg(), "my-group-with-systems");
-        Profile profileWithSystems = Profile.lookupByName(client, groupWithSystemsProfileName);
-
-        MinionServer minion = MinionServerFactoryTest.createTestMinionServer(user);
-        minion.setMinionId("test-minion");
-        String systemName = SaltbootUtils.makeCobblerName(user.getOrg(), minion.getMinionId());
-        SystemRecord.create(client, systemName, profileWithSystems);
-
-        assertThrows(SaltbootException.class, () ->
-                SaltbootUtils.deleteSaltbootProfile(groupWithSystemsProfileName, client));
-    }
-
-    @Test
-    public void testCreateSaltbootSystem() throws Exception {
-        // 1. Setup
-        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
-        String imageProfileName = SaltbootUtils.makeCobblerNameVR(image);
-
-        ServerGroup group = createSaltbootGroupHelper(user, "my-saltboot-group");
-        SaltbootUtils.createSaltbootProfile(group, imageProfileName, false, client);
-        String groupName = group.getName();
-
-        MinionServer minion = MinionServerFactoryTest.createTestMinionServer(user);
-        minion.setMinionId("test-minion-for-system");
-
-        List<String> hwAddresses = List.of("AA:BB:CC:DD:EE:FF");
-        String kernelParams = "custom_param=value otherparam=\"quoted value\"";
-
-        // 2. Test system creation
-        SaltbootUtils.createSaltbootSystem(minion, "my-image-1.0.0-1", groupName, hwAddresses, kernelParams, client);
-
-        String systemName = SaltbootUtils.makeCobblerName(user.getOrg(), minion.getMinionId());
-        SystemRecord system = SystemRecord.lookupByName(client, systemName);
-        assertNotNull(system);
-        assertEquals(imageProfileName, system.getProfile().getName());
-        // Test system has one network interface by default, we need to look for our entry
-        assertEquals(2, system.getNetworkInterfaces().size());
-        assertTrue(system.getNetworkInterfaces().stream().anyMatch(
-                nic -> nic.getMacAddress().equals("AA:BB:CC:DD:EE:FF")));
-        assertTrue(system.isNetbootEnabled());
-
-        String[] expectedOpts =
-            ("custom_param=value otherparam=\"quoted value\" MINION_ID_PREFIX=my-saltboot-group " +
-             "MASTER=mybranch.example.com DISABLE_ID_PREFIX=1")
-            .split(" ");
-        String[] actualOpts = system.getKernelOptions().get().entrySet().stream().map(
-                entry -> entry.getKey() + "=" + entry.getValue()).toArray(String[]::new);
-        Arrays.sort(expectedOpts);
-        Arrays.sort(actualOpts);
-        assertEquals(String.join(" ", expectedOpts), String.join(" ", actualOpts));
-
-        // 3. Test system update
-        ImageInfo newImage = createImageHelper(user, "my-new-image", "2.0.0", 1);
-        SaltbootUtils.createSaltbootDistro(newImage, Distro.list(client), client);
-        String newImageProfileName = SaltbootUtils.makeCobblerNameVR(newImage);
-        SaltbootUtils.createSaltbootSystem(minion, "my-new-image-2.0.0-1",
-                groupName, hwAddresses, kernelParams, client);
-
-        system = SystemRecord.lookupByName(client, systemName);
-        assertNotNull(system);
-        assertEquals(newImageProfileName, system.getProfile().getName());
-
-        // 4. Test error conditions
-        assertThrows(SaltbootException.class, () -> SaltbootUtils.createSaltbootSystem(
-                minion, "non-existent-image", groupName, hwAddresses, kernelParams, client),
-                "Should throw when image profile doesn't exist");
-        assertThrows(SaltbootException.class, () -> SaltbootUtils.createSaltbootSystem(
-                minion, imageProfileName, "non-existent-group", hwAddresses, kernelParams, client),
-                "Should throw when group profile doesn't exist");
-
-        // 5. Test MAC conflict resolution
-        MinionServer conflictingMinion = MinionServerFactoryTest.createTestMinionServer(user);
-        conflictingMinion.setMinionId("conflicting-minion");
-        String conflictingSystemName = SaltbootUtils.makeCobblerName(user.getOrg(), "some-other-system");
-        SystemRecord conflictingSystem = SystemRecord.create(client, conflictingSystemName,
-                Profile.lookupByName(client, imageProfileName));
-        Network net = new Network(client, "00:11:22:33:44:55");
-        net.setMacAddress("00:11:22:33:44:55");
-        conflictingSystem.setNetworkInterfaces(List.of(net));
-        conflictingSystem.save();
-
-        SaltbootUtils.createSaltbootSystem(conflictingMinion, "my-image-1.0.0-1", groupName,
-                List.of("00:11:22:33:44:55"), "", client);
-
-        assertNull(SystemRecord.lookupByName(client,
-                conflictingSystemName), "Conflicting system should be deleted");
-        assertNotNull(SystemRecord.lookupByName(client,
-                SaltbootUtils.makeCobblerName(user.getOrg(), "conflicting-minion")));
     }
 }

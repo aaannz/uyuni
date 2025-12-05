@@ -48,9 +48,7 @@ public class PXEEventMessageAction implements MessageAction {
             // Part 1 - update PXE entries
             minion.getSaltbootServer().ifPresentOrElse(
                     saltbootServer -> saltbootServer.updateFromEvent(pxeEvent),
-                    () -> {
-                        minion.setSaltbootServer(new SaltbootServer(minion, pxeEvent));
-                    }
+                    () -> minion.setSaltbootServer(new SaltbootServer(minion, pxeEvent))
             );
         }
         catch (SaltbootException | XmlRpcException e) {

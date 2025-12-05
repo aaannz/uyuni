@@ -17,7 +17,6 @@ package com.suse.manager.saltboot;
 
 import com.redhat.rhn.common.conf.ConfigDefaults;
 import com.redhat.rhn.common.hibernate.HibernateFactory;
-import com.redhat.rhn.domain.formula.FormulaFactory;
 import com.redhat.rhn.domain.image.ImageFile;
 import com.redhat.rhn.domain.image.ImageInfo;
 import com.redhat.rhn.domain.image.OSImageStoreUtils;
@@ -27,21 +26,16 @@ import com.redhat.rhn.domain.org.OrgFactory;
 import com.redhat.rhn.domain.server.CustomDataValue;
 import com.redhat.rhn.domain.server.MinionServer;
 import com.redhat.rhn.domain.server.MinionServerFactory;
-import com.redhat.rhn.domain.server.Pillar;
 import com.redhat.rhn.domain.server.ServerFactory;
-import com.redhat.rhn.domain.server.ServerGroup;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.cobbler.CobblerConnection;
 import org.cobbler.CobblerObject;
 import org.cobbler.Distro;
-import org.cobbler.Network;
 import org.cobbler.Profile;
 import org.cobbler.SystemRecord;
-import org.cobbler.XmlRpcException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,13 +74,6 @@ public final class SaltbootUtils {
         String orgName = org.getName().replaceAll("[^a-zA-Z0-9_-]", "");
         String suffix = sep + "S" + sep + org.getId() + sep + orgName;
         return "^(.*-\\d+\\.\\d+\\.\\d+-\\d+)" + Pattern.quote(suffix) + "$";
-    }
-
-    private static String makeCobblerFilterSystem(Org org) {
-        String sep = ConfigDefaults.get().getCobblerNameSeparator();
-        String orgName = org.getName().replaceAll("[^a-zA-Z0-9_-]", "");
-        String suffix = sep + "S" + sep + org.getId() + sep + orgName;
-        return "^[a-zA-Z0-9_.-]*" + Pattern.quote(suffix) + "$";
     }
 
     /**
@@ -180,7 +167,6 @@ public final class SaltbootUtils {
         }
         return result;
     }
-
 
     /**
      * Create saltboot distribution based on provided image and boot image info
@@ -365,156 +351,6 @@ public final class SaltbootUtils {
         p.save();
     }
 
-    static void updateGroupProfile(CobblerConnection con,
-                                           ServerGroup saltbootGroup,
-                                           String parentProfile,
-                                           boolean onlyMissing) {
-        // Validate parentProfile exists
-        Profile profile = Profile.lookupByName(con, parentProfile);
-        if (profile == null) {
-            LOG.debug("Cannot find profile using supplied name, trying rename");
-            parentProfile = makeCobblerName(saltbootGroup.getOrg(), parentProfile);
-            profile = Profile.lookupByName(con, parentProfile);
-        }
-        if (profile == null) {
-            throw new SaltbootException("Unable to find parent profile " + parentProfile);
-        }
-
-        Map<String, String> kernelOptions = getKernelOptions(saltbootGroup);
-        Org org = saltbootGroup.getOrg();
-        String name = makeCobblerName(org, saltbootGroup.getName());
-
-        Profile gp = Profile.lookupByName(con, name);
-        if (gp == null) {
-            gp = Profile.create(con, name, parentProfile);
-        }
-        else {
-            if (onlyMissing) {
-                return;
-            }
-            gp.setParent(parentProfile);
-        }
-        gp.<Map<String, String>>setKernelOptions(Optional.of(kernelOptions));
-        gp.setComment("Saltboot group " + saltbootGroup.getName() +
-              " of organization " + org.getName() + " default profile");
-        gp.save();
-    }
-
-    private static Map<String, String> getKernelOptions(ServerGroup group) {
-        Map<String, Object> formData = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR)
-                .orElseThrow(() -> new SaltbootException("Missing saltboot group pillar"))
-                .getPillar();
-        Map<String, Object> saltboot = (Map<String, Object>) formData.get("saltboot");
-        Map<String, String> kernelOptions = new HashMap<>();
-        kernelOptions.put("MINION_ID_PREFIX", group.getName());
-        kernelOptions.put("MASTER", (String)saltboot.get("download_server"));
-        if (Boolean.TRUE.equals(saltboot.get("disable_id_prefix"))) {
-            kernelOptions.put("DISABLE_ID_PREFIX", "1");
-        }
-        if (Boolean.TRUE.equals(saltboot.get("disable_unique_suffix"))) {
-            kernelOptions.put("DISABLE_UNIQUE_SUFFIX", "1");
-        }
-        if ("FQDN".equals(saltboot.get("minion_id_naming"))) {
-            kernelOptions.put("USE_FQDN_MINION_ID", "1");
-        }
-        else if ("HWType".equals(saltboot.get("minion_id_naming"))) {
-            kernelOptions.put("DISABLE_HOSTNAME_ID", "1");
-        }
-        else if ("MAC".equals(saltboot.get("minion_id_naming"))) {
-            kernelOptions.put("USE_MAC_MINION_ID", "1");
-        }
-        String defaultBranchOptions = (String) saltboot.get("default_kernel_parameters");
-        if (defaultBranchOptions != null && !defaultBranchOptions.isEmpty()) {
-            kernelOptions.putAll(splitStringIgnoreQuotes(defaultBranchOptions));
-        }
-        return kernelOptions;
-    }
-
-    static Optional<String> getGroupImageName(ServerGroup group) {
-        Org org = group.getOrg();
-
-        Optional<Map<String, Object>> formDataOpt = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR)
-                .map(Pillar::getPillar);
-        if (formDataOpt.isEmpty()) {
-            return Optional.empty();
-        }
-        Map<String, Object> saltboot = (Map<String, Object>) formDataOpt.get().get("saltboot");
-        String bootImage = (String)saltboot.get("default_boot_image");
-        String bootImageVersion = (String)saltboot.get("default_boot_image_version");
-        if (bootImage == null || bootImage.isEmpty()) {
-            LOG.debug("Using default image for group {}, org {}", group.getName(), org.getName());
-            bootImage = DEFAULT_BOOT_IMAGE;
-        }
-
-        String parent = makeCobblerName(org, bootImage, bootImageVersion);
-        return Optional.of(parent);
-    }
-
-    /**
-     * Create a Saltboot cobbler profile
-     * Saltboot profile is tied with particular saltboot group and contains default boot instructions for new terminals
-     * @param saltbootGroup The group for the branch.
-     * @throws SaltbootException Throws SaltbootException describing the failure.
-     */
-    public static void createSaltbootProfile(ServerGroup saltbootGroup) throws SaltbootException {
-        CobblerConnection con = CobblerXMLRPCHelper.getAutomatedConnection();
-        createSaltbootProfile(saltbootGroup, con);
-    }
-
-    /**
-     * Create a Saltboot cobbler profile
-     * Saltboot profile is tied with particular saltboot group and contains default boot instructions for new terminals
-     * @param saltbootGroup The group for the branch.
-     * @param con CobblerConnection
-     * @throws SaltbootException Throws SaltbootException describing the failure.
-     */
-    public static void createSaltbootProfile(ServerGroup saltbootGroup, CobblerConnection con)
-            throws SaltbootException {
-        String groupImageName = getGroupImageName(saltbootGroup).orElseThrow(
-                () -> new SaltbootException("Cannot get an image for a saltboot group " + saltbootGroup.getName() +
-                        " under organization " + saltbootGroup.getOrg().getName()));
-        createSaltbootProfile(saltbootGroup, groupImageName, false, con);
-    }
-
-    /**
-     * Create a Saltboot cobbler profile
-     * Saltboot profile is tied with particular saltboot group and contains default boot instructions for new terminals
-     * @param branchGroup The group for the branch.
-     * @param image The image name, possibly including version.
-     * @param onlyWhenMissing If true, existing groups will be skipped.
-     * @param con CobblerConnection
-     * @throws SaltbootException Throws SaltbootException describing the failure.
-     */
-    public static void createSaltbootProfile(ServerGroup branchGroup, String image, Boolean onlyWhenMissing,
-        CobblerConnection con) throws SaltbootException {
-        try {
-            updateGroupProfile(con, branchGroup, image, onlyWhenMissing);
-        }
-        catch (XmlRpcException e) {
-            throw new SaltbootException(e);
-        }
-    }
-
-    /**
-     * Delete saltboot profile
-     * If profile is not found, does nothing
-     * @param profileName
-     * @param org
-     */
-    public static void deleteSaltbootProfile(String profileName, Org org) {
-        deleteSaltbootProfile(makeCobblerName(org, profileName));
-    }
-
-    /**
-     * Delete saltboot profile
-     * If profile is not found, does nothing
-     * @param profileName
-     */
-    public static void deleteSaltbootProfile(String profileName) {
-        CobblerConnection con = CobblerXMLRPCHelper.getAutomatedConnection();
-        deleteSaltbootProfile(profileName, con);
-    }
-
     /**
      * Delete saltboot profile
      * If profile is not found, does nothing
@@ -533,114 +369,6 @@ public final class SaltbootUtils {
                 throw new SaltbootException("Unable to delete image saltboot distribution for image " + profileName);
             }
         }
-    }
-
-    private static Optional<String> getConflictingSystem(Org org, Throwable e) {
-        while (e != null) {
-            String msg = e.getMessage();
-            // See https://github.com/openSUSE/cobbler/blob/uyuni/master/cobbler/items/system.py#L313
-            Pattern pattern = Pattern.compile(
-                "MAC address duplicate found.*Object with the conflict has the name \"([^\"]*)\"");
-            Matcher match = pattern.matcher(msg);
-            if (match.find()) {
-                String name = match.group(1);
-                Pattern pattern2 = Pattern.compile(makeCobblerFilterSystem(org));
-                if (pattern2.matcher(name).matches()) {
-                    return Optional.of(name);
-                }
-            }
-            e = e.getCause();
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Create saltboot system record
-     * Tied with one particular terminal and contains boot instructions for this terminal
-     * @param minion MinionServer
-     * @param bootImage Image name including version and revision, used for image profile lookup
-     * @param saltbootGroup Name of the saltboot group this system belongs to
-     * @param hwAddresses List of Strings with hardware addresses
-     * @param kernelParams String with kernel parameters for the system
-     * @throws SaltbootException
-     */
-    public static void createSaltbootSystem(MinionServer minion, String bootImage, String saltbootGroup,
-                                            List<String> hwAddresses, String kernelParams) throws SaltbootException {
-        CobblerConnection con = CobblerXMLRPCHelper.getAutomatedConnection();
-        createSaltbootSystem(minion, bootImage, saltbootGroup, hwAddresses, kernelParams, con);
-    }
-    /**
-     * Create saltboot system record
-     * Tied with one particular terminal and contains boot instructions for this terminal
-     * @param minion MinionServer
-     * @param bootImage Image name including version and revision, used for image profile lookup
-     * @param saltbootGroup Name of the saltboot group this system belongs to
-     * @param hwAddresses List of Strings with hardware addresses
-     * @param kernelParams String with kernel parameters for the system
-     * @param con CobblerConnection
-     * @throws SaltbootException
-     */
-    public static void createSaltbootSystem(MinionServer minion, String bootImage, String saltbootGroup,
-                                            List<String> hwAddresses, String kernelParams, CobblerConnection con)
-            throws SaltbootException {
-        String minionId = minion.getMinionId();
-        Org org = minion.getOrg();
-
-        Profile profile = Profile.lookupByName(con, makeCobblerName(org, bootImage));
-        if (profile == null) {
-            throw new SaltbootException("Unable to find profile for boot image " + bootImage);
-        }
-
-        Profile group = Profile.lookupByName(con, makeCobblerName(org, saltbootGroup));
-        if (group == null) {
-            throw new SaltbootException("Unable to find profile for saltboot group " + saltbootGroup);
-        }
-
-        // We need to append associated saltboot group settings, particularly MASTER
-        Map<String, Object> kernelOptions = group.getKernelOptions().orElse(new HashMap<>());
-        if (kernelParams != null && !kernelParams.isEmpty()) {
-            kernelOptions.putAll(splitStringIgnoreQuotes(kernelParams));
-        }
-
-        String name = makeCobblerName(org, minionId);
-        LOG.debug("Creating saltboot system entry {}", name);
-        SystemRecord system = SystemRecord.lookupByName(con, name);
-        if (system == null) {
-            system = SystemRecord.create(con, name, profile);
-        }
-        else {
-            system.setProfile(profile);
-        }
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Using kernel options {}", system.convertOptionsMap(kernelOptions));
-        }
-
-        minion.setCobblerId(system.getId());
-        system.<Map<String, Object>>setKernelOptions(Optional.of(kernelOptions));
-        List<Network> networks = hwAddresses.stream().map(hw -> {
-            Network k = new Network(con, hw);
-            k.setMacAddress(hw);
-            return k;
-        }).collect(Collectors.toList());
-        try {
-            system.setNetworkInterfaces(networks);
-        }
-        catch (XmlRpcException e) {
-            Optional<String> c = getConflictingSystem(org, e);
-            if (c.isPresent()) {
-                    LOG.info("Deleting conflicting saltboot profile {}", c.get());
-                    SystemRecord csr = SystemRecord.lookupByName(con, c.get());
-                    if (csr != null) {
-                        csr.remove();
-                    }
-                    system.setNetworkInterfaces(networks);
-            }
-            else {
-                throw e;
-            }
-        }
-        system.enableNetboot(true);
-        system.save();
     }
 
     /**
@@ -720,49 +448,5 @@ public final class SaltbootUtils {
         if (redeploy != null || repart != null) {
             LOG.debug("saltboot custom info redeploy flags removed");
         }
-    }
-
-    /**
-     * Tries to find an image saltboot profile by progressively simplifying the image name.
-     * The profile name is a string in the format "name-version-revision".
-     * This method searches for the full name, then "name-version", and finally "name".
-     *
-     * @param imageName The full name of the image (from the probable_boot_image field).
-     * @param org The organization.
-     * @return An {@link Optional} containing the found profile name, or empty if none is found.
-     */
-    public static Optional<String> findImageSaltbootProfile(String imageName, Org org) {
-        if (StringUtils.isEmpty(imageName)) {
-            return Optional.empty();
-        }
-
-        CobblerConnection con = CobblerXMLRPCHelper.getUncachedAutomatedConnection();
-        String currentName = imageName;
-
-        do {
-            // First, try the old name orgid-name
-            Profile profile = Profile.lookupByName(con, org.getId() + "-" + currentName);
-            if (profile != null) {
-                return Optional.of(currentName);
-            }
-
-            // If not found, try the cobbler-mangled name.
-            String cobblerName = makeCobblerName(org, currentName);
-            profile = Profile.lookupByName(con, cobblerName);
-            if (profile != null) {
-                return Optional.of(cobblerName);
-            }
-
-            // If still not found, shorten the name for the next iteration.
-            int lastHyphen = currentName.lastIndexOf('-');
-            if (lastHyphen > 0) {
-                currentName = currentName.substring(0, lastHyphen);
-            }
-            else {
-                currentName = null;
-            }
-        } while (currentName != null);
-
-        return Optional.empty();
     }
 }
