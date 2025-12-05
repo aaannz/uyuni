@@ -221,8 +221,7 @@ public final class SaltbootUtils {
             return;
         }
 
-        final String pathPrefix = OSImageStoreUtils.getOSImageStorePathForImage(imageInfo) +
-                imageInfo.getName() + "-" + imageInfo.getVersion() + "-" + imageInfo.getRevisionNumber() + "/";
+        final String pathPrefix = OSImageStoreUtils.getOSImageStorePathForImage(imageInfo);
 
         Map<String, String> imageFilePaths = imageInfo.getImageFiles().stream()
                 .filter(f -> "kernel".equals(f.getType()) || "initrd".equals(f.getType()))
