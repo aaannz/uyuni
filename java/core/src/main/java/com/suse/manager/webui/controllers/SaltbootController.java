@@ -48,6 +48,7 @@ import spark.Spark;
 public class SaltbootController {
 
     private static final Logger LOG = LogManager.getLogger(SaltbootController.class);
+    private static final String TEXT_PLAIN = "text/plain";
 
     private SaltbootController() { }
 
@@ -165,6 +166,8 @@ public class SaltbootController {
         return SaltbootGroup.getSaltbootGroupByBranchFQDN(branchFQDN).map(
                 group -> {
                     try {
+                        response.type(TEXT_PLAIN);
+                        response.status(HttpStatus.SC_OK);
                         return group.getGrubEntry();
                     }
                     catch (SaltbootException e) {
@@ -185,6 +188,8 @@ public class SaltbootController {
         return SaltbootGroup.getSaltbootGroupByBranchFQDN(branchFQDN).map(
                 group -> {
                     try {
+                        response.type(TEXT_PLAIN);
+                        response.status(HttpStatus.SC_OK);
                         return group.getPXEEntry();
                     }
                     catch (SaltbootException e) {
@@ -206,6 +211,8 @@ public class SaltbootController {
         return SaltbootServer.getSaltbootServerByHwAddress(hwAddress).map(
                 server -> {
                     try {
+                        response.type(TEXT_PLAIN);
+                        response.status(HttpStatus.SC_OK);
                         return server.getGrubEntry();
                     }
                     catch (SaltbootException e) {
@@ -227,7 +234,9 @@ public class SaltbootController {
         return SaltbootServer.getSaltbootServerByHwAddress(hwAddress).map(
                 server -> {
                     try {
-                        return server.getGrubEntry();
+                        response.type(TEXT_PLAIN);
+                        response.status(HttpStatus.SC_OK);
+                        return server.getPXEEntry();
                     }
                     catch (SaltbootException e) {
                         return badRequest(response, e.getMessage());
