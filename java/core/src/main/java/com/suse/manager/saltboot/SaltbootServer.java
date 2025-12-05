@@ -114,6 +114,7 @@ LABEL ${cobbler_name}
         this.saltDevice = saltDeviceIn;
         this.image = imageIn;
         this.kernelParameters = kernelParametersIn;
+        HibernateFactory.getSession().save(this);
     }
 
     /**
@@ -143,6 +144,7 @@ LABEL ${cobbler_name}
         this.saltDevice = pxeEvent.getSaltDevice().orElse(null);
         this.image = imageIn;
         this.kernelParameters = pxeEvent.getKernelParameters().orElse(null);
+        HibernateFactory.getSession().save(this);
     }
 
     private Map<String, String> getValuesMap() {
@@ -195,6 +197,7 @@ LABEL ${cobbler_name}
         this.saltDevice = pxeEvent.getSaltDevice().orElse(null);
         this.image = imageIn;
         this.kernelParameters = pxeEvent.getKernelParameters().orElse(null);
+        HibernateFactory.getSession().save(this);
         return this;
     }
 

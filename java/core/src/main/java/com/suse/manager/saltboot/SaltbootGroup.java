@@ -69,6 +69,7 @@ import javax.persistence.Table;
 )
 public class SaltbootGroup extends BaseDomainHelper {
 
+    @SuppressWarnings("checkstyle:LineLength")
     private static final String GRUB_TEMPLATE = """
 menuentry '${cobbler_name}' --class gnu-linux --class gnu --class os {
 echo 'Loading kernel ...'
@@ -165,9 +166,9 @@ LABEL ${cobbler_name}
                 getNamedNativeQuery("SaltbootGroup.getMaster").
                 setParameter("group_id", serverGroup.getId()).getSingleResult().toString();
 
-        String kernelOptions = HibernateFactory.getSession().
+        String kernelOptions = Optional.ofNullable(HibernateFactory.getSession().
                 getNamedNativeQuery("SaltbootGroup.getDefaultKernelOptions").
-                setParameter("group_id", serverGroup.getId()).getSingleResult().toString();
+                setParameter("group_id", serverGroup.getId()).getSingleResult()).map(Object::toString).orElse("");
 
         return Map.of(
                 "cobbler_name", name,
