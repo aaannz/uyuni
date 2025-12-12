@@ -1559,6 +1559,19 @@ When(/^I add avahi hosts in containerized proxy configuration$/) do
   end
 end
 
+# To be removed once https://bugzilla.suse.com/show_bug.cgi?id=1254923 is released
+When(/^I add proxypassreverse tuning in the containerized proxy configuration$/) do
+    node = get_target('proxy')
+    node.run("mkdir -p /etc/uyuni/proxy")
+    command = 'cat > /etc/uyuni/proxy/http-revers.conf <<EOF' \
+              'ProxyPassReverse /proxyInternalLoop https://{{ SERVER }}' \
+              'ProxyPassReverse /os-images http://localhost/proxyInternalLoop/os-images' \
+              'ProxyPassReverse /tftp http://localhost/proxyInternalLoop/tftp' \
+              'ProxyPassReverse /saltboot http://localhost/proxyInternalLoop/saltboot' \
+              'EOF'
+    node.run(command)
+end
+
 When(/^I remove offending SSH key of "([^"]*)" at port "([^"]*)" for "([^"]*)" on "([^"]*)"$/) do |key_host, key_port, known_hosts_path, host|
   system_name = get_system_name(key_host)
   node = get_target(host)

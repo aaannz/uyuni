@@ -57,8 +57,13 @@ Feature: Setup containerized proxy
   Scenario: Set up the containerized proxy service to support Avahi
     When I add avahi hosts in containerized proxy configuration
 
+  # To be removed once https://bugzilla.suse.com/show_bug.cgi?id=1254923 is released
+  Scenario: Set up the containerized proxy workaround for bsc#1254923
+    When I add proxypassreverse tuning in the containerized proxy configuration
+
+  # Tuning to be removed once https://bugzilla.suse.com/show_bug.cgi?id=1254923 is released
   Scenario: Run a containerized proxy
-    When I run "mgrpxy install podman /tmp/proxy_container_config.tar.gz" on "proxy"
+    When I run "mgrpxy install podman --tuning-httpd=/etc/uyuni/proxy/http-revers.conf /tmp/proxy_container_config.tar.gz" on "proxy"
 
   Scenario: Wait until containerized proxy service is active
     And I wait until "uyuni-proxy-pod" service is active on "proxy"
