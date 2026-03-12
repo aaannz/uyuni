@@ -51,7 +51,7 @@ options:
   -n NAME
   -p path to tree
   -b base channel to associate with
-  -t install type [fedora18|rhel_6/7/8|sles12generic|sles15generic|suse|generic_rpm|...]"""
+  -t install type [fedora18|rhel_6/7/8|sles12generic|sles15generic|opensuse16.1|suse|generic_rpm|...]"""
         )
     )
 
@@ -330,7 +330,7 @@ def help_distribution_update(self):
 options:
   -p path to tree
   -b base channel to associate with
-  -t install type [fedora18|rhel_6/7/8|sles12generic|sles15generic|suse|generic_rpm|...]"""
+  -t install type [fedora18|rhel_6/7/8|sles12generic|sles15generic|opensuse16.1|suse|generic_rpm|...]"""
         )
     )
 
