@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>00-goals — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">00-goals</p>
+<a class="h2" href="#1-purpose-and-session-protocol">1. Purpose and session protocol</a>
+<a class="h2" href="#2-goal-overview">2. Goal overview</a>
+<a class="h2" href="#3-the-goals">3. The goals</a>
+<a class="h3" href="#g0-unified-kernel-options-handling">G0 — Unified kernel-options handling</a>
+<a class="h3" href="#g1-kickstart-modernization-raw-upload-only">G1 — Kickstart modernization (raw-upload only)</a>
+<a class="h3" href="#g2-ui-modernization">G2 — UI modernization</a>
+<a class="h3" href="#g3-saltboot-integration-full-workflow">G3 — Saltboot integration (full workflow)</a>
+<a class="h3" href="#g4-generic-installation-mechanisms-on-a-unified-profile-entity">G4 — Generic installation mechanisms on a unified profile entity</a>
+<a class="h3" href="#g5-image-building-integration">G5 — Image building integration</a>
+<a class="h3" href="#g6-cobbler-exit-preparation-long-term-design-only">G6 — Cobbler exit preparation (long-term, design only)</a>
+<a class="h2" href="#4-cross-cutting-guardrails">4. Cross-cutting guardrails</a>
+<a class="h2" href="#5-locked-design-decisions">5. Locked design decisions</a>
+<a class="h3" href="#51-sle16agama-identity-committed-code-wins">5.1 SLE16/Agama identity — committed code wins</a>
+<a class="h3" href="#52-kickstart-raw-upload-only">5.2 Kickstart = raw upload only</a>
+<a class="h3" href="#53-feature-tiering-for-profile-level-features">5.3 Feature tiering for profile-level features</a>
+<a class="h3" href="#54-saltboot-full-workflow-integration">5.4 Saltboot = full workflow integration</a>
+<a class="h3" href="#55-generic-mechanisms-new-unified-entity">5.5 Generic mechanisms = new unified entity</a>
+<a class="h3" href="#56-cobbler-exit-seam-design-only">5.6 Cobbler exit = seam + design only</a>
+<a class="h3" href="#57-implementation-order">5.7 Implementation order</a>
+<a class="h3" href="#58-resolved-technical-decisions-planning-round-1">5.8 Resolved technical decisions (planning round 1)</a>
+<a class="h2" href="#6-current-state-fact-sheet">6. Current-state fact sheet</a>
+<a class="h3" href="#61-data-model">6.1 Data model</a>
+<a class="h3" href="#62-renderingserving-chain-cobbler-centric">6.2 Rendering/serving chain (Cobbler-centric)</a>
+<a class="h3" href="#63-kernel-options-inventory-buildtransformdependency-sites">6.3 Kernel-options inventory (build/transform/dependency sites)</a>
+<a class="h3" href="#64-cobbler-footprint-context-for-g6">6.4 Cobbler footprint (context for G6)</a>
+<a class="h3" href="#65-saltboot-flow-context-for-g3">6.5 Saltboot flow (context for G3)</a>
+<a class="h3" href="#66-ui-state">6.6 UI state</a>
+<a class="h3" href="#67-generic-mechanisms-today">6.7 Generic mechanisms today</a>
+<a class="h2" href="#7-non-goals">7. Non-goals</a>
+</nav>
+<main>
+<article>
+<h1 id="autoinstallation-overhaul-high-level-goals">Autoinstallation Overhaul — High-Level Goals</h1>
+<blockquote>
+<p><strong>Cross-session contract.</strong> Every session working on autoinstallation must read
+this document first. The goals here change only by editing this file. The
+working breakdown into implementation steps lives in
+<a href="10-roadmap.md"><code>10-roadmap.md</code></a>; the Phase 1 behavioural reference is
+<a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-07</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Planning round 1 complete</td>
+</tr>
+<tr>
+<td>Companion docs</td>
+<td><a href="10-roadmap.md"><code>10-roadmap.md</code></a> (steps, status, open questions), <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a> (Phase 1 reference)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-purpose-and-session-protocol">1. Purpose and session protocol</h2>
+<p>Uyuni&rsquo;s autoinstallation support grew out of Spacewalk-era Kickstart plus SUSE
+additions (AutoYaST, retail Saltboot), with Cobbler as an external rendering/PXE
+engine and a legacy JSP UI. The code is fragmented (kernel options are
+manipulated as strings in ~13 places), the wizard-based Kickstart UI is outdated,
+Saltboot lives outside the autoinstallation workflow, and there is no support
+for modern generic installation mechanisms.</p>
+<p>This overhaul is too large for one session. The goals below are the shared
+contract that keeps individual sessions aligned so that no step blocks or
+hinders another.</p>
+<p><strong>Session protocol:</strong></p>
+<ol>
+<li>Read this file (<code>00-goals.md</code>) and the relevant phase in <code>10-roadmap.md</code>.</li>
+<li>Pick <strong>one</strong> roadmap step. Do focused research if needed.</li>
+<li>Write/extend the step&rsquo;s plan (a section in <code>10-roadmap.md</code> or a dedicated
+   step doc linked from it) <em>before</em> implementing.</li>
+<li>Implement, verify (<code>mvn compile</code>, checkstyle, unit tests; frontend build for
+   UI steps), update the step status in <code>10-roadmap.md</code>.</li>
+<li>If a required change would violate a guardrail (§4) or a locked decision
+   (§5), stop and update this document first, with justification.</li>
+<li>For steps that change runtime behavior, validate end-to-end on the provided
+   agent VM (see <code>AGENTS_CUSTOM.md</code> §3). There is exactly <strong>one VM</strong> and it is
+   <strong>manually recycled</strong> — when multiple agents work in parallel, they must
+   coordinate its use (deployment/verification windows) and record the deployed
+   package version together with their results. Note the VM&rsquo;s Cobbler may lack
+   the Agama support PR (see §5.1) — check before SLE16 E2E validation.</li>
+</ol>
+<hr />
+<h2 id="2-goal-overview">2. Goal overview</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Goal</th>
+<th>Horizon</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G0</td>
+<td>Unified kernel-options handling (foundation)</td>
+<td>near-term</td>
+</tr>
+<tr>
+<td>G1</td>
+<td>Kickstart modernization — raw upload only, wizard dropped</td>
+<td>near-term</td>
+</tr>
+<tr>
+<td>G2</td>
+<td>UI modernization — React replaces all autoinstallation JSP</td>
+<td>near/mid-term</td>
+</tr>
+<tr>
+<td>G3</td>
+<td>Saltboot integrated as first-class autoinstallation workflow</td>
+<td>mid-term</td>
+</tr>
+<tr>
+<td>G4</td>
+<td>Generic installation mechanisms (cloud-init, ignition, combustion) on a unified profile entity</td>
+<td>mid-term</td>
+</tr>
+<tr>
+<td>G5</td>
+<td>Image building integrated: built artifacts become autoinstallation options</td>
+<td>mid-term</td>
+</tr>
+<tr>
+<td>G6</td>
+<td>Cobbler exit preparation (design only; removal is long-term)</td>
+<td>long-term</td>
+</tr>
+</tbody>
+</table>
+<p>Implementation order (locked, §5.7): <strong>G0 → G1+G2 → G3 → G4+G5 → G6-prep</strong>.</p>
+<hr />
+<h2 id="3-the-goals">3. The goals</h2>
+<h3 id="g0-unified-kernel-options-handling">G0 — Unified kernel-options handling</h3>
+<p>Kernel command-line options for installation flows are currently built as
+ad-hoc strings in many places (inventory in §6.3). All of this collapses into a
+single, OS-class-aware builder hierarchy:</p>
+<ul>
+<li>Package <code>com.suse.manager.autoinstallation</code> (namespace already started on this
+  branch with the <code>KernelOptionsList</code> value object).</li>
+<li>One builder per OS class (RHEL-like, AutoYaST/SLES15-, Agama/SLE16,
+  Debian/Ubuntu), a shared abstract base, and a factory routed by
+  <code>KickstartInstallType</code> (breed-based routing only as fallback where no install
+  type exists).</li>
+<li>Builders expose semantic composition points: <code>distroOptions</code>,
+  <code>profileOptions</code>, <code>systemOptions</code>, <code>networkBoot</code>, <code>localBoot</code>; the full
+  contract, factory routing, and the catalogue of legacy strings to reproduce
+  live in <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>.</li>
+<li><strong>Post-Cobbler readiness (OQ-1 resolution):</strong> while Cobbler renders PXE
+  entries it adds breed-specific options itself (<code>autoyast=</code> vs <code>inst.auto=</code>
+  selection in <code>tftpgen</code>); the Salt provisioning path adds them in Uyuni. The
+  builders must therefore centralize per-distribution/breed option enhancement
+  so the G6 switch does not require call-site surgery. Saltboot already owns
+  its whole kernel command line via the <code>generic</code> breed (avoiding Cobbler
+  interference) and is the reference pattern for this.</li>
+<li><strong>Extension rule:</strong> a new OS or installation mechanism adds <em>one builder
+  class</em> (or one option set in an existing builder) — never a new call-site
+  string manipulation.</li>
+</ul>
+<p>Success criterion: all inventory sites of §6.3 either use the builders or are
+consciously deferred to a later phase with a documented reason.</p>
+<h3 id="g1-kickstart-modernization-raw-upload-only">G1 — Kickstart modernization (raw-upload only)</h3>
+<p>The Kickstart wizard (3-step creation wizard + wizard-mode editing tabs that
+generate Cheetah templates rendered by Cobbler) is dropped. <strong>Only uploading of
+pre-created files is supported</strong>, matching the current AutoYaST workflow.</p>
+<ul>
+<li>Profile create = select channel/distro/virt type + upload file (or paste
+  content); profile edit = raw file edit + download.</li>
+<li>The wizard/raw distinction (<code>rhnKSData.ks_type</code>) collapses to raw.</li>
+<li>Profile-level support features (scripts, variables, snippets, file
+  preservation, crypto keys, IP ranges, sessions) are <strong>tiered</strong> and decided
+  <em>feature-by-feature</em> (§5.3); the tiering register lives in the roadmap open
+  questions.</li>
+<li>The data model must stay migration-friendly toward the G4 unified entity:
+  no new wizard-era schema on <code>rhnKSData</code>.</li>
+<li>Dropping the wizard also removes the biggest Cheetah/<code>KickstartFormatter</code>
+  dependency — the prerequisite for G6&rsquo;s Java-side serving.</li>
+</ul>
+<h3 id="g2-ui-modernization">G2 — UI modernization</h3>
+<p>All autoinstallation JSP/Struts pages (profiles, distributions, snippets, keys,
+file preservation, IP ranges, sessions, SSM scheduling) are replaced by React
+pages.</p>
+<ul>
+<li>Pattern: the <em>images</em> feature (<code>web/html/src/manager/images/</code> + Spark
+  controllers in <code>java/core/src/main/java/com/suse/manager/webui/controllers/</code>)
+  is the in-repo template for page structure, tables, forms, and API wiring.</li>
+<li>The new UI must render profile types <strong>metadata-driven</strong> so G4&rsquo;s new types
+  (cloud-init, ignition, combustion) and G3&rsquo;s saltboot deployments appear in
+  the same pages without per-type UI forks.</li>
+<li>Legacy menu entries (<code>MenuTree.getSystemsNode()</code> &ldquo;Kickstart&rdquo; node) are
+  restructured into the new autoinstallation area.</li>
+</ul>
+<h3 id="g3-saltboot-integration-full-workflow">G3 — Saltboot integration (full workflow)</h3>
+<p>Saltboot (retail POS image deployment) becomes a first-class autoinstallation
+workflow instead of a separate group-formula configuration:</p>
+<ul>
+<li>Saltboot deployment is modeled in the Java autoinstallation domain (deploy
+  target, partitioning model, boot image, deployment state) with API and React
+  UI in the new autoinstallation area.</li>
+<li>The external saltboot formula states remain only as the <strong>execution engine</strong>;
+  configuration no longer lives as formula form data on groups.</li>
+<li>PXE/kernel-option handling goes through the G0 builders.</li>
+<li>The trigger model moves to the autoinstallation action/schedule flow
+  (instead of formula-save hooks), while preserving the proven
+  <code>pxe_update</code> event loop for flipping terminals back to disk boot.</li>
+<li>Existing <code>SaltbootUtils</code> Cobbler entry generation is kept working during the
+  transition and re-routed, not duplicated.</li>
+</ul>
+<h3 id="g4-generic-installation-mechanisms-on-a-unified-profile-entity">G4 — Generic installation mechanisms on a unified profile entity</h3>
+<p>cloud-init, ignition, and combustion (and future mechanisms) become supported
+installation/configuration profile types:</p>
+<ul>
+<li>A <strong>new unified autoinstallation profile entity</strong> (type-based:
+  kickstart/autoyast/agama/cloud-init/ignition/combustion/&hellip;) is introduced;
+  <code>rhnKSData</code> and raw profiles migrate behind it over time. This is the
+  long-term replacement of the Kickstart-centric data model.</li>
+<li>Upload/storage/download/serving is uniform across types; serving endpoints
+  follow the existing <code>/ks/cfg</code>-style public URL conventions.</li>
+<li>Boot-parameter needs of each mechanism are added in the G0 builders.</li>
+<li>Initial focus is SLE16/Edge-style workflows (images + ignition/combustion),
+  where these mechanisms are actually consumed today.</li>
+</ul>
+<h3 id="g5-image-building-integration">G5 — Image building integration</h3>
+<p>When a supported image artifact is built (Kiwi OS image with saltboot payload,
+EIB/combustion artifacts, later ignition-carrying images), it is automatically
+registered as an autoinstallation option:</p>
+<ul>
+<li>Hooks into the existing build-result pipeline
+  (<code>ImageBuildAction</code> → <code>ImageInfo</code>/<code>ImageFile</code> → OS-image pillar).</li>
+<li>Built artifacts appear as selectable targets in the new autoinstallation UI
+  (e.g. saltboot deployment defaults, generic-mechanism deployments).</li>
+<li>No manual re-import or formula hand-configuration for the supported cases.</li>
+</ul>
+<h3 id="g6-cobbler-exit-preparation-long-term-design-only">G6 — Cobbler exit preparation (long-term, design only)</h3>
+<p>Long-term goal: drop Cobbler; generate grub entries and maintain
+kernel/initrd/grub artifacts in Java. <strong>These sessions only prepare for it</strong> —
+no cobbler removal is implemented now.</p>
+<ul>
+<li>Introduce an abstraction seam (<code>InstallServer</code>/<code>BootServer</code>-style interface)
+  over <code>org.cobbler</code> + the cobbler command classes so future sessions can
+  implement a Java back-end behind it.</li>
+<li>Design (document, not implement): Java-side grub entry generation into
+  tftpboot, profile serving without Cobbler/Cheetah (unlocked by G1),
+  kernel/initrd lifecycle, proxy <code>tftp_wrapper.py</code> compatibility.</li>
+<li><strong>grub only</strong> — no pxelinux support; the design must allow future expansion
+  (e.g. UKI-based boot).</li>
+</ul>
+<hr />
+<h2 id="4-cross-cutting-guardrails">4. Cross-cutting guardrails</h2>
+<p>These rules are what keep the goals from blocking each other. Every
+implementation step is checked against them:</p>
+<ol>
+<li><strong>One place for boot parameters.</strong> Any new OS/mechanism boot parameter goes
+   through the G0 builders. Never introduce new string-manipulation call sites,
+   even temporarily.</li>
+<li><strong>Migration-friendly raw profiles.</strong> G1 must not add schema or behavior to
+   <code>rhnKSData</code> that makes the later migration to the G4 unified entity harder
+   (no wizard-era columns, keep ks_type semantics collapsible).</li>
+<li><strong>Metadata-driven UI.</strong> G2 pages render profile types from type metadata /
+   entity fields; adding a G4 type or a G3 deployment kind must not require new
+   UI per type beyond configuration/metadata.</li>
+<li><strong>No new Cobbler coupling.</strong> No new feature may add a dependency that only
+   works through Cobbler specifics (Cheetah snippets, cobbler-only fields,
+   <code>/cblr/svc</code> URLs). New functionality must fit the future InstallServer seam
+   (G6). Reuse of existing cobbler plumbing during transition is fine.</li>
+<li><strong>Public behavior preserved.</strong> XML-RPC API and spacecmd behavior stays
+   compatible unless a goal explicitly changes it; removals are announced by
+   deprecation in docs/changelogs.</li>
+<li><strong>Schema discipline.</strong> All schema changes are additive with proper upgrade
+   scripts in the current upgrade directory; never edit generated
+   <code>main.sql</code>/blend outputs directly; add <code>.changes.&lt;author&gt;.&lt;topic&gt;</code>
+   fragments, never touch master <code>.changes</code>.</li>
+<li><strong>Scope discipline.</strong> Smallest complete change per step; no opportunistic
+   modernization of adjacent code; each step compiles, passes checkstyle, and
+   carries its own tests (DB/cobbler-free where possible).</li>
+<li><strong>Verify against deployed instance</strong> (VM, <code>AGENTS_CUSTOM.md</code> §3) whenever a
+   step changes runtime behavior; record deployed package version in reports.</li>
+</ol>
+<hr />
+<h2 id="5-locked-design-decisions">5. Locked design decisions</h2>
+<p>Decisions made in planning round 1. Changing any of these requires editing this
+document and noting it in the roadmap changelog.</p>
+<h3 id="51-sle16agama-identity-committed-code-wins">5.1 SLE16/Agama identity — committed code wins</h3>
+<p>The branch&rsquo;s committed behavior is the baseline:</p>
+<ul>
+<li>Install type label: <strong><code>opensuse16.1</code></strong> (&ldquo;SUSE Linux Enterprise 16&rdquo;), as
+  committed in <code>rhnKSInstallType.sql</code> +
+  <code>schema/spacewalk/upgrade/next/001-add-sle16-install-type.sql</code>.</li>
+<li>Cobbler breed for SLE16 stays <strong><code>suse</code></strong> (as committed in
+  <code>KickstartInstallType.getCobblerBreed()</code>), <em>not</em> <code>generic</code>.</li>
+<li>URL scheme: <strong><code>http://</code></strong> without <code>?ssl_verify=no</code> for the Agama
+  <code>root=live:</code> squashfs URL (as committed in <code>TreeCreateOperation</code>).</li>
+<li>The Agama kernel-options builder must be written to reproduce the committed
+  strings (<code>root=live:</code>, <code>inst.self_update=</code>, <code>inst.auto=</code>).</li>
+<li>Factory still routes <code>isSLES16OrGreater()</code> → Agama builder <strong>before</strong> the
+  generic SUSE branch; routing is by install type, breed remains <code>suse</code>.
+  Implication: Cobbler continues to apply suse-breed behavior; the Agama
+  builder must be idempotent against that (see guardrail 1 and roadmap step
+  1.1). Routing by breed alone would misroute SLE16 to the AutoYaST builder.</li>
+<li><strong>Cobbler dependency:</strong> full Agama PXE install requires a cobbler build
+  containing <a href="https://github.com/openSUSE/cobbler/pull/177">openSUSE/cobbler PR #177</a>
+  (&ldquo;openSUSE Agama Support for 3.3.x&rdquo;, port of cobbler#4001): Leap 16 distro
+  signature + Agama templates, and <code>tftpgen</code> emitting <code>inst.auto=</code> for
+  suse-breed distros whose os_version is not on the AutoYaST denylist. The
+  cobbler deployed on the agent VM may lack this — check before any SLE16 E2E
+  validation.</li>
+<li><strong>URL scheme configurability deferred:</strong> Agama accepts <code>http://</code> (tested,
+  works); some users mandate <code>https://</code>, at least one mandates <code>http://</code>.
+  Making the scheme configurable is postponed until Uyuni controls the full
+  kernel command line (post-Cobbler, G6); today the PXE-time <code>inst.auto=</code> is
+  added by cobbler and outside Uyuni&rsquo;s domain.</li>
+</ul>
+<h3 id="52-kickstart-raw-upload-only">5.2 Kickstart = raw upload only</h3>
+<p>Wizard UI and wizard-mode file generation are dropped; only pre-created file
+upload is supported (AutoYaST-style).</p>
+<h3 id="53-feature-tiering-for-profile-level-features">5.3 Feature tiering for profile-level features</h3>
+<p>Support features that currently exist in wizard mode are decided
+feature-by-feature, not wholesale. Each feature gets an explicit entry in the
+roadmap open-questions register with one of: <em>must-keep (migrate to React)</em>,
+<em>drop</em>, or <em>under review</em>. The initial register is in <code>10-roadmap.md</code> §5.</p>
+<h3 id="54-saltboot-full-workflow-integration">5.4 Saltboot = full workflow integration</h3>
+<p>Saltboot deployment becomes a first-class autoinstallation deployment type in
+the Java domain (G3); formula states remain execution engine only.</p>
+<h3 id="55-generic-mechanisms-new-unified-entity">5.5 Generic mechanisms = new unified entity</h3>
+<p>cloud-init/ignition/combustion are modeled on a new unified type-based
+autoinstallation profile entity; extending <code>rhnKSData.ks_type</code> was rejected
+(legacy naming would persist forever and the CHECK-constraint approach limits
+type metadata).</p>
+<h3 id="56-cobbler-exit-seam-design-only">5.6 Cobbler exit = seam + design only</h3>
+<p>No cobbler removal or replacement implementation in these sessions; only the
+abstraction seam and design documents.</p>
+<h3 id="57-implementation-order">5.7 Implementation order</h3>
+<p><code>G0 → G1+G2 → G3 → G4+G5 → G6-prep</code>, as elaborated in <code>10-roadmap.md</code>. UI work
+(G2) lands early as the foundation all later features surface through.</p>
+<h3 id="58-resolved-technical-decisions-planning-round-1">5.8 Resolved technical decisions (planning round 1)</h3>
+<p>Answers to the initial open-questions register, promoted to decisions.</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kernel options vs Cobbler <code>tftpgen</code></td>
+<td>While Cobbler renders PXE entries it adds breed-specific options itself (<code>autoyast=</code> vs <code>inst.auto=</code> per os_version denylist, PR #177); the Salt provisioning path adds <code>autoyast=</code>/<code>inst.auto=</code> in Uyuni (already implemented). Builders must centralize per-distro/breed enhancement so the G6 switch needs no call-site surgery. Saltboot owns its whole command line via the <code>generic</code> breed (reference pattern).</td>
+</tr>
+<tr>
+<td>Agama URL scheme</td>
+<td><code>http://</code> works and is tested; <code>https://</code> mandated by some users, <code>http://</code> by at least one → configurable scheme deferred until Uyuni controls the full kernel command line (§5.1).</td>
+</tr>
+<tr>
+<td>Raw profile content storage</td>
+<td>Stays on disk (Cobbler templates dir) until G6; revisit with the unified-entity serving design (roadmap step 2.1 notes this constraint).</td>
+</tr>
+<tr>
+<td><code>useonlinerepo</code> flag</td>
+<td>Must survive builder refactors — required for SLE15 with synced channels instead of full DVD (<code>DownloadFile</code> string dependency, §6.3 item 13).</td>
+</tr>
+<tr>
+<td>Registration via Cobbler snippets</td>
+<td>Stays as-is until G6; the replacement activation-key delivery mechanism is part of G6 discovery (roadmap step 5.2).</td>
+</tr>
+<tr>
+<td>Proxy compatibility contract</td>
+<td><code>containers/proxy-tftpd-image/tftp_wrapper.py</code> may be adjusted, but an <strong>older proxy container must keep working against a newer server</strong> — no breaking changes to served PXE-entry formats; optimizations only (roadmap step 5.3).</td>
+</tr>
+<tr>
+<td>Ubuntu/Debian autoinstallation</td>
+<td>Considered <strong>non-existent</strong>: leftover bits do not work at all. The Debian kernel-options builder is at most a behavior-preserving stub for the initiate path; real support is from-scratch future work outside the current phases.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-current-state-fact-sheet">6. Current-state fact sheet</h2>
+<p>Condensed research (2026-10-07) so future sessions don&rsquo;t re-explore. Paths
+relative to repo root.</p>
+<h3 id="61-data-model">6.1 Data model</h3>
+<ul>
+<li><code>java/core/src/main/java/com/redhat/rhn/domain/kickstart/KickstartData.java</code>
+  → table <code>rhnKSData</code>, SINGLE_TABLE inheritance, discriminator column
+  <code>ks_type</code> (<code>wizard</code> | <code>raw</code>, CHECK constraint in
+  <code>schema/spacewalk/common/tables/rhnKSData.sql</code>).</li>
+<li><code>KickstartRawData</code> (<code>ks_type='raw'</code>): raw text is <strong>not in the DB</strong>;
+  <code>getData()</code> reads the file named by the Cobbler profile&rsquo;s <code>kickstart</code> field
+  under <code>ConfigDefaults.getKickstartConfigDir()</code> (= <code>/var/lib/cobbler/templates/</code>).</li>
+<li><code>KickstartableTree</code> (<code>rhnKickstartableTree</code>): <code>kernel_options</code>,
+  <code>kernel_options_post</code>, <code>base_path</code>, <code>install_type</code> FK, <code>cobbler_id</code>.</li>
+<li><code>KickstartInstallType</code> (<code>rhnKsInstallType</code>): labels incl. <code>sles*</code>,
+  <code>opensuse*</code> (SLE16 = <code>opensuse16.1</code>), <code>rhel_*</code>, <code>generic_rpm</code>; breeds
+  <code>suse</code>/<code>redhat</code>/<code>generic</code>; SLE16 predicates <code>isSLES16()</code>/<code>isSLES16OrGreater()</code>
+  exist on this branch.</li>
+<li>AutoYaST is <em>not</em> a separate entity — SUSE profiles are <code>ks_type='raw'</code>;
+  <code>KickstartBuilder.buildCommands</code> refuses to parse XML/JSON content, so
+  AutoYaST/Agama files are stored as-is.</li>
+</ul>
+<h3 id="62-renderingserving-chain-cobbler-centric">6.2 Rendering/serving chain (Cobbler-centric)</h3>
+<ol>
+<li>Java writes profile file to <code>/var/lib/cobbler/templates/{wizard,upload}/</code>
+   (<code>KickstartFactory.saveKickstartData</code>; wizard content generated by
+   <code>KickstartFormatter</code> incl. <code>$SNIPPET(...)</code> Cheetah directives).</li>
+<li>Cobbler renders (Cheetah) and serves
+   <code>/cblr/svc/op/autoinstall/{profile,system}/&lt;name&gt;</code>.</li>
+<li>Java proxies/rewrites: <code>zz-spacewalk-www.conf</code> rewrites <code>/ks/cfg/*</code> →
+   <code>RenderKickstartFileAction</code>; <code>KickstartManager.renderKickstart</code> fetches from
+   Cobbler; <code>/ks/dist/*</code> → <code>DownloadFile</code> serves tree media <strong>directly from
+   disk</strong> (no Cobbler).</li>
+<li>Registration/activation keys ride on Cobbler snippets
+   (<code>java/conf/cobbler/snippets/redhat_register_using_salt</code> et al.) and
+   <code>redhat_management_key</code> fields.</li>
+</ol>
+<h3 id="63-kernel-options-inventory-buildtransformdependency-sites">6.3 Kernel-options inventory (build/transform/dependency sites)</h3>
+<p>Primary build sites (legacy inline string logic, to be replaced by builders):</p>
+<ol>
+<li><code>manager/kickstart/tree/TreeCreateOperation#store</code> — distro options
+   (<code>root=live:</code>+<code>inst.self_update=</code> for SLE16, <code>install=</code>/<code>self_update=</code> for
+   SUSE, <code>inst.repo=</code> for RHEL8+), persisted into
+   <code>KickstartableTree.kernelOptions</code>.</li>
+<li><code>manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions</code>
+   — suse-breed system options (<code>install=</code>, <code>self_update=</code>).</li>
+<li><code>domain/action/kickstart/KickstartInitiateAction#buildKernelOptions</code> — Salt
+   local-reboot (<code>text</code>→<code>textmode</code>, <code>ks=</code>/<code>autoyast=</code>/<code>inst.auto=</code>/<code>url=</code>,
+   debian <code>auto-install/enable=... url=</code>, <code>info=</code>), hand-rolled map serializer.</li>
+</ol>
+<p>Additional touchpoints (consume, persist, or transform):</p>
+<ol start="4">
+<li><code>KickstartScheduleCommand#getExtraOptions</code> — prepends <code>ksdevice=</code> + user
+   options; feeds both the cobbler system record and the action.</li>
+<li><code>ScheduleKickstartWizardAction#parseKernelOptions</code> (+ <code>SSMScheduleCommand</code>)
+   — resolves distro/profile/custom options from Cobbler (wizard UI; dies with
+   G1/G2).</li>
+<li><code>tree/BaseTreeEditOperation</code> — pushes tree options into Cobbler <code>Distro</code>
+   (edit-path twin of site 1).</li>
+<li><code>cobbler/CobblerDistroHelper</code> — sets distro kernel options on create/update.</li>
+<li><code>cobbler/CobblerProfileCommand#updateCobblerFields</code> — profile-level options
+   (the Phase 1 &ldquo;profile path&rdquo; target, <code>20-kernel-options.md</code> §5.4).</li>
+<li><code>cobbler/CobblerDistroSyncCommand#backsyncKernelOptions</code> — reverse sync
+   Cobbler → DB (CobblerSyncTask).</li>
+<li>XML-RPC <code>KickstartTreeHandler</code> — passes caller kernel options into tree ops.</li>
+<li><code>com/suse/manager/saltboot/SaltbootUtils</code> + <code>PXEEventMessageAction</code> —
+    saltboot PXE option maps (<code>panic=60 splash=silent</code>, per-terminal params).</li>
+<li><code>KickstartCloneCommand</code> — copies options on clone.</li>
+<li><code>DownloadFile</code> — <em>depends</em> on the literal string <code>useonlinerepo</code> in tree
+    kernel options (format coupling to preserve; required for SLE15 with
+    synced channels — decision §5.8).</li>
+</ol>
+<h3 id="64-cobbler-footprint-context-for-g6">6.4 Cobbler footprint (context for G6)</h3>
+<ul>
+<li>Version <strong>3.3.3</strong> (SUSE fork). XML-RPC API localhost-only
+  (<code>spacewalk/config/etc/httpd/conf.d/01-cobblerapi.conf</code>); auth via
+  <code>authentication.spacewalk</code> module.</li>
+<li>Agama/SLE16 PXE install requires cobbler with openSUSE/cobbler PR #177
+  (Leap 16 distro signature, Agama templates/snippets, <code>tftpgen</code> emitting
+  <code>inst.auto=</code> for suse-breed distros whose os_version is not on the AutoYaST
+  denylist — see §5.1). Deployment environments (e.g. the agent VM) may ship an
+  older cobbler without it.</li>
+<li>Java client: <code>java/core/src/main/java/org/cobbler/</code> + commands under
+  <code>manager/kickstart/cobbler/</code> (profile/distro/system CRUD, power management,
+  snippets, sync).</li>
+<li>Taskomatic <code>CobblerSyncTask</code> every 5 min (backsync kernel options, re-point
+  profiles to newest tree); <code>KickstartFileSyncTask</code> regenerates wizard files.</li>
+<li>Cobbler writes PXE menus into <code>/srv/tftpboot</code> on <code>cobbler sync</code> +
+  <code>cobbler mkloaders</code>; Uyuni salt states do <strong>not</strong> write PXE files.</li>
+<li>Python usage is minimal: <code>python/uyuni-cobbler-helper/uyuni_cobbler_helper.py</code>
+  (DB queries imported by Cheetah templates for <code>autoyast_channels</code>/<code>root_ca</code>
+  snippets).</li>
+<li>Saltboot also creates Cobbler distros/profiles/system records
+  (<code>com/suse/manager/saltboot/SaltbootUtils</code>).</li>
+<li>Proxy: <code>containers/proxy-tftpd-image/tftp_wrapper.py</code> fetches PXE entries via
+  HTTP and filters/rewrites them (must stay compatible in G6 design).</li>
+</ul>
+<h3 id="65-saltboot-flow-context-for-g3">6.5 Saltboot flow (context for G3)</h3>
+<ol>
+<li>Kiwi OS image built on build host → collected to server (<code>ImageFile</code>:
+   image/kernel/initrd/bundle) → OS-image pillar
+   (<code>SaltStateGeneratorService.generateOSImagePillar</code>).</li>
+<li><code>SaltbootUtils.createSaltbootDistro/Profile/System</code> create Cobbler PXE
+   entries (boot image kernel/initrd, per-terminal records with
+   <code>root=</code>/<code>salt_device=</code>/MAC).</li>
+<li>Terminal PXE-boots into saltboot initrd; on minion start
+   <code>RegisterMinionEventMessageAction</code> assigns branch/terminal groups and
+   triggers <code>state.apply</code> of the saltboot formula (external states).</li>
+<li>Formula emits salt event <code>suse/manager/pxe_update</code> → <code>PXEEventMessageAction</code>
+   updates the Cobbler system record (<code>root=&lt;device&gt;</code> → boot from disk) and
+   resets force-redeploy flags.</li>
+<li>Partitioning config today = group formula form (<code>formula-saltboot-group</code>
+   pillar, React formula framework).</li>
+</ol>
+<h3 id="66-ui-state">6.6 UI state</h3>
+<ul>
+<li>All autoinstallation pages are Struts/JSP: 54 action classes +
+  31 JSPs (<code>java/webapp/src/main/webapp/WEB-INF/pages/kickstart/</code>), struts
+  mappings, nav XMLs (<code>WEB-INF/nav/kickstart_*.xml</code>). Menu node: Systems ▸
+  Kickstart in <code>MenuTree.getSystemsNode()</code>.</li>
+<li>Zero React for autoinstallation. Existing React patterns to copy: images
+  feature (<code>web/html/src/manager/images/</code>, controllers <code>Image*Controller</code>),
+  formula framework (<code>web/html/src/components/FormulaForm.tsx</code>),
+  formik forms, Spark controller + jade + <code>spaImportReactPage</code> wiring.</li>
+</ul>
+<h3 id="67-generic-mechanisms-today">6.7 Generic mechanisms today</h3>
+<ul>
+<li>cloud-init: no product support (test fixtures only).</li>
+<li>ignition: nothing.</li>
+<li>combustion: only as an EIB side-path inside
+  <code>susemanager-utils/susemanager-sls/salt/images/kiwi-image-build.sls</code>
+  (extracts <code>combustion.iso</code> into the Kiwi image <code>/oem</code>).</li>
+</ul>
+<hr />
+<h2 id="7-non-goals">7. Non-goals</h2>
+<ul>
+<li>No pxelinux support anywhere in the overhaul (grub only; UKI-extensible).</li>
+<li>No Cobbler removal implementation — preparation only (§5.6).</li>
+<li>No support for running cloud-init on already-registered minions (G4 is about
+  installation/bootstrapping profiles, not minion runtime config).</li>
+<li>No acceptance-test work (<code>testsuite/</code> runs in CI only).</li>
+<li>No wholesale rewrites of adjacent legacy code beyond what the goals require.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>00-goals.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

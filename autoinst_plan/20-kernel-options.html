@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20-kernel-options — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">20-kernel-options</p>
+<a class="h2" href="#1-starting-point">1. Starting point</a>
+<a class="h2" href="#2-builder-contract">2. Builder contract</a>
+<a class="h2" href="#3-factory-routing">3. Factory routing</a>
+<a class="h2" href="#4-url-catalogue-legacy-forms-to-reproduce">4. URL catalogue (legacy forms to reproduce)</a>
+<a class="h2" href="#5-legacy-behavior-catalogue-what-the-builders-must-reproduce">5. Legacy behavior catalogue (what the builders must reproduce)</a>
+<a class="h3" href="#51-distro-path-managerkickstarttreetreecreateoperationstore">5.1 Distro path — manager/kickstart/tree/TreeCreateOperation#store</a>
+<a class="h3" href="#52-system-path-managerkickstartcobblercobblersystemcreatecommandprocesskerneloptions">5.2 System path — manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions</a>
+<a class="h3" href="#53-initiate-path-domainactionkickstartkickstartinitiateactionbuildkerneloptions">5.3 Initiate path — domain/action/kickstart/KickstartInitiateAction#buildKernelOptions</a>
+<a class="h3" href="#54-profile-path-frontendactionkickstartkickstartdetailseditaction-cobblerprofilecommandupdatecobblerfields">5.4 Profile path — frontend/action/kickstart/KickstartDetailsEditAction → CobblerProfileCommand#updateCobblerFields</a>
+<a class="h3" href="#55-channel-lookup-discrepancy-preserve-legacy-semantics">5.5 Channel lookup discrepancy (preserve legacy semantics)</a>
+<a class="h2" href="#6-cobbler-tftpgen-interaction-why-idempotency-matters">6. Cobbler tftpgen interaction (why idempotency matters)</a>
+<a class="h2" href="#7-test-outline">7. Test outline</a>
+<a class="h2" href="#8-e2e-verification-notes">8. E2E verification notes</a>
+</nav>
+<main>
+<article>
+<h1 id="phase-1-reference-kernel-options-builders">Phase 1 Reference — Kernel Options Builders</h1>
+<blockquote>
+<p>Reference catalogue for roadmap Phase 1 (<code>10-roadmap.md</code>): the builder
+contract, factory routing, and the exact legacy behavior/strings that the
+builders must reproduce. <strong>Treat this as a behavioural specification, not a
+mandated implementation</strong> — the code may be structured differently as long as
+the produced kernel command lines and the extension points match.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-07</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1/§5.8, <code>10-roadmap.md</code> Phase 1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-starting-point">1. Starting point</h2>
+<p><code>com.suse.manager.autoinstallation.KernelOptionsList</code> (+
+<code>KernelOptionsListTest</code>) already exists on this branch: an order-preserving,
+multi-value kernel option container with string parsing (quoted values),
+<code>Map&lt;String,Object&gt;</code> ingestion (values may be <code>String</code> or <code>List&lt;String&gt;</code> —
+shaped for <code>CobblerObject#getResolvedKernelOptions()</code>), <code>setOption(key, value,
+replace)</code> plus <code>setOptionIfNotPresent</code> / <code>setFlagIfNotPresent</code> /
+<code>setOptionOrReplace</code>, <code>addOption(s)</code>, <code>addMissingOptions(other)</code>,
+<code>applyOverrides(other)</code>, <code>removeOption</code>, <code>hasOption(key[, value])</code>, <code>getValue</code>
+and a <code>toString()</code> rendering <code>key</code> / <code>key=value</code> space-separated. Everything
+else in this document is to be built.</p>
+<h2 id="2-builder-contract">2. Builder contract</h2>
+<p>Interface <code>KernelOptionsBuilder</code> with per-OS-class implementations:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Produces</th>
+<th>Idempotent?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>distroOptions(KickstartableTree)</code></td>
+<td>Boot-the-distro options (<code>install=</code>, <code>inst.repo=</code>, <code>root=live:</code>, <code>self_update=</code>/<code>inst.self_update=</code>). Result is <strong>persisted</strong> into <code>KickstartableTree.kernelOptions(_post)</code> and recomputed on every tree create/edit.</td>
+<td><strong>Yes</strong> (add-if-absent)</td>
+</tr>
+<tr>
+<td><code>selfUpdateOption(KickstartableTree)</code></td>
+<td>Just the installer-updates option (<code>self_update=</code> URL or <code>=0</code>; <code>inst.self_update=</code> for Agama). Extracted so the system path can reuse it; empty for RHEL.</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>profileOptions(Profile)</code></td>
+<td>Profile-tied options (<code>inst.auto=&lt;profileUrl&gt;</code> + <code>inst.auto_insecure</code> for Rhel and Agama builders; empty for AutoYaST/Debian).</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>systemOptions(SystemRecord)</code></td>
+<td>Per-system options (<code>ks=</code>/<code>inst.ks.sendmac</code>/<code>kssendmac</code>, <code>autoyast=</code>, debian <code>auto-install/... url=</code>).</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>networkBoot(tree, system)</code></td>
+<td>Full PXE line = distro + profile + system + <code>info=</code>.</td>
+<td>n/a (fresh)</td>
+</tr>
+<tr>
+<td><code>localBoot(tree, system)</code></td>
+<td>Full Salt local-reboot line = distro + profile + system.</td>
+<td>n/a (fresh)</td>
+</tr>
+</tbody>
+</table>
+<p>Shared abstract base holds: configurable <code>serverFqdn</code> (callers pass the
+<em>kickstart host</em>, which is not always <code>ConfigDefaults.getJavaHostname()</code>),
+optional <code>User</code> context (see §5.1), URL helpers (dist tree, installer-updates
+child, cobbler autoinstall/nopxe service URLs), and default
+<code>networkBoot</code>/<code>localBoot</code> compositions.</p>
+<p><code>KernelOptionsBuilderException</code> for null/invalid inputs.</p>
+<h2 id="3-factory-routing">3. Factory routing</h2>
+<p>Primary entry point: <code>getBuilder(KickstartInstallType)</code>:</p>
+<ol>
+<li><code>isSLES16OrGreater()</code> → <strong>Agama</strong> builder (checked <em>before</em> SUSE —
+   <code>opensuse16.1</code> starts with <code>sles</code>-family prefixes and <code>isSUSE()</code> is true for
+   it).</li>
+<li><code>isSUSE()</code> → <strong>AutoYaST</strong> builder.</li>
+<li><code>isRhel()</code> / <code>isFedora()</code> / <code>isGeneric()</code> → <strong>RHEL</strong> builder.</li>
+<li>else → default builder.</li>
+</ol>
+<p><strong>Never route by cobbler breed alone</strong>: SLE16 has breed <code>suse</code>
+(locked decision <code>00-goals.md</code> §5.1), so breed-based dispatch misroutes SLE16
+to the AutoYaST builder. Breed-based fallback (<code>getBuilderForBreed</code>) exists
+only for paths where no install type can be resolved (today: the theoretical
+debian/ubuntu case; Ubuntu/Debian support is effectively non-existent —
+<code>00-goals.md</code> §5.8).</p>
+<p>Callers that have a <code>KickstartableTree</code> in hand (all Phase 1 sites do, directly
+or via the cobbler distro name <code>&lt;treeLabel&gt;:&lt;orgId&gt;</code>) must use the
+install-type routing.</p>
+<h2 id="4-url-catalogue-legacy-forms-to-reproduce">4. URL catalogue (legacy forms to reproduce)</h2>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distro tree</td>
+<td><code>http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;</code></td>
+</tr>
+<tr>
+<td>Installer-updates child tree</td>
+<td><code>http://&lt;fqdn&gt;/ks/dist/child/&lt;childChannelLabel&gt;/&lt;treeLabel&gt;</code></td>
+</tr>
+<tr>
+<td>Agama live root</td>
+<td><code>http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;/LiveOS/squashfs.img</code></td>
+</tr>
+<tr>
+<td>Cobbler profile autoinstall</td>
+<td><code>http://&lt;fqdn&gt;/cblr/svc/op/autoinstall/profile/&lt;profileName&gt;</code> (see <code>KickstartUrlHelper.getCobblerProfileUrl</code>)</td>
+</tr>
+<tr>
+<td>Cobbler system autoinstall</td>
+<td><code>http://&lt;fqdn&gt;/cblr/svc/op/autoinstall/system/&lt;systemName&gt;</code></td>
+</tr>
+<tr>
+<td>Cobbler nopxe signaling</td>
+<td><code>http://&lt;fqdn&gt;/cblr/svc/op/nopxe/system/&lt;systemName&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>Scheme is <code>http://</code> everywhere for now (Agama included — <code>00-goals.md</code> §5.1);
+scheme configurability is deferred until post-Cobbler.</p>
+<h2 id="5-legacy-behavior-catalogue-what-the-builders-must-reproduce">5. Legacy behavior catalogue (what the builders must reproduce)</h2>
+<h3 id="51-distro-path-managerkickstarttreetreecreateoperationstore">5.1 Distro path — <code>manager/kickstart/tree/TreeCreateOperation#store</code></h3>
+<p>Runs on tree create and, via the persisted result, effectively re-runs on edit
+(<code>BaseTreeEditOperation</code>). Guards make it idempotent; <strong>user-typed options
+must win</strong> over computed ones.</p>
+<pre><code>if installType.isSUSE():
+    if &quot;install=&quot; absent:    add install=http://&lt;serverFqdn&gt;/ks/dist/&lt;treeLabel&gt;
+    if &quot;self_update=&quot; absent:
+        installer-updates child of tree.channel (user-scoped lookup, §5.5)
+        present → self_update=http://&lt;fqdn&gt;/ks/dist/child/&lt;child&gt;/&lt;treeLabel&gt;
+        absent  → self_update=0
+if SLE16 (isSLES16OrGreater):            # committed Agama behavior
+    add root=live:http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;/LiveOS/squashfs.img
+    if absent: inst.self_update=&lt;installer-updates URL | 0&gt;
+else if installType.isRhel8OrGreater() and &quot;inst.repo=&quot; absent:
+    add inst.repo=http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;
+</code></pre>
+<ul>
+<li><code>serverFqdn</code> here resolves the <strong>local server FQDN</strong> (canonical hostname of
+  the local server), not <code>JavaHostname</code> — pass it into the builder.</li>
+<li>Merge pattern: parse existing <code>tree.getKernelOptions()</code> into
+  <code>KernelOptionsList</code>, then <code>addMissingOptions(builder.distroOptions(tree))</code> so
+  user-typed keys keep precedence.</li>
+<li>SLE16 detection in this path is via install type (<code>isSLES16OrGreater()</code>),
+  matching the committed code.</li>
+</ul>
+<h3 id="52-system-path-managerkickstartcobblercobblersystemcreatecommandprocesskerneloptions">5.2 System path — <code>manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions</code></h3>
+<p>Fires for <strong>suse breed</strong> profiles only, only when <code>kernelOptions</code>,
+<code>kickstartHost</code> and <code>mediaPath</code> are all non-null:</p>
+<pre><code>if &quot;install=&quot; absent:   add install=http://&lt;kickstartHost&gt;&lt;mediaPath&gt;
+self_update: skip when profile's RESOLVED options contain self_update=0,
+             or the string already has self_update=, or ksData == null;
+             otherwise add self_update=&lt;installer-updates URL | 0&gt;
+             (user-scoped child-channel lookup)
+</code></pre>
+<ul>
+<li>Note the <strong>different <code>install=</code> form</strong>: <code>mediaPath</code> (the cobbler
+  <code>ks_meta media_path</code>), not <code>/ks/dist/&lt;label&gt;</code>. Preserve exactly.</li>
+<li><code>kernelOptions</code> at this point already contains the user options + <code>ksdevice=</code>
+  produced by <code>KickstartScheduleCommand#getExtraOptions</code>.</li>
+<li>Result is set on the <code>SystemRecord</code> (plus <code>kernelOptionsPost</code> handling).</li>
+<li>Suggested split (inspiration, not mandate): keep the media-path <code>install=</code>
+  local to the command (it is media-specific), delegate the <code>self_update</code>
+  part to <code>builder.selfUpdateOption(tree)</code> so the logic lives once. For SLE16
+  profiles this path must produce the Agama-compatible result (route by
+  install type, not breed).</li>
+</ul>
+<h3 id="53-initiate-path-domainactionkickstartkickstartinitiateactionbuildkerneloptions">5.3 Initiate path — <code>domain/action/kickstart/KickstartInitiateAction#buildKernelOptions</code></h3>
+<p>Salt local-reboot of a registered minion; input is the <strong>fully resolved</strong>
+cobbler options map (distro + profile + system already merged) plus the
+kickstart host:</p>
+<pre><code>breed = distro.getBreed()          # suse for SLES and SLE16
+kopts = KernelOptionsList(resolvedMap)
+
+if breed == &quot;suse&quot;:
+    if kopts has &quot;textmode&quot;: remove &quot;text&quot;
+    elif kopts has &quot;text&quot;:   remove &quot;text&quot;; set textmode=1
+remove &quot;initrd&quot;                    # no extra initrd param allowed
+
+per breed:
+  redhat/blank:  rhel6 → &quot;kssendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
+                 else  → &quot;inst.ks.sendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
+  suse:          &quot;autoyast=&lt;systemAutoinstallUrl&gt;&quot;
+  debian/ubuntu: &quot;auto-install/enable=true priority=critical
+                  netcfg/choose_interface=auto url=&lt;systemAutoinstallUrl&gt;&quot;
+  SLE16:         &quot;inst.auto=&lt;url&gt;&quot;     # committed behavior for os_version opensuse16*
+
+if autoinstall (always true on this path):
+    add info=http://&lt;kickstartHost&gt;/cblr/svc/op/nopxe/system/&lt;systemName&gt;
+</code></pre>
+<ul>
+<li>Host is the <strong>kickstart host</strong>. Scheme <code>http://</code>.</li>
+<li>The SLE16 <code>inst.auto=</code> variant must be selected via install type (resolve the
+  tree from the cobbler distro name <code>&lt;treeLabel&gt;:&lt;orgId&gt;</code>, which
+  <code>prepareCobblerBoot</code> already parses) — breed is <code>suse</code> for both SLES15 and
+  SLE16.</li>
+<li>The shared <code>text</code>→<code>textmode</code> transform belongs in one helper, applied only
+  for suse breed.</li>
+<li>Replace the hand-rolled map serializer with <code>KernelOptionsList(Map)</code> +
+  <code>toString()</code> (fixes the legacy missing-space-before-<code>autoyast</code> quirk, which
+  was masked by a trailing space; harmless normalization).</li>
+<li>The debian/ubuntu branch is a behavior-preserving stub only (§5.8 of goals);
+  real Debian support would be from-scratch work.</li>
+</ul>
+<h3 id="54-profile-path-frontendactionkickstartkickstartdetailseditaction-cobblerprofilecommandupdatecobblerfields">5.4 Profile path — <code>frontend/action/kickstart/KickstartDetailsEditAction</code> → <code>CobblerProfileCommand#updateCobblerFields</code></h3>
+<p>The profile&rsquo;s kernel options (UI field) are pushed to the cobbler profile on
+every profile create/edit. Integration intent:</p>
+<ul>
+<li>Route the user-typed string through <code>KernelOptionsList</code> (idempotent
+  handling, quoting safety).</li>
+<li>Apply <code>builder.profileOptions(...)</code> (e.g. <code>inst.auto=&lt;profileUrl&gt;</code> +
+  <code>inst.auto_insecure</code> for RHEL and Agama) <strong>after</strong> the cobbler profile
+  exists (create path: after <code>CobblerProfileCreateCommand</code> assigned the
+  cobbler id), merged with <code>addMissingOptions</code> so user values win and
+  repeated edits stay idempotent. AutoYaST/Debian <code>profileOptions</code> are empty
+  → profile untouched.</li>
+<li>Cobbler profile inheritance is not used by Uyuni; always writing explicit
+  options is safe.</li>
+</ul>
+<h3 id="55-channel-lookup-discrepancy-preserve-legacy-semantics">5.5 Channel lookup discrepancy (preserve legacy semantics)</h3>
+<p>The distro/system paths look up installer-updates children <strong>user-scoped</strong>
+(<code>channel.getAccessibleChildrenFor(user)</code>), while a naive builder would use
+<code>ChannelFactory.listAllChildrenForChannel</code> (org/global). Results can differ.
+Resolution: give the abstract builder an optional <code>User</code> context; when set,
+use the user-scoped lookup, else fall back to the org-global one. Set the user
+where the call site has one (<code>TreeCreateOperation</code>,
+<code>CobblerSystemCreateCommand</code>).</p>
+<h2 id="6-cobbler-tftpgen-interaction-why-idempotency-matters">6. Cobbler <code>tftpgen</code> interaction (why idempotency matters)</h2>
+<p>With breed <code>suse</code>, cobbler&rsquo;s <code>tftpgen.build_kernel_options</code> adds the
+installer-selection option itself when generating PXE entries: os_version
+values on its AutoYaST denylist get <code>autoyast=</code>, everything else (incl.
+<code>opensuse16*</code>) gets <code>inst.auto=</code> (cobbler PR #177). Consequences:</p>
+<ul>
+<li>As long as Cobbler generates PXE entries, Uyuni must not duplicate that
+  option on distro/profile records (keep builders idempotent and do not add
+  <code>autoyast=</code>/<code>inst.auto=</code> at the distro/system level).</li>
+<li>The Salt initiate path (§5.3) is the Uyuni-side equivalent and must keep
+  adding the option itself (the minion builds its own boot entry).</li>
+<li>After the Cobbler exit (G6), Uyuni owns the whole command line — the
+  builders are the single place that must then emit these options for PXE
+  entries too. Design the builders so flipping this on is one change, not a
+  call-site sweep.</li>
+<li>Saltboot bypasses all of this by using the <code>generic</code> breed and composing its
+  complete command line itself (reference pattern).</li>
+</ul>
+<h2 id="7-test-outline">7. Test outline</h2>
+<ul>
+<li><strong>Pure-logic (run locally):</strong> <code>KernelOptionsList</code> additions; each builder&rsquo;s
+  <code>distroOptions</code>/<code>selfUpdateOption</code>/<code>profileOptions</code>/<code>systemOptions</code> with
+  mocked <code>KickstartableTree</code>/<code>Profile</code>/<code>SystemRecord</code>/<code>Channel</code>; factory
+  routing (incl. SLE16-before-SUSE precedence); SUSE text→textmode helper.</li>
+<li><strong>Entity-level:</strong> <code>KickstartInstallType</code> predicates + cobbler breed/os
+  version for <code>opensuse16.1</code> (existing tests on this branch cover parts).</li>
+<li><strong>Call-site parity (CI where DB/cobbler needed):</strong> for each breed/install
+  type, assert the produced kernel-options string equals the legacy string
+  (modulo the documented whitespace normalization); user-typed options win
+  over computed ones; idempotency under repeated store() calls.</li>
+<li>Style gates: <code>mvn -pl java/core compile</code>, <code>checkstyle:check</code>.</li>
+</ul>
+<h2 id="8-e2e-verification-notes">8. E2E verification notes</h2>
+<ul>
+<li>Verify on the shared agent VM per <code>00-goals.md</code> §1 protocol (single VM,
+  manually recycled, coordinate with parallel agents; record deployed
+  package versions).</li>
+<li><strong>SLE16 caveat:</strong> Agama PXE install only works if the VM&rsquo;s cobbler includes
+  openSUSE/cobbler PR #177 (<code>00-goals.md</code> §5.1). Check
+  <code>rpm -q cobbler</code> / the cobbler changelog on the VM first; if absent, limit
+  SLE16 validation to the Salt-initiate path or unit-level evidence and note
+  it in the session log.</li>
+<li>Regression matrix for this phase: SLES15 tree/profile schedule (AutoYaST
+  strings unchanged), RHEL8+ tree (<code>inst.repo=</code>), SLE16 tree (<code>root=live:</code> +
+  <code>inst.self_update=</code>), minion re-provisioning via Salt initiate for SLES15
+  and SLE16.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>20-kernel-options.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>
