@@ -2,8 +2,7 @@
 """Regenerate the presentation HTML variants of the autoinst_plan documents.
 
 Usage: .venv/bin/python autoinst_plan/build_html.py
-Reads 00-goals.md / 10-roadmap.md / 20-kernel-options.md and writes the
-same-named .html files.
+Reads every *.md in this directory and writes the same-named .html files.
 """
 import pathlib
 import markdown
@@ -203,6 +202,5 @@ def build(md_path: pathlib.Path) -> pathlib.Path:
 
 
 if __name__ == "__main__":
-    for name in ("00-goals.md", "10-roadmap.md", "20-kernel-options.md"):
-        path = HERE / name
+    for path in sorted(HERE.glob("*.md")):
         print(f"{path} -> {build(path)}")

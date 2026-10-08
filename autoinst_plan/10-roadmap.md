@@ -19,22 +19,25 @@ Builder hierarchy, factory routing, and the catalogue of legacy strings to
 reproduce live in [`20-kernel-options.md`](20-kernel-options.md) — read it
 before starting any step here.
 
-### Step 1.1 — Port builder hierarchy (status: NOT STARTED)
+### Step 1.1 — Port builder hierarchy (status: DONE 2026-10-08)
 
-* Implement per `20-kernel-options.md` §2–§4: interface, abstract base
-  (configurable `serverFqdn`, optional `User` context), factory, builders
-  `Rhel` / `AutoYast` / `Agama` / `Debian` under
-  `com.suse.manager.autoinstallation.{builder,installer}`.
+* Implemented per `20-kernel-options.md` §2–§4 and the step design in
+  [`30-step-1.1-builders.md`](30-step-1.1-builders.md): interface, abstract
+  base (configurable `serverFqdn`, optional `User` context), factory, builders
+  `Rhel` / `AutoYast` / `Agama` under
+  `com.suse.manager.autoinstallation.{builder,installer}`; no Debian builder
+  (no debian/ubuntu install type exists — unroutable dead code, decision
+  recorded in the step design §1.3).
 * SLE16 baseline (`00-goals.md` §5.1): `opensuse16.1` install type, cobbler
   breed `suse`, `http://` URLs; factory routes `isSLES16OrGreater()` → Agama
-  **before** the SUSE branch; never route by breed alone (SLE16 would misroute).
+  **before** the SUSE branch; routing is install-type-only — unknown types
+  throw `KernelOptionsBuilderException`, no breed-based fallback.
 * `distroOptions` idempotent (`setOptionIfNotPresent`) — results are persisted
   and recomputed on tree create/edit.
-* Debian builder: behavior-preserving stub only (for the initiate path);
-  Ubuntu/Debian support is non-existent today and any real support is
-  from-scratch future work (`00-goals.md` §5.8).
-* Files: new package tree; unit tests pure-logic (mock
-  `KickstartableTree`/`Profile`/`SystemRecord`/`Channel`).
+* `profileOptions` stays in the contract but is empty until the Cobbler exit
+  (G6): cobbler's tftpgen owns the installer-selection option on PXE entries
+  (step design §1.4).
+* 34 DB-free unit tests; compile + checkstyle clean.
 
 ### Step 1.2 — Distro path (status: NOT STARTED)
 
@@ -59,19 +62,25 @@ before starting any step here.
 
 * Replace `KickstartInitiateAction#buildKernelOptions` and the hand-rolled map
   serializer per `20-kernel-options.md` §5.3: feed resolved cobbler options
-  into `KernelOptionsList`, shared SUSE `text`→`textmode` helper, compose via
-  builder (`systemOptions`/`localBoot`), keep `info=` (nopxe URL) behavior.
+  into `KernelOptionsList`, shared SUSE `text`→`textmode` helper (added here —
+  first caller), compose via the builder's `systemOptions`, keep `info=`
+  (nopxe URL) behavior.
+* Drop the dead debian/ubuntu branch (no debian/ubuntu install type exists)
+  and the rhel6 `kssendmac` branch (compat dropped — always
+  `inst.ks.sendmac`).
 * Route SLE16 by install type (tree resolved from the cobbler distro name in
   `prepareCobblerBoot`) — breed is `suse` for both SLES15 and SLE16.
 
 ### Step 1.5 — Profile path (status: NOT STARTED)
 
-* Wire `profileOptions` into profile create/edit:
+* Wire `profileOptions` handling into profile create/edit:
   `KickstartDetailsEditAction` → `CobblerProfileCommand#updateCobblerFields`
   (spec: `20-kernel-options.md` §5.4). Kernel options edited in the profile
-  details UI flow through `KernelOptionsList` instead of raw strings;
-  `inst.auto` for RHEL/Agama profiles merged add-if-absent after the cobbler
-  profile exists.
+  details UI flow through `KernelOptionsList` instead of raw strings.
+* Narrowed by the step 1.1 decision: no `inst.auto`/`inst.auto_insecure`
+  merge — `profileOptions` is empty until the Cobbler exit (G6), cobbler owns
+  the installer-selection option on PXE entries
+  (`30-step-1.1-builders.md` §1.4).
 
 ### Step 1.6 — Tests (status: NOT STARTED)
 
@@ -321,3 +330,9 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   finalized (`opensuse16.1` + `suse` breed + `http://`); technical open
   questions answered and promoted to decisions; Phase 1 behavioural reference
   extracted to `20-kernel-options.md`.
+* 2026-10-08 — planning round 2 (step 1.1 design): routing is install-type-only
+  (no breed fallback, unknown types throw), Debian builder dropped,
+  `profileOptions` empty until G6, rhel6 compat dropped; step 1.5 narrowed
+  accordingly. Design: `30-step-1.1-builders.md`.
+* 2026-10-08 — step 1.1 implemented and verified (34 DB-free tests,
+  checkstyle clean).

@@ -190,36 +190,29 @@ else in this document is to be built.</p>
 </tr>
 <tr>
 <td><code>selfUpdateOption(KickstartableTree)</code></td>
-<td>Just the installer-updates option (<code>self_update=</code> URL or <code>=0</code>; <code>inst.self_update=</code> for Agama). Extracted so the system path can reuse it; empty for RHEL.</td>
+<td>Just the installer-updates option (<code>self_update=</code> URL or <code>=0</code>; <code>inst.self_update=</code> for Agama). Extracted so the system path can reuse it; empty for RHEL. Returns a (possibly empty) <code>KernelOptionsList</code>.</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td><code>profileOptions(Profile)</code></td>
-<td>Profile-tied options (<code>inst.auto=&lt;profileUrl&gt;</code> + <code>inst.auto_insecure</code> for Rhel and Agama builders; empty for AutoYaST/Debian).</td>
+<td>Profile-tied options. <strong>Empty until the Cobbler exit (G6)</strong> — cobbler&rsquo;s <code>tftpgen</code> owns the installer-selection option on generated PXE entries, so Uyuni must not duplicate it on profile records. Kept in the contract as the G6 flip-switch (empty default in the base, enabling later is a one-line override).</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td><code>systemOptions(SystemRecord)</code></td>
-<td>Per-system options (<code>ks=</code>/<code>inst.ks.sendmac</code>/<code>kssendmac</code>, <code>autoyast=</code>, debian <code>auto-install/... url=</code>).</td>
+<td>Per-system options (<code>inst.ks.sendmac</code> + <code>ks=</code>, <code>autoyast=</code>, <code>inst.auto=</code> for Agama) — only for boot lines Uyuni composes itself (initiate path), never written to cobbler records.</td>
 <td>Yes</td>
-</tr>
-<tr>
-<td><code>networkBoot(tree, system)</code></td>
-<td>Full PXE line = distro + profile + system + <code>info=</code>.</td>
-<td>n/a (fresh)</td>
-</tr>
-<tr>
-<td><code>localBoot(tree, system)</code></td>
-<td>Full Salt local-reboot line = distro + profile + system.</td>
-<td>n/a (fresh)</td>
 </tr>
 </tbody>
 </table>
 <p>Shared abstract base holds: configurable <code>serverFqdn</code> (callers pass the
 <em>kickstart host</em>, which is not always <code>ConfigDefaults.getJavaHostname()</code>),
 optional <code>User</code> context (see §5.1), URL helpers (dist tree, installer-updates
-child, cobbler autoinstall/nopxe service URLs), and default
-<code>networkBoot</code>/<code>localBoot</code> compositions.</p>
+child, cobbler autoinstall service URL), and the empty <code>profileOptions</code>
+default. Boot-line composition (<code>networkBoot</code>/<code>localBoot</code> from the original
+round-1 design) was dropped: no Phase 1 call site composes a fresh boot line
+from builder parts — the initiate path works off the resolved cobbler options
+map (<code>30-step-1.1-builders.md</code> §3).</p>
 <p><code>KernelOptionsBuilderException</code> for null/invalid inputs.</p>
 <h2 id="3-factory-routing">3. Factory routing</h2>
 <p>Primary entry point: <code>getBuilder(KickstartInstallType)</code>:</p>
@@ -229,14 +222,14 @@ child, cobbler autoinstall/nopxe service URLs), and default
    it).</li>
 <li><code>isSUSE()</code> → <strong>AutoYaST</strong> builder.</li>
 <li><code>isRhel()</code> / <code>isFedora()</code> / <code>isGeneric()</code> → <strong>RHEL</strong> builder.</li>
-<li>else → default builder.</li>
+<li>else → <strong>throw <code>KernelOptionsBuilderException</code></strong> (no default builder).</li>
 </ol>
-<p><strong>Never route by cobbler breed alone</strong>: SLE16 has breed <code>suse</code>
-(locked decision <code>00-goals.md</code> §5.1), so breed-based dispatch misroutes SLE16
-to the AutoYaST builder. Breed-based fallback (<code>getBuilderForBreed</code>) exists
-only for paths where no install type can be resolved (today: the theoretical
-debian/ubuntu case; Ubuntu/Debian support is effectively non-existent —
-<code>00-goals.md</code> §5.8).</p>
+<p><strong>Routing is install-type-only (locked 2026-10-08, planning round 2)</strong>: no
+breed-based dispatch and no <code>getBuilderForBreed</code> fallback. <code>rhnKSInstallType</code>
+contains no debian/ubuntu type and Uyuni-created distros cannot carry a debian
+breed, so breed-based routing would only ever produce unreachable branches —
+there is no Debian builder. Real Debian support remains from-scratch future
+work (<code>00-goals.md</code> §5.8).</p>
 <p>Callers that have a <code>KickstartableTree</code> in hand (all Phase 1 sites do, directly
 or via the cobbler distro name <code>&lt;treeLabel&gt;:&lt;orgId&gt;</code>) must use the
 install-type routing.</p>
@@ -291,8 +284,10 @@ must win</strong> over computed ones.</p>
 if SLE16 (isSLES16OrGreater):            # committed Agama behavior
     add root=live:http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;/LiveOS/squashfs.img
     if absent: inst.self_update=&lt;installer-updates URL | 0&gt;
-else if installType.isRhel8OrGreater() and &quot;inst.repo=&quot; absent:
+else if isRhel8OrGreater() and &quot;inst.repo=&quot; absent:
     add inst.repo=http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;
+    # builder change: added unconditionally — inst.repo exists since RHEL 7,
+    # the minimal supported version (RHEL8 gate dropped)
 </code></pre>
 <ul>
 <li><code>serverFqdn</code> here resolves the <strong>local server FQDN</strong> (canonical hostname of
@@ -337,11 +332,9 @@ if breed == &quot;suse&quot;:
 remove &quot;initrd&quot;                    # no extra initrd param allowed
 
 per breed:
-  redhat/blank:  rhel6 → &quot;kssendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
-                 else  → &quot;inst.ks.sendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
+  redhat/blank:  &quot;inst.ks.sendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
+                 (rhel6 kssendmac variant dropped — rhel6 compat removed)
   suse:          &quot;autoyast=&lt;systemAutoinstallUrl&gt;&quot;
-  debian/ubuntu: &quot;auto-install/enable=true priority=critical
-                  netcfg/choose_interface=auto url=&lt;systemAutoinstallUrl&gt;&quot;
   SLE16:         &quot;inst.auto=&lt;url&gt;&quot;     # committed behavior for os_version opensuse16*
 
 if autoinstall (always true on this path):
@@ -354,12 +347,13 @@ if autoinstall (always true on this path):
   <code>prepareCobblerBoot</code> already parses) — breed is <code>suse</code> for both SLES15 and
   SLE16.</li>
 <li>The shared <code>text</code>→<code>textmode</code> transform belongs in one helper, applied only
-  for suse breed.</li>
+  for suse breed; it is added in this step (first caller).</li>
 <li>Replace the hand-rolled map serializer with <code>KernelOptionsList(Map)</code> +
   <code>toString()</code> (fixes the legacy missing-space-before-<code>autoyast</code> quirk, which
   was masked by a trailing space; harmless normalization).</li>
-<li>The debian/ubuntu branch is a behavior-preserving stub only (§5.8 of goals);
-  real Debian support would be from-scratch work.</li>
+<li>The legacy debian/ubuntu branch is <strong>removed</strong>: no debian/ubuntu install
+  type exists, the branch was unreachable (locked decision,
+  <code>30-step-1.1-builders.md</code> §1.3).</li>
 </ul>
 <h3 id="54-profile-path-frontendactionkickstartkickstartdetailseditaction-cobblerprofilecommandupdatecobblerfields">5.4 Profile path — <code>frontend/action/kickstart/KickstartDetailsEditAction</code> → <code>CobblerProfileCommand#updateCobblerFields</code></h3>
 <p>The profile&rsquo;s kernel options (UI field) are pushed to the cobbler profile on
@@ -367,12 +361,9 @@ every profile create/edit. Integration intent:</p>
 <ul>
 <li>Route the user-typed string through <code>KernelOptionsList</code> (idempotent
   handling, quoting safety).</li>
-<li>Apply <code>builder.profileOptions(...)</code> (e.g. <code>inst.auto=&lt;profileUrl&gt;</code> +
-  <code>inst.auto_insecure</code> for RHEL and Agama) <strong>after</strong> the cobbler profile
-  exists (create path: after <code>CobblerProfileCreateCommand</code> assigned the
-  cobbler id), merged with <code>addMissingOptions</code> so user values win and
-  repeated edits stay idempotent. AutoYaST/Debian <code>profileOptions</code> are empty
-  → profile untouched.</li>
+<li><code>builder.profileOptions(...)</code> is empty until the Cobbler exit (locked
+  decision, <code>30-step-1.1-builders.md</code> §1.4): no <code>inst.auto</code> merge happens —
+  cobbler&rsquo;s <code>tftpgen</code> owns the installer-selection option on PXE entries.</li>
 <li>Cobbler profile inheritance is not used by Uyuni; always writing explicit
   options is safe.</li>
 </ul>
@@ -391,8 +382,9 @@ values on its AutoYaST denylist get <code>autoyast=</code>, everything else (inc
 <code>opensuse16*</code>) gets <code>inst.auto=</code> (cobbler PR #177). Consequences:</p>
 <ul>
 <li>As long as Cobbler generates PXE entries, Uyuni must not duplicate that
-  option on distro/profile records (keep builders idempotent and do not add
-  <code>autoyast=</code>/<code>inst.auto=</code> at the distro/system level).</li>
+  option on distro/profile/system records (keep builders idempotent and do
+  not add <code>autoyast=</code>/<code>inst.auto=</code>/<code>ks=</code> there; <code>systemOptions</code> carries them
+  only for boot lines Uyuni composes itself).</li>
 <li>The Salt initiate path (§5.3) is the Uyuni-side equivalent and must keep
   adding the option itself (the minion builds its own boot entry).</li>
 <li>After the Cobbler exit (G6), Uyuni owns the whole command line — the
@@ -427,7 +419,7 @@ values on its AutoYaST denylist get <code>autoyast=</code>, everything else (inc
   SLE16 validation to the Salt-initiate path or unit-level evidence and note
   it in the session log.</li>
 <li>Regression matrix for this phase: SLES15 tree/profile schedule (AutoYaST
-  strings unchanged), RHEL8+ tree (<code>inst.repo=</code>), SLE16 tree (<code>root=live:</code> +
+  strings unchanged), RHEL7+ tree (<code>inst.repo=</code>), SLE16 tree (<code>root=live:</code> +
   <code>inst.self_update=</code>), minion re-provisioning via Salt initiate for SLES15
   and SLE16.</li>
 </ul>

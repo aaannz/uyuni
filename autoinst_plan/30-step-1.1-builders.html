@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>30-step-1.1-builders — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">30-step-1.1-builders</p>
+<a class="h2" href="#1-decisions-locked-in-this-round">1. Decisions locked in this round</a>
+<a class="h2" href="#2-package-and-file-layout">2. Package and file layout</a>
+<a class="h2" href="#3-builder-contract">3. Builder contract</a>
+<a class="h2" href="#4-factory-routing">4. Factory routing</a>
+<a class="h2" href="#5-per-builder-behaviour">5. Per-builder behaviour</a>
+<a class="h3" href="#51-rhelkerneloptionsbuilder">5.1 RhelKernelOptionsBuilder</a>
+<a class="h3" href="#52-autoyastkerneloptionsbuilder-sles-1015-generic-suse-label">5.2 AutoYastKernelOptionsBuilder (SLES 10–15, generic suse label)</a>
+<a class="h3" href="#53-agamakerneloptionsbuilder-sle16-opensuse16">5.3 AgamaKernelOptionsBuilder (SLE16+, opensuse16*)</a>
+<a class="h2" href="#6-abstract-base-responsibilities">6. Abstract base responsibilities</a>
+<a class="h2" href="#7-installer-updates-child-lookup-legacy-semantics-55-of-spec">7. Installer-updates child lookup (legacy semantics, §5.5 of spec)</a>
+<a class="h2" href="#8-out-of-scope-for-step-11">8. Out of scope for step 1.1</a>
+<a class="h2" href="#9-test-plan-db-free-runs-without-the-postgresql-container">9. Test plan (DB-free, runs without the PostgreSQL container)</a>
+<a class="h2" href="#10-verification">10. Verification</a>
+<a class="h2" href="#11-consequences-for-later-steps">11. Consequences for later steps</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-11-design-kernel-options-builder-hierarchy">Step 1.1 Design — Kernel Options Builder Hierarchy</h1>
+<blockquote>
+<p>Implementation design for roadmap step 1.1 (<code>10-roadmap.md</code> Phase 1). The
+behavioural specification remains <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>;
+this document fixes the Java design of the builder hierarchy and records the
+planning-round-2 decisions that deviate from the round-1 spec wording.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-08</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-08)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1, <code>10-roadmap.md</code> step 1.1, <code>20-kernel-options.md</code> §2–§7</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-decisions-locked-in-this-round">1. Decisions locked in this round</h2>
+<p>These refine (and where noted, supersede) the round-1 wording in
+<code>20-kernel-options.md</code>; the spec doc is updated in the same commit.</p>
+<ol>
+<li><strong>Install type is the single routing key.</strong> No breed-based dispatch and no
+   breed-based fallback (<code>getBuilderForBreed</code> is not built). Every routing
+   decision goes through <code>KickstartInstallType</code> predicates, so routing can
+   never dead-end in unreachable branches.</li>
+<li><strong>Unknown install type → exception.</strong> The factory&rsquo;s <code>else</code> branch throws
+   <code>KernelOptionsBuilderException</code> instead of silently defaulting.</li>
+<li><strong>No Debian builder.</strong> <code>rhnKSInstallType</code> contains no debian/ubuntu type
+   (labels: <code>fedora18, generic_rpm, opensuse16.1, rhel_6..10, sles10..15generic,
+   suse</code>), and Uyuni-created distros cannot carry a debian breed — a Debian
+   builder would be unroutable dead code. The initiate path&rsquo;s dead
+   debian/ubuntu branch is removed when step 1.4 migrates it. Real Debian
+   support remains from-scratch future work (<code>00-goals.md</code> §5.8).</li>
+<li><strong><code>profileOptions</code> is empty until the Cobbler exit (G6).</strong> Cobbler&rsquo;s
+   <code>tftpgen</code> owns the installer-selection option on generated PXE entries
+   (AutoYaST denylist → <code>autoyast=</code>, everything else incl. <code>opensuse16*</code> →
+   <code>inst.auto=</code>, redhat → <code>ks=</code>); Uyuni must not duplicate it on cobbler
+   profile records (<code>20-kernel-options.md</code> §6). The method stays in the
+   builder contract with an empty default in the abstract base — enabling it
+   post-Cobbler is a one-line override, not a call-site sweep.</li>
+<li><strong>rhel6 compatibility dropped.</strong> <code>kssendmac</code> is never emitted; RHEL
+   system options are always <code>inst.ks.sendmac</code> + <code>ks=&lt;url&gt;</code> (also removes the
+   initiate path&rsquo;s rhel6 branch in step 1.4).</li>
+<li><strong><code>selfUpdateOption</code> returns <code>KernelOptionsList</code></strong> (zero or one option) so
+   the system path can merge it with <code>addMissingOptions</code> like every other
+   builder output.</li>
+<li><strong>Package layout:</strong> interface, base, builders and exception in
+   <code>com.suse.manager.autoinstallation.builder</code>; factory in
+   <code>com.suse.manager.autoinstallation.installer</code>.</li>
+</ol>
+<h2 id="2-package-and-file-layout">2. Package and file layout</h2>
+<pre><code>java/core/src/main/java/com/suse/manager/autoinstallation/
+├── KernelOptionsList.java                          (exists)
+├── builder/
+│   ├── KernelOptionsBuilder.java                   (interface)
+│   ├── AbstractKernelOptionsBuilder.java           (shared logic)
+│   ├── KernelOptionsBuilderException.java
+│   ├── RhelKernelOptionsBuilder.java
+│   ├── AutoYastKernelOptionsBuilder.java
+│   └── AgamaKernelOptionsBuilder.java
+└── installer/
+    └── KernelOptionsBuilderFactory.java
+</code></pre>
+<p>Tests mirror this under <code>java/core/src/test/java/com/suse/manager/autoinstallation/</code>.</p>
+<h2 id="3-builder-contract">3. Builder contract</h2>
+<p>All methods return a <strong>fresh, computed</strong> <code>KernelOptionsList</code>. They never read
+or merge the caller&rsquo;s existing options — user-wins merging is the call site&rsquo;s
+job via <code>KernelOptionsList#addMissingOptions</code> (§5.1 of the spec). This keeps
+builders pure and trivially testable.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Produces</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>distroOptions(KickstartableTree)</code></td>
+<td>Boot-the-distro options; persisted into <code>tree.kernelOptions(_post)</code> and recomputed on tree create/edit</td>
+<td>see §5</td>
+</tr>
+<tr>
+<td><code>selfUpdateOption(KickstartableTree)</code></td>
+<td>Only the installer-updates option (<code>self_update=</code> / <code>inst.self_update=</code>), or empty for RHEL</td>
+<td>reused by the system path</td>
+</tr>
+<tr>
+<td><code>profileOptions(Profile)</code></td>
+<td><strong>Empty until G6</strong> (decision 4)</td>
+<td>flip-switch seam</td>
+</tr>
+<tr>
+<td><code>systemOptions(SystemRecord)</code></td>
+<td>Per-system options incl. the installer-selection option (<code>ks=</code>/<code>autoyast=</code>/<code>inst.auto=</code>)</td>
+<td>used only where Uyuni composes the whole boot line: the initiate path — never written to cobbler records (§6 of spec)</td>
+</tr>
+</tbody>
+</table>
+<p><code>networkBoot</code>/<code>localBoot</code> full-line compositions from the original round-1
+design were dropped before implementation (2026-10-08 review): every Phase 1
+call site either persists per-record options or composes from the <em>resolved</em>
+cobbler options map, so nothing composes a fresh boot line from builder
+parts — they would have been dead stubs. Step 1.4 adds exactly what it needs
+(the <code>text</code>→<code>textmode</code> helper and the nopxe URL) when it migrates.</p>
+<h2 id="4-factory-routing">4. Factory routing</h2>
+<p><code>installer/KernelOptionsBuilderFactory</code>:</p>
+<pre><code>getBuilder(KickstartInstallType installType, String serverFqdn)
+getBuilder(KickstartInstallType installType, String serverFqdn, User user)
+
+  installType.isSLES16OrGreater() → AgamaKernelOptionsBuilder     # BEFORE SUSE:
+  installType.isSUSE()            → AutoYastKernelOptionsBuilder  # opensuse16.1 isSUSE()==true
+  installType.isRhel() || isFedora() || isGeneric()
+                                  → RhelKernelOptionsBuilder
+  else                            → throw KernelOptionsBuilderException
+</code></pre>
+<ul>
+<li><code>serverFqdn</code> is the <strong>kickstart host</strong> (tree path: canonical local hostname
+  via <code>InetAddress#getByName(...).getCanonicalHostName()</code> as today; initiate
+  path: the resolved kickstart host). Constructors keep it immutable.</li>
+<li>Optional <code>User</code> context only affects the installer-updates child lookup (§7).</li>
+<li><code>isSLES16OrGreater()</code> = <code>isSLES16() || (isSLES15OrGreater() &amp;&amp; !isSLES15())</code>
+  (<code>KickstartInstallType.java:199</code>) — checked first so <code>opensuse16.1</code> never
+  falls through to the AutoYaST builder.</li>
+</ul>
+<h2 id="5-per-builder-behaviour">5. Per-builder behaviour</h2>
+<p>Option strings reproduce the legacy forms exactly (<code>http://</code> scheme
+everywhere, <code>20-kernel-options.md</code> §4):</p>
+<h3 id="51-rhelkerneloptionsbuilder">5.1 <code>RhelKernelOptionsBuilder</code></h3>
+<ul>
+<li><code>distroOptions</code>: <code>inst.repo=http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;</code>
+  unconditionally — the Anaconda <code>inst.*</code> options exist since RHEL 7, the
+  minimal supported RHEL version (legacy code gated on <code>isRhel8OrGreater()</code>;
+  gate dropped).</li>
+<li><code>selfUpdateOption</code>: empty (RHEL has no installer-updates channel concept).</li>
+<li><code>profileOptions</code>: inherited empty default.</li>
+<li><code>systemOptions</code>: <code>ks=http://&lt;fqdn&gt;/cblr/svc/op/autoinstall/system/&lt;systemName&gt;</code></li>
+<li><code>inst.ks.sendmac</code> (no rhel6 special case, decision 5).</li>
+</ul>
+<h3 id="52-autoyastkerneloptionsbuilder-sles-1015-generic-suse-label">5.2 <code>AutoYastKernelOptionsBuilder</code> (SLES 10–15, generic <code>suse</code> label)</h3>
+<ul>
+<li><code>distroOptions</code>: <code>install=http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;</code> +
+  <code>self_update=&lt;installerUpdatesUrl|0&gt;</code>.</li>
+<li><code>selfUpdateOption</code>: <code>self_update=&lt;installerUpdatesUrl|0&gt;</code>.</li>
+<li><code>profileOptions</code>: inherited empty default.</li>
+<li><code>systemOptions</code>: <code>autoyast=http://&lt;fqdn&gt;/cblr/svc/op/autoinstall/system/&lt;systemName&gt;</code>.</li>
+</ul>
+<h3 id="53-agamakerneloptionsbuilder-sle16-opensuse16">5.3 <code>AgamaKernelOptionsBuilder</code> (SLE16+, <code>opensuse16*</code>)</h3>
+<ul>
+<li><code>distroOptions</code>:
+  <code>root=live:http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;/LiveOS/squashfs.img</code> +
+  <code>inst.self_update=&lt;installerUpdatesUrl|0&gt;</code> — <strong>no <code>install=</code></strong> (committed
+  behaviour, <code>00-goals.md</code> §5.1).</li>
+<li><code>selfUpdateOption</code>: <code>inst.self_update=&lt;installerUpdatesUrl|0&gt;</code>.</li>
+<li><code>profileOptions</code>: inherited empty default.</li>
+<li><code>systemOptions</code>: <code>inst.auto=http://&lt;fqdn&gt;/cblr/svc/op/autoinstall/system/&lt;systemName&gt;</code>.</li>
+</ul>
+<p><code>&lt;installerUpdatesUrl|0&gt;</code> = the installer-updates child URL
+<code>http://&lt;fqdn&gt;/ks/dist/child/&lt;childLabel&gt;/&lt;treeLabel&gt;</code> when the tree&rsquo;s channel
+has such a child, else the literal <code>0</code> (self-update disabled).</p>
+<h2 id="6-abstract-base-responsibilities">6. Abstract base responsibilities</h2>
+<p><code>AbstractKernelOptionsBuilder</code>:</p>
+<ul>
+<li>Immutable <code>serverFqdn</code> + optional <code>User</code> (constructor-injected).</li>
+<li>URL helpers: dist tree, installer-updates child, cobbler
+  autoinstall/nopxe service URLs (§4 catalogue of the spec).</li>
+<li>Installer-updates child resolution (single home for the §5.5 semantics):
+  <code>User</code> set → <code>channel.getAccessibleChildrenFor(user)</code> (user-scoped, legacy
+  distro/system-path behaviour); <code>User</code> absent →
+  <code>ChannelFactory.listAllChildrenForChannel</code> (org-global) — both filtered by
+  <code>Channel::isInstallerUpdates</code>, first match wins, else <code>0</code>.</li>
+</ul>
+<p>The shared SUSE <code>text</code>→<code>textmode</code> normalisation helper is <strong>not</strong> part of
+this step: it has no caller until the initiate path migrates in step 1.4,
+where it is added (single implementation, SUSE-family builders only) —
+avoiding dead code per the working practices.</p>
+<h2 id="7-installer-updates-child-lookup-legacy-semantics-55-of-spec">7. Installer-updates child lookup (legacy semantics, §5.5 of spec)</h2>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>User context</th>
+<th>Lookup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Distro path (<code>TreeCreateOperation</code>, step 1.2)</td>
+<td>set</td>
+<td>user-scoped</td>
+</tr>
+<tr>
+<td>System path (<code>CobblerSystemCreateCommand</code>, step 1.3)</td>
+<td>set</td>
+<td>user-scoped</td>
+</tr>
+<tr>
+<td>Any future headless caller (taskomatic, API)</td>
+<td>absent</td>
+<td>org-global</td>
+</tr>
+</tbody>
+</table>
+<h2 id="8-out-of-scope-for-step-11">8. Out of scope for step 1.1</h2>
+<ul>
+<li>Any call-site wiring (steps 1.2–1.5) — this step is a pure addition.</li>
+<li>Enabling <code>profileOptions</code> (G6 flip-switch, decision 4).</li>
+<li>Initiate-path migration incl. removal of its dead debian/ubuntu branch
+  (step 1.4, decisions 3 and 5).</li>
+<li>Breed-based fallback — not built at all (decision 1).</li>
+</ul>
+<h2 id="9-test-plan-db-free-runs-without-the-postgresql-container">9. Test plan (DB-free, runs without the PostgreSQL container)</h2>
+<p>Plain JUnit 5 + Mockito (both available via the parent pom; style follows the
+existing <code>KernelOptionsListTest</code> — no DB base classes):</p>
+<ul>
+<li><code>RhelKernelOptionsBuilderTest</code> / <code>AutoYastKernelOptionsBuilderTest</code> /
+  <code>AgamaKernelOptionsBuilderTest</code> — mocked <code>KickstartableTree</code>, <code>Profile</code>,
+  <code>SystemRecord</code>, <code>Channel</code> (jMock <code>MockObjectTestCase</code> +
+  <code>ByteBuddyClassImposteriser</code>, the established DB-free pattern):</li>
+<li>exact option strings per §5 (incl. <code>0</code> fallback when no installer-updates
+    child);</li>
+<li>user-scoped child lookup and skipping of non-installer-updates children.
+    The org-global fallback is not testable DB-free (static
+    <code>ChannelFactory</code> call) — it is covered by the DB-backed call-site tests
+    in step 1.6/CI;</li>
+<li><code>profileOptions</code> empty for every builder (decision 4);</li>
+<li>null inputs rejected with <code>KernelOptionsBuilderException</code>.</li>
+<li><code>KernelOptionsBuilderFactoryTest</code>:</li>
+<li><code>opensuse16.1</code> → Agama (SLE16-before-SUSE precedence);</li>
+<li><code>sles15generic</code>/<code>suse</code> → AutoYaST;</li>
+<li><code>rhel_*</code>/<code>fedora18</code>/<code>generic_rpm</code> → RHEL;</li>
+<li>unknown/other label → <code>KernelOptionsBuilderException</code>.</li>
+<li>Idempotency: applying <code>addMissingOptions(existing, builder.distroOptions(tree))</code>
+  twice yields an unchanged list (guards the step 1.2 merge contract).</li>
+</ul>
+<h2 id="10-verification">10. Verification</h2>
+<pre><code>mvn -f java/core compile
+mvn -f java/core test -DskipTests=false -Dtest='KernelOptions*Test,*KernelOptionsBuilder*Test'
+ant -f java/manager-build.xml ivy &amp;&amp; ant -f java/manager-build.xml checkstyle
+</code></pre>
+<h2 id="11-consequences-for-later-steps">11. Consequences for later steps</h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.2</td>
+<td>Merge-only wiring: <code>addMissingOptions(user options, builder.distroOptions(tree))</code>; Agama path must not expect <code>install=</code></td>
+</tr>
+<tr>
+<td>1.3</td>
+<td>Delegates <code>self_update</code> to <code>builder.selfUpdateOption(tree)</code>; keeps media-path <code>install=</code> local; must route by install type, not breed</td>
+</tr>
+<tr>
+<td>1.4</td>
+<td>Drops dead debian/ubuntu branch and rhel6 <code>kssendmac</code> branch; adds the shared textmode helper and the nopxe URL helper (first callers), composes onto the resolved cobbler options via <code>systemOptions</code></td>
+</tr>
+<tr>
+<td>1.5</td>
+<td><strong>Narrows</strong>: no <code>inst.auto</code> merge at all — only routes user-typed profile kernel options through <code>KernelOptionsList</code> (decision 4)</td>
+</tr>
+<tr>
+<td>1.6/1.7</td>
+<td>Call-site parity tests compare against legacy strings minus the documented normalisations (whitespace, dropped rhel6/debian branches)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-08 — created from planning round 2: install-type-only routing,
+  exception on unknown type, Debian builder dropped, <code>profileOptions</code> empty
+  until G6, rhel6 compat dropped, <code>selfUpdateOption</code> returns
+  <code>KernelOptionsList</code>, package layout fixed.</li>
+<li>2026-10-08 — implemented: 6 classes, 34 DB-free unit tests green,
+  checkstyle clean. Deviations from the initial design: the SUSE
+  <code>text</code>→<code>textmode</code> helper is deferred to step 1.4 (no caller yet — no dead
+  code), the org-global installer-updates fallback is only testable with a
+  DB (covered by step 1.6/CI), and builder constructors are public so the
+  factory in <code>installer/</code> can reach them. Also fixed on the way: a missing
+  <code>assertContains</code> static import in <code>TreeCreateOperationTest</code> and a
+  <code>jakarta.servlet-api:6.0.0</code> shadowing <code>tomcat-servlet-api:11.0.13</code>
+  (Servlet 6.1) on the Maven test classpath (excluded the transitive 6.0
+  API from the jstl dependency, matching the OBS packaging).</li>
+<li>2026-10-08 — review follow-up: dropped <code>networkBoot</code>/<code>localBoot</code> from the
+  builder contract (no Phase 1 caller composes a fresh boot line from
+  builder parts; the initiate path works off the resolved cobbler options
+  map) together with the base&rsquo;s default compositions and the nopxe URL
+  helper. Tests trimmed accordingly (42 total green).</li>
+<li>2026-10-08 — review follow-up: RHEL <code>distroOptions</code> adds <code>inst.repo=</code>
+  unconditionally. The Anaconda <code>inst.*</code> options exist since RHEL 7, the
+  minimal supported RHEL version, so the legacy <code>isRhel8OrGreater()</code> gate is
+  dropped. 27 builder/factory tests green.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>30-step-1.1-builders.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>
