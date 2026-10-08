@@ -155,6 +155,8 @@ misleadingly negative:
 - The image ships a JRE only: no `jcmd`/`jstack`. For taskomatic thread
   evidence use DB tables instead (e.g. `rhnTaskoRun` start/end timestamps);
   `kill -3` output goes to the container log socket, not to a greppable file.
+- In case tests needs to be run in the VM, stop the deployed uyuni by using
+  `mgradm stop` command.
 
 ### Salt Minion Test Registration
 

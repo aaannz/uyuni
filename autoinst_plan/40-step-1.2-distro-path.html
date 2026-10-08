@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>40-step-1.2-distro-path — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">40-step-1.2-distro-path</p>
+<a class="h2" href="#1-research-findings-corrections-to-round-1-spec-wording">1. Research findings (corrections to round-1 spec wording)</a>
+<a class="h2" href="#2-decisions-locked-in-this-round-planning-round-3">2. Decisions locked in this round (planning round 3)</a>
+<a class="h2" href="#3-code-design">3. Code design</a>
+<a class="h3" href="#31-basetreeeditoperation">3.1 BaseTreeEditOperation</a>
+<a class="h3" href="#32-treecreateoperation">3.2 TreeCreateOperation</a>
+<a class="h2" href="#4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</a>
+<a class="h2" href="#5-test-plan">5. Test plan</a>
+<a class="h3" href="#51-db-backed-treecreateoperationtest-runs-on-the-vm-ci">5.1 DB-backed (TreeCreateOperationTest, runs on the VM / CI)</a>
+<a class="h3" href="#52-db-free-new-same-test-package-runs-locally-in-the-sandbox">5.2 DB-free (new, same test package — runs locally in the sandbox)</a>
+<a class="h3" href="#53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</a>
+<a class="h2" href="#6-verification-on-the-agent-vm">6. Verification on the agent VM</a>
+<a class="h2" href="#7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</a>
+<a class="h2" href="#8-out-of-scope">8. Out of scope</a>
+<a class="h2" href="#9-implementation-notes-2026-10-08">9. Implementation notes (2026-10-08)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-12-design-distro-path-treecreateoperation-basetreeeditoperation">Step 1.2 Design — Distro Path (TreeCreateOperation / BaseTreeEditOperation)</h1>
+<blockquote>
+<p>Implementation design for roadmap step 1.2 (<code>10-roadmap.md</code> Phase 1). The
+behavioural specification remains <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>;
+this document fixes the call-site wiring design and records the
+planning-round-3 decisions that correct the round-1 spec wording.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-08</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-08)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1, <code>10-roadmap.md</code> step 1.2, <code>20-kernel-options.md</code> §5.1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-research-findings-corrections-to-round-1-spec-wording">1. Research findings (corrections to round-1 spec wording)</h2>
+<p>Verified against the code on 2026-10-08; the round-1 spec (§5.1 of
+<code>20-kernel-options.md</code>) is inaccurate on two points.</p>
+<ol>
+<li><strong>The edit path never recomputes options today.</strong> <code>TreeEditOperation</code> only
+   overrides <code>getCobblerCommand()</code>; <code>BaseTreeEditOperation#store</code> persists
+   whatever <code>tree.kernelOptions</code> holds. The spec&rsquo;s &ldquo;effectively re-runs on
+   edit&rdquo; is only true indirectly: the computed options were persisted at
+   create time and the Struts edit form round-trips them.</li>
+<li><strong>XML-RPC <code>kickstart.tree.update</code> wipes computed options.</strong> The handler
+   (<code>java/core/src/main/java/com/redhat/rhn/frontend/xmlrpc/kickstart/tree/KickstartTreeHandler.java:294</code>)
+   replaces <code>kernelOptions</code> with the caller&rsquo;s string; <code>install=</code>/<code>self_update=</code>/
+   <code>root=live:</code> disappear from the DB <em>and</em> get pushed to the Cobbler distro
+   like that (PXE breakage). <code>rename</code> (line 328) does not touch options.</li>
+<li><strong>Install type is editable on edit</strong> (<code>BaseTreeAction#processCommandSetters</code>
+   sets it from the form on create <em>and</em> edit; the XML-RPC update likewise).
+   Changing it today never adds the new install type&rsquo;s options (SLES15 → SLE16
+   switch leaves the tree without <code>root=live:</code>).</li>
+<li><strong><code>serverName</code> is null on the XML-RPC update/rename paths.</strong> Only create
+   sets it (<code>ConfigDefaults.getJavaHostname()</code>, KickstartTreeHandler.java:164);
+   the Struts form sets <code>request.getLocalName()</code> (BaseTreeAction.java:111).
+   The factory throws <code>KernelOptionsBuilderException</code> on a null/empty FQDN, so
+   naive edit-path wiring would break the update API.</li>
+<li><strong>Legacy substring guards cross-match.</strong> <code>contains("self_update=")</code> also
+   matches <code>inst.self_update=</code>; <code>contains("root=")</code> matches any <code>*root=</code>
+   (e.g. <code>nfsroot=</code>) — user options can spuriously suppress computed ones.</li>
+<li><strong>Legacy <code>StringJoiner</code> leaves a leading space</strong> when the user-typed
+   options are empty (<code>" install=http://..."</code>).</li>
+<li><strong><code>TreeCreateOperationTest#testCreateRhelistro</code> uses rhel_7 and expects
+   empty options</strong> — it will fail after migration because of the locked
+   step-1.1 deviation (<code>inst.repo=</code> unconditional for rhel/fedora/generic)
+   and must be updated.</li>
+</ol>
+<h2 id="2-decisions-locked-in-this-round-planning-round-3">2. Decisions locked in this round (planning round 3)</h2>
+<ol>
+<li><strong>The builder merge runs on create AND edit.</strong> It is wired into
+   <code>BaseTreeEditOperation#store</code>, so <code>TreeCreateOperation</code> (via
+   <code>super.store()</code>), the Struts edit path and the XML-RPC update/rename paths
+   all share one call site. This fixes findings 2 and 3. Accepted behavior
+   change: options the user deliberately deletes re-appear on the next
+   edit/store (protective; these are computed &ldquo;make it work&rdquo; options).
+   <code>TreeDeleteOperation</code> overrides <code>store()</code> entirely and is unaffected.</li>
+<li><strong>FQDN fallback for a blank <code>serverName</code>:</strong> resolve
+   <code>ConfigDefaults.getJavaHostname()</code> through the same
+   <code>InetAddress.getByName(...).getCanonicalHostName()</code> chain as before
+   (mirrors what XML-RPC create passes). This also repairs the empty-string
+   edge case, where legacy code produced a broken <code>install=http:///...</code> URL.</li>
+<li><strong><code>kernelOptionsPost</code> is untouched</strong> — the legacy distro path never writes
+   it, and the builder has no post-options concept in Phase 1.</li>
+<li><strong>DB-backed tests run on the agent VM</strong> (single shared VM, coordinate via
+   <code>agents-workbench/autoinstallation/session-log.md</code>). The deployed
+   <code>uyuni-db</code> lacks <code>opensuse16.1</code> in <code>rhnKsInstallType</code> (verified live
+   2026-10-08) and must not be used for branch tests. When the running Uyuni
+   is not needed, shut it down with <strong><code>mgradm stop</code></strong> — that frees port 5432
+   so the standard <code>java/Makefile.docker</code> test-container flow works without
+   port remapping.</li>
+<li><strong>Normalizations accepted</strong> (§4) — parsed-key checks replace substring
+   checks, leading space removed; the parity tests compare modulo these.</li>
+</ol>
+<h2 id="3-code-design">3. Code design</h2>
+<p>All changes under
+<code>java/core/src/main/java/com/redhat/rhn/manager/kickstart/tree/</code>.</p>
+<h3 id="31-basetreeeditoperation">3.1 <code>BaseTreeEditOperation</code></h3>
+<ul>
+<li><code>getServerFqdn()</code> moves here from <code>TreeCreateOperation</code>, extended with the
+  fallback (decision 2):</li>
+</ul>
+<pre><code class="language-java">protected String getServerFqdn() {
+    String host = this.serverName;
+    if (host == null || host.isEmpty()) {
+        host = ConfigDefaults.get().getJavaHostname();
+    }
+    try {
+        return InetAddress.getByName(host).getCanonicalHostName();
+    }
+    catch (UnknownHostException e) {
+        return host;
+    }
+}
+</code></pre>
+<ul>
+<li>New merge helper — the single home of the distro-path merge pattern
+  (<code>20-kernel-options.md</code> §5.1: user-typed options win):</li>
+</ul>
+<pre><code class="language-java">protected void applyDistroKernelOptions() {
+    KernelOptionsList options = new KernelOptionsList(this.tree.getKernelOptions());
+    options.addMissingOptions(KernelOptionsBuilderFactory
+            .getBuilder(this.tree.getInstallType(), getServerFqdn(), this.user)
+            .distroOptions(this.tree));
+    this.tree.setKernelOptions(options.toString());
+}
+</code></pre>
+<ul>
+<li><code>store()</code>: call <code>applyDistroKernelOptions()</code> immediately before
+  <code>KickstartFactory.saveKickstartableTree(this.tree)</code> — after label/basePath
+  validation, before the tree is saved and before the Cobbler command store +
+  <code>distro.setKernelOptions(...)</code> push, so every consumer sees the merged
+  result. Coverage:</li>
+<li>create: <code>TreeCreateOperation#store</code> → <code>super.store()</code></li>
+<li>edit (UI and XML-RPC update): <code>TreeEditOperation</code> via base <code>store()</code></li>
+<li>rename: base <code>store()</code> (no-op while the options are complete)</li>
+<li>delete: <code>TreeDeleteOperation</code> overrides <code>store()</code> — unaffected</li>
+</ul>
+<h3 id="32-treecreateoperation">3.2 <code>TreeCreateOperation</code></h3>
+<ul>
+<li><code>store()</code> keeps only the duplicate-label check and <code>super.store()</code>; the
+  inline kernel-options block, <code>getSelfUpdateOption()</code> and <code>getServerFqdn()</code>
+  are deleted (the merge happens in the base).</li>
+<li>Unused imports removed (<code>Channel</code>, <code>Optional</code>, <code>StringJoiner</code>,
+  <code>InetAddress</code>, <code>UnknownHostException</code>).</li>
+</ul>
+<p>No schema, API or UI changes; the XML-RPC <code>kickstart.tree.update</code> contract is
+unchanged (its <em>effect</em> on kernel options improves, see §4).</p>
+<h2 id="4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</h2>
+<table>
+<thead>
+<tr>
+<th>Delta</th>
+<th>Reason / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edit/update re-adds missing computed options; install-type change on edit adds the new type&rsquo;s options</td>
+<td>Decision 1; fixes the XML-RPC update wipe (finding 2) and the install-type-change gap (finding 3). Stale old-type options are <strong>not</strong> removed — add-missing only.</td>
+</tr>
+<tr>
+<td>Parsed-key checks replace substring <code>contains()</code></td>
+<td><code>nfsroot=</code> no longer suppresses <code>root=live:</code>; <code>inst.self_update=</code> no longer suppresses a <code>self_update=</code> add on the SLES15 path (finding 5). Bug fixes, documented.</td>
+</tr>
+<tr>
+<td>No leading space when user-typed options are empty</td>
+<td><code>StringJoiner</code> artifact removal (finding 6).</td>
+</tr>
+<tr>
+<td><code>inst.repo=</code> for <em>all</em> rhel/fedora/generic types (incl. rhel_6/7, fedora18, generic_rpm)</td>
+<td>Locked step-1.1 deviation (RHEL gate dropped).</td>
+</tr>
+<tr>
+<td>Blank <code>serverName</code> → <code>ConfigDefaults.getJavaHostname()</code> instead of blank-host URL</td>
+<td>Decision 2; legacy produced <code>install=http:///...</code> in that edge.</td>
+</tr>
+<tr>
+<td>Distro options are merged only after base-path validation succeeds</td>
+<td>The legacy create path set the options string <em>before</em> <code>validateBasePath()</code> ran, so a tree with an invalid initrd kept mutated options while <code>store()</code> returned an error. The merge now lives after validation; the pre-existing SUSE-type tests only passed because they ignored <code>store()</code>&rsquo;s result (see §9).</td>
+</tr>
+<tr>
+<td>Unknown install type → <code>KernelOptionsBuilderException</code></td>
+<td>Locked step-1.1 decision; unreachable for existing <code>rhnKSInstallType</code> labels (all route).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-test-plan">5. Test plan</h2>
+<h3 id="51-db-backed-treecreateoperationtest-runs-on-the-vm-ci">5.1 DB-backed (<code>TreeCreateOperationTest</code>, runs on the VM / CI)</h3>
+<ul>
+<li>Update <code>testCreateRhelistro</code>: rhel_7 now expects <code>inst.repo=</code> (finding 7).</li>
+<li>Add: <strong>user-typed options win</strong> — pre-set a custom <code>install=</code> plus
+  <code>useonlinerepo=1</code>, store, assert both survive verbatim and only the missing
+  computed options are added (guards the <code>00-goals.md</code> §5.8 <code>useonlinerepo</code>
+  decision).</li>
+<li>Add: <strong>idempotency</strong> — <code>store()</code> twice (create, then edit round-trip)
+  yields an identical kernel-options string.</li>
+<li>Existing SLE16 (<code>root=live:</code> + <code>inst.self_update=0</code>, no <code>install=</code>) and
+  SLES15/RHEL8 tests keep their intent.</li>
+</ul>
+<h3 id="52-db-free-new-same-test-package-runs-locally-in-the-sandbox">5.2 DB-free (new, same test package — runs locally in the sandbox)</h3>
+<ul>
+<li>Merge-semantics test hitting <code>applyDistroKernelOptions()</code> directly on a
+  concrete test subclass with a mocked <code>KickstartableTree</code>/<code>Channel</code> (Mockito,
+  the step-1.1 builder-test pattern): user-wins merge, SLE16 vs SLES15 vs
+  RHEL routing via install type, <code>kernelOptionsPost</code> untouched.</li>
+<li>The <code>ConfigDefaults</code> fallback branch needs <code>rhn.conf</code> on the classpath —
+  covered by the DB-backed suite only (§5.1), where the config exists.</li>
+</ul>
+<h3 id="53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</h3>
+<pre><code>mvn -f java/core compile
+ant -f java/manager-build.xml ivy &amp;&amp; ant -f java/manager-build.xml checkstyle
+</code></pre>
+<h2 id="6-verification-on-the-agent-vm">6. Verification on the agent VM</h2>
+<p>Single shared VM — record the usage window and deployed package versions in
+<code>agents-workbench/autoinstallation/session-log.md</code>; check <code>podman ps</code> state
+and <code>podman exec uyuni-server rpm -q spacewalk-java</code> before and after.</p>
+<ol>
+<li>One-time toolchain: <code>zypper in -y maven java-17-openjdk-devel</code> (VM has
+   Java 21 only; the build pins <code>&lt;release&gt;17&lt;/release&gt;</code>; ant if checkstyle
+   should run there too).</li>
+<li>Sync: <code>rsync</code> the worktree → <code>~/worktree/uyuni-sles16_agama/</code>
+   (deploy.sh-compatible path) plus <code>~/.m2/repository</code> and <code>java/repository</code>
+   for offline dependency resolution; fallback <code>mvn -f java --non-recursive
+   initialize</code> if OBS is reachable through the VM proxy.</li>
+<li><strong>When the running Uyuni is not needed: <code>mgradm stop</code></strong> — frees port 5432
+   so no port remapping is required (decision 4).</li>
+<li>Test DB per the standard flow (<code>java/Makefile.docker</code>): from
+   <code>~/worktree/uyuni-sles16_agama/java</code>,
+   <code>cp buildconf/test/rhn.conf.postgresql-example buildconf/test/rhn.conf</code>
+   (localhost:5432 now points at the test container), then run the
+   <code>uyuni-master-pgsql-4eclipse</code> image with the worktree mounted at
+   <code>/manager</code> — over ssh, run it detached (<code>podman run -d --name
+   uyuni-test-pgsql -p 5432:5432 -v "$PWD/..":/manager
+   registry.opensuse.org/systemsmanagement/uyuni/master/docker/containers/uyuni-master-pgsql-4eclipse</code>)
+   instead of the interactive <code>make -f Makefile.docker</code> target. Verify the
+   branch schema is loaded (container logs; fallback: blend the schema and
+   load it with <code>spacewalk-sql</code>, see
+   <code>susemanager-utils/testing/docker/scripts/reset_pgsql_database.sh</code>).</li>
+<li>Run: <code>mvn -f java/core test -DskipTests=false
+   -Dtest='TreeCreateOperationTest,TreeEditOperationTest,KernelOptions*Test,*KernelOptionsBuilder*Test'</code>
+   with <code>JAVA_HOME</code> pointed at JDK 17.</li>
+<li>Afterwards: stop/remove the test container and <strong><code>mgradm start</code></strong> to
+   restore the deployed Uyuni; record results and versions in the session
+   log.</li>
+</ol>
+<p>E2E PXE regression stays deferred to step 1.7 — mind the cobbler PR #177
+caveat (<code>00-goals.md</code> §5.1) before any SLE16 PXE attempt on the VM.</p>
+<h2 id="7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</h2>
+<ul>
+<li><code>10-roadmap.md</code>: step 1.2 → DONE + changelog entry.</li>
+<li><code>20-kernel-options.md</code> §5.1: correct the &ldquo;effectively re-runs on edit&rdquo;
+  wording (it becomes literally true), add the §4 normalization notes.</li>
+<li>Regenerate the presentation HTMLs: <code>.venv/bin/python autoinst_plan/build_html.py</code>.</li>
+<li>Session log entry in <code>agents-workbench/autoinstallation/session-log.md</code>.</li>
+</ul>
+<h2 id="8-out-of-scope">8. Out of scope</h2>
+<ul>
+<li><code>KickstartCloneCommand</code> option copying (inventory item 12) — untouched.</li>
+<li><code>CobblerDistroSyncCommand#backsyncKernelOptions</code> reverse sync (item 9;
+  Phase 1 deferral stands).</li>
+<li><code>ScheduleKickstartWizardAction</code>/<code>SSMScheduleCommand</code> option resolution
+  (dies with the wizard, step 2.6).</li>
+<li>Removing stale old-type options when the install type changes (add-missing
+  only; revisit under the G4 unified entity if it proves to matter).</li>
+</ul>
+<h2 id="9-implementation-notes-2026-10-08">9. Implementation notes (2026-10-08)</h2>
+<p>Deviations and discoveries recorded while implementing:</p>
+<ul>
+<li><strong>Step-1.1 defect repaired:</strong> <code>RhelKernelOptionsBuilder#systemOptions</code>
+  emitted <code>inst.ks=&lt;url&gt;</code>; the committed step-1.1 test and the behavioural
+  spec (<code>20-kernel-options.md</code> §5.3) require <code>ks=&lt;url&gt;</code> (matching the legacy
+  initiate path, <code>KickstartInitiateAction</code>). Fixed to <code>ks=</code>; the red
+  <code>testSystemOptions</code> is green again.</li>
+<li><strong>Test fixture gap:</strong> <code>TreeOperationTestBase</code> (via
+  <code>KickstartTestUtils.setupTestConfiguration</code>) only ever created RHEL-style
+  kernel/initrd files under <code>/tmp/kickstart/images</code>; SUSE install types
+  resolve <code>/boot/x86_64/loader/*</code>, so every SUSE-type <code>store()</code> failed with
+  <code>kickstart.tree.invalidinitrd</code>. The pre-existing SUSE tests masked this by
+  ignoring <code>store()</code>&rsquo;s return value and asserting the prematurely set option
+  string (see the validation-order delta in §4). The test base now also
+  creates the SUSE loader layout (with the org set so <code>isRhnTree()</code> is false
+  and no mount-point prefix is applied).</li>
+<li><strong>Checkstyle without ant:</strong> the sandbox and the VM lack a working
+  <code>ant checkstyle</code> chain (no ant/ivy on the sandbox; Tumbleweed repos on the
+  VM lack ivy, <code>obs-to-maven</code> and the toolchain). Checkstyle 10.12.7 (the
+  exact version pinned by <code>manager-build.xml</code>) was run over all of
+  <code>java/core/src</code> via the CLI with the same config/properties — audit clean.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-08 — created from planning round 3: merge runs on create and edit
+  (<code>BaseTreeEditOperation#store</code>), <code>ConfigDefaults.getJavaHostname()</code> FQDN
+  fallback, VM-based DB-backed tests with <code>mgradm stop</code> freeing port 5432,
+  normalization register, DB-free/DB-backed test split.</li>
+<li>2026-10-08 — implemented and verified: merge helper + FQDN fallback in
+  <code>BaseTreeEditOperation</code>, <code>TreeCreateOperation</code> slimmed, <code>ks=</code> defect fix in
+  the RHEL builder, SUSE tree-file fixture fix in <code>TreeOperationTestBase</code>,
+  new DB-free merge test, DB-backed user-wins + idempotency tests. On the
+  agent VM (<code>mgradm stop</code> → dedicated pgsql-4eclipse container with branch
+  schema incl. <code>opensuse16.1</code>): 57 tests green (16 tree-op + 41
+  builder/factory/list); full-core checkstyle audit clean. Status → DONE.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>40-step-1.2-distro-path.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

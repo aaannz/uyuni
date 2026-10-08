@@ -89,33 +89,54 @@ scheme configurability is deferred until post-Cobbler.
 
 ### 5.1 Distro path — `manager/kickstart/tree/TreeCreateOperation#store`
 
-Runs on tree create and, via the persisted result, effectively re-runs on edit
-(`BaseTreeEditOperation`). Guards make it idempotent; **user-typed options
-must win** over computed ones.
+Implemented in step 1.2 as `BaseTreeEditOperation#applyDistroKernelOptions()`,
+called from `BaseTreeEditOperation#store()` — so it runs on tree create, edit,
+XML-RPC update and rename. Guards make it idempotent; **user-typed options
+must win** over computed ones. (Round-1 wording said the merge "effectively
+re-runs on edit" — reality was that the edit path never recomputed and the
+XML-RPC update wiped the computed options; step 1.2 made the wording literally
+true. See `40-step-1.2-distro-path.md` for the decision record and the
+parity register below.)
+
+```
+existing = KernelOptionsList(tree.kernelOptions)          # parsed keys
+computed = builder.distroOptions(tree)                    # per §2/§4 builders
+if validation of base path succeeded:                     # merged AFTER validateBasePath()
+    existing.addMissingOptions(computed)
+    tree.kernelOptions = existing.toString()
+```
+
+Behaviour per install type (identical strings to the legacy code, modulo the
+normalizations in §5.1.1):
 
 ```
 if installType.isSUSE():
-    if "install=" absent:    add install=http://<serverFqdn>/ks/dist/<treeLabel>
-    if "self_update=" absent:
-        installer-updates child of tree.channel (user-scoped lookup, §5.5)
-        present → self_update=http://<fqdn>/ks/dist/child/<child>/<treeLabel>
-        absent  → self_update=0
-if SLE16 (isSLES16OrGreater):            # committed Agama behavior
-    add root=live:http://<fqdn>/ks/dist/<treeLabel>/LiveOS/squashfs.img
-    if absent: inst.self_update=<installer-updates URL | 0>
-else if isRhel8OrGreater() and "inst.repo=" absent:
-    add inst.repo=http://<fqdn>/ks/dist/<treeLabel>
-    # builder change: added unconditionally — inst.repo exists since RHEL 7,
-    # the minimal supported version (RHEL8 gate dropped)
+    if SLE16 (isSLES16OrGreater):  root=live:<distTreeUrl>/LiveOS/squashfs.img  +  inst.self_update=<installer-updates URL | 0>
+    else:                          install=<distTreeUrl>                        +  self_update=<installer-updates URL | 0>
+else (rhel/fedora/generic):        inst.repo=<distTreeUrl>                      # unconditionally, RHEL8 gate dropped (step 1.1)
 ```
 
 * `serverFqdn` here resolves the **local server FQDN** (canonical hostname of
-  the local server), not `JavaHostname` — pass it into the builder.
-* Merge pattern: parse existing `tree.getKernelOptions()` into
-  `KernelOptionsList`, then `addMissingOptions(builder.distroOptions(tree))` so
-  user-typed keys keep precedence.
+  the server name set on the operation; blank → `ConfigDefaults.getJavaHostname()`
+  fallback, covering the XML-RPC update/rename paths that never set it).
+* Merge semantics: parsed-key `addMissingOptions` — user-typed keys win,
+  computed keys are only added when absent. `kernelOptionsPost` is untouched.
 * SLE16 detection in this path is via install type (`isSLES16OrGreater()`),
   matching the committed code.
+
+#### 5.1.1 Documented normalizations vs. the legacy string building
+
+* Parsed-key checks replace substring `contains()` checks: `nfsroot=` no
+  longer suppresses `root=live:`; `inst.self_update=` no longer suppresses a
+  `self_update=` add on the SLES15 path (and vice versa).
+* No leading space when the user-typed options string is empty (legacy
+  `StringJoiner` artifact).
+* `inst.repo=` is added for *all* rhel/fedora/generic install types
+  (incl. rhel_6/7, fedora18, generic_rpm) — locked step-1.1 deviation.
+* The merge runs only after base-path validation succeeds (the legacy create
+  path mutated options even when validation failed).
+* Unknown install type → `KernelOptionsBuilderException` (unreachable for
+  existing `rhnKSInstallType` labels).
 
 ### 5.2 System path — `manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions`
 

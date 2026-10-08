@@ -39,15 +39,26 @@ before starting any step here.
   (step design §1.4).
 * 34 DB-free unit tests; compile + checkstyle clean.
 
-### Step 1.2 — Distro path (status: NOT STARTED)
+### Step 1.2 — Distro path (status: DONE 2026-10-08)
 
-* Replace inline logic in `manager/kickstart/tree/TreeCreateOperation#store`
-  (and the edit-path twin `tree/BaseTreeEditOperation`) with
-  `KernelOptionsBuilder.distroOptions`; merge pattern per
-  `20-kernel-options.md` §5.1 (user-typed options win).
-* Preserve: persistence into `KickstartableTree.kernelOptions(_post)`;
-  user-scoped installer-updates channel lookup (§5.5); the `useonlinerepo`
-  flag survives round-trips (decision `00-goals.md` §5.8).
+* Implemented per [`40-step-1.2-distro-path.md`](40-step-1.2-distro-path.md):
+  `BaseTreeEditOperation#applyDistroKernelOptions()` merges
+  `KernelOptionsBuilder.distroOptions` into the tree's options (user-typed
+  options win) and runs on **create and edit** via `BaseTreeEditOperation#store`
+  — fixing the XML-RPC `kickstart.tree.update` option-wipe; blank `serverName`
+  falls back to `ConfigDefaults.getJavaHostname()`.
+  `TreeCreateOperation` keeps only the duplicate-label check.
+* Preserve: persistence into `KickstartableTree.kernelOptions(_post)`
+  (`kernelOptionsPost` untouched); user-scoped installer-updates channel
+  lookup (§5.5); the `useonlinerepo` flag survives round-trips (decision
+  `00-goals.md` §5.8).
+* On the way: step-1.1 defect repaired (RHEL `systemOptions` emitted `inst.ks=`
+  instead of the spec/legacy `ks=`); test fixture gap fixed
+  (`TreeOperationTestBase` now also creates the SUSE loader kernel/initrd
+  layout — SUSE-type `store()` used to fail validation).
+* Verified on the agent VM (dedicated pgsql-4eclipse container after
+  `mgradm stop`; branch schema incl. `opensuse16.1`): 57 tests green,
+  full-core checkstyle audit clean. PXE E2E matrix stays with step 1.7.
 
 ### Step 1.3 — System path (status: NOT STARTED)
 
@@ -336,3 +347,15 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   accordingly. Design: `30-step-1.1-builders.md`.
 * 2026-10-08 — step 1.1 implemented and verified (34 DB-free tests,
   checkstyle clean).
+* 2026-10-08 — planning round 3 (step 1.2 design): edit-path merge decided —
+  the merge runs on create and edit via `BaseTreeEditOperation#store` (fixes
+  the XML-RPC update option-wipe; documented behavior change: deleted
+  computed options re-appear on the next edit), serverFqdn fallback via
+  `ConfigDefaults.getJavaHostname()`, DB-backed tests to run on the agent VM
+  (`mgradm stop` frees port 5432; deployed `uyuni-db` lacks `opensuse16.1`).
+  Design: `40-step-1.2-distro-path.md`.
+* 2026-10-08 — step 1.2 implemented and verified: edit-path merge live
+  (create + edit + XML-RPC update/rename), `ks=` defect fix in the RHEL
+  builder, SUSE tree-file fixture fix, 57 tests green on the agent VM
+  (dedicated pgsql-4eclipse container after `mgradm stop`), full-core
+  checkstyle clean. Status → DONE.

@@ -30,7 +30,7 @@ hinders another.
 
 **Session protocol:**
 
-1. Read this file (`00-goals.md`) and the relevant phase in `10-roadmap.md`.
+1. Read this file (`00-goals.md`) and the relevant phase in `10-roadmap.md`. Read `AGENTS_CUSTOM.md` in the repository root to know the environment.
 2. Pick **one** roadmap step. Do focused research if needed.
 3. Write/extend the step's plan (a section in `10-roadmap.md` or a dedicated
    step doc linked from it) *before* implementing.

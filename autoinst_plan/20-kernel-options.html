@@ -272,31 +272,49 @@ install-type routing.</p>
 scheme configurability is deferred until post-Cobbler.</p>
 <h2 id="5-legacy-behavior-catalogue-what-the-builders-must-reproduce">5. Legacy behavior catalogue (what the builders must reproduce)</h2>
 <h3 id="51-distro-path-managerkickstarttreetreecreateoperationstore">5.1 Distro path — <code>manager/kickstart/tree/TreeCreateOperation#store</code></h3>
-<p>Runs on tree create and, via the persisted result, effectively re-runs on edit
-(<code>BaseTreeEditOperation</code>). Guards make it idempotent; <strong>user-typed options
-must win</strong> over computed ones.</p>
+<p>Implemented in step 1.2 as <code>BaseTreeEditOperation#applyDistroKernelOptions()</code>,
+called from <code>BaseTreeEditOperation#store()</code> — so it runs on tree create, edit,
+XML-RPC update and rename. Guards make it idempotent; <strong>user-typed options
+must win</strong> over computed ones. (Round-1 wording said the merge &ldquo;effectively
+re-runs on edit&rdquo; — reality was that the edit path never recomputed and the
+XML-RPC update wiped the computed options; step 1.2 made the wording literally
+true. See <code>40-step-1.2-distro-path.md</code> for the decision record and the
+parity register below.)</p>
+<pre><code>existing = KernelOptionsList(tree.kernelOptions)          # parsed keys
+computed = builder.distroOptions(tree)                    # per §2/§4 builders
+if validation of base path succeeded:                     # merged AFTER validateBasePath()
+    existing.addMissingOptions(computed)
+    tree.kernelOptions = existing.toString()
+</code></pre>
+<p>Behaviour per install type (identical strings to the legacy code, modulo the
+normalizations in §5.1.1):</p>
 <pre><code>if installType.isSUSE():
-    if &quot;install=&quot; absent:    add install=http://&lt;serverFqdn&gt;/ks/dist/&lt;treeLabel&gt;
-    if &quot;self_update=&quot; absent:
-        installer-updates child of tree.channel (user-scoped lookup, §5.5)
-        present → self_update=http://&lt;fqdn&gt;/ks/dist/child/&lt;child&gt;/&lt;treeLabel&gt;
-        absent  → self_update=0
-if SLE16 (isSLES16OrGreater):            # committed Agama behavior
-    add root=live:http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;/LiveOS/squashfs.img
-    if absent: inst.self_update=&lt;installer-updates URL | 0&gt;
-else if isRhel8OrGreater() and &quot;inst.repo=&quot; absent:
-    add inst.repo=http://&lt;fqdn&gt;/ks/dist/&lt;treeLabel&gt;
-    # builder change: added unconditionally — inst.repo exists since RHEL 7,
-    # the minimal supported version (RHEL8 gate dropped)
+    if SLE16 (isSLES16OrGreater):  root=live:&lt;distTreeUrl&gt;/LiveOS/squashfs.img  +  inst.self_update=&lt;installer-updates URL | 0&gt;
+    else:                          install=&lt;distTreeUrl&gt;                        +  self_update=&lt;installer-updates URL | 0&gt;
+else (rhel/fedora/generic):        inst.repo=&lt;distTreeUrl&gt;                      # unconditionally, RHEL8 gate dropped (step 1.1)
 </code></pre>
 <ul>
 <li><code>serverFqdn</code> here resolves the <strong>local server FQDN</strong> (canonical hostname of
-  the local server), not <code>JavaHostname</code> — pass it into the builder.</li>
-<li>Merge pattern: parse existing <code>tree.getKernelOptions()</code> into
-  <code>KernelOptionsList</code>, then <code>addMissingOptions(builder.distroOptions(tree))</code> so
-  user-typed keys keep precedence.</li>
+  the server name set on the operation; blank → <code>ConfigDefaults.getJavaHostname()</code>
+  fallback, covering the XML-RPC update/rename paths that never set it).</li>
+<li>Merge semantics: parsed-key <code>addMissingOptions</code> — user-typed keys win,
+  computed keys are only added when absent. <code>kernelOptionsPost</code> is untouched.</li>
 <li>SLE16 detection in this path is via install type (<code>isSLES16OrGreater()</code>),
   matching the committed code.</li>
+</ul>
+<h4 id="511-documented-normalizations-vs-the-legacy-string-building">5.1.1 Documented normalizations vs. the legacy string building</h4>
+<ul>
+<li>Parsed-key checks replace substring <code>contains()</code> checks: <code>nfsroot=</code> no
+  longer suppresses <code>root=live:</code>; <code>inst.self_update=</code> no longer suppresses a
+  <code>self_update=</code> add on the SLES15 path (and vice versa).</li>
+<li>No leading space when the user-typed options string is empty (legacy
+  <code>StringJoiner</code> artifact).</li>
+<li><code>inst.repo=</code> is added for <em>all</em> rhel/fedora/generic install types
+  (incl. rhel_6/7, fedora18, generic_rpm) — locked step-1.1 deviation.</li>
+<li>The merge runs only after base-path validation succeeds (the legacy create
+  path mutated options even when validation failed).</li>
+<li>Unknown install type → <code>KernelOptionsBuilderException</code> (unreachable for
+  existing <code>rhnKSInstallType</code> labels).</li>
 </ul>
 <h3 id="52-system-path-managerkickstartcobblercobblersystemcreatecommandprocesskerneloptions">5.2 System path — <code>manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions</code></h3>
 <p>Fires for <strong>suse breed</strong> profiles only, only when <code>kernelOptions</code>,
