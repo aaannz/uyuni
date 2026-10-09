@@ -375,13 +375,25 @@ if autoinstall (always true on this path):
 </ul>
 <h3 id="54-profile-path-frontendactionkickstartkickstartdetailseditaction-cobblerprofilecommandupdatecobblerfields">5.4 Profile path — <code>frontend/action/kickstart/KickstartDetailsEditAction</code> → <code>CobblerProfileCommand#updateCobblerFields</code></h3>
 <p>The profile&rsquo;s kernel options (UI field) are pushed to the cobbler profile on
-every profile create/edit. Integration intent:</p>
+every profile create/edit. Implemented in step 1.5
+(<code>50-step-1.5-profile-path.md</code>):</p>
 <ul>
-<li>Route the user-typed string through <code>KernelOptionsList</code> (idempotent
-  handling, quoting safety).</li>
+<li>The user-typed string is routed through <code>KernelOptionsList</code> (idempotent
+  handling, quoting safety) at the <code>updateCobblerFields</code> convergence point —
+  the single writer is the profile details UI
+  (<code>KickstartDetailsEditAction#processCobblerFormValues</code>); all automated
+  callers (taskomatic sync, wizard create, XML-RPC) leave the field null and
+  skip the block. Whitespace normalization applies on save (§5.1.1);
+  <code>&lt;&lt;inherit&gt;&gt;</code>, empty string and quoted values round-trip unchanged.</li>
 <li><code>builder.profileOptions(...)</code> is empty until the Cobbler exit (locked
   decision, <code>30-step-1.1-builders.md</code> §1.4): no <code>inst.auto</code> merge happens —
-  cobbler&rsquo;s <code>tftpgen</code> owns the installer-selection option on PXE entries.</li>
+  cobbler&rsquo;s <code>tftpgen</code> owns the installer-selection option on PXE entries. The
+  merge runs via the factory (routed by <code>ksData.getInstallType()</code>, FQDN via
+  the shared <code>KickstartHostHelper.getServerFqdn(...)</code>: provided →
+  canonicalized, null/empty → configured Java hostname unchanged); routing
+  failures (<code>KernelOptionsBuilderException</code>) propagate — consistent with the
+  distro path, unreachable for existing <code>rhnKSInstallType</code> labels.</li>
+<li><code>postKernelOptions</code> keeps flowing as a raw string (untouched).</li>
 <li>Cobbler profile inheritance is not used by Uyuni; always writing explicit
   options is safe.</li>
 </ul>
@@ -424,7 +436,8 @@ values on its AutoYaST denylist get <code>autoyast=</code>, everything else (inc
   type, assert the produced kernel-options string equals the legacy string
   (modulo the documented whitespace normalization); user-typed options win
   over computed ones; idempotency under repeated store() calls.</li>
-<li>Style gates: <code>mvn -pl java/core compile</code>, <code>checkstyle:check</code>.</li>
+<li>Style gates: <code>mvn -f java compile checkstyle:checkstyle</code> (ant no longer
+  used for checkstyle).</li>
 </ul>
 <h2 id="8-e2e-verification-notes">8. E2E verification notes</h2>
 <ul>

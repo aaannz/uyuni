@@ -82,16 +82,27 @@ before starting any step here.
 * Route SLE16 by install type (tree resolved from the cobbler distro name in
   `prepareCobblerBoot`) — breed is `suse` for both SLES15 and SLE16.
 
-### Step 1.5 — Profile path (status: NOT STARTED)
+### Step 1.5 — Profile path (status: DONE 2026-10-08)
 
-* Wire `profileOptions` handling into profile create/edit:
-  `KickstartDetailsEditAction` → `CobblerProfileCommand#updateCobblerFields`
+* Implemented per [`50-step-1.5-profile-path.md`](50-step-1.5-profile-path.md):
+  wire `profileOptions` handling into profile create/edit at the
+  `CobblerProfileCommand#updateCobblerFields` convergence point
   (spec: `20-kernel-options.md` §5.4). Kernel options edited in the profile
-  details UI flow through `KernelOptionsList` instead of raw strings.
+  details UI flow through `KernelOptionsList` instead of raw strings;
+  `KickstartDetailsEditAction` itself needs no change.
 * Narrowed by the step 1.1 decision: no `inst.auto`/`inst.auto_insecure`
   merge — `profileOptions` is empty until the Cobbler exit (G6), cobbler owns
   the installer-selection option on PXE entries
   (`30-step-1.1-builders.md` §1.4).
+* Decisions (planning round 4): `postKernelOptions` stays raw;
+  routing failures (`KernelOptionsBuilderException`) propagate; the step-1.2
+  FQDN resolution moved into a shared `KickstartHostHelper` (used by
+  `BaseTreeEditOperation` + the profile path).
+* Verified: 67 tests green on the agent VM (16 `CobblerCommandTest` incl. 7
+  new profile-options cases: normalization, quoting, `<<inherit>>`/empty
+  round-trip, idempotency, post-options raw, null-options skip; 41
+  builder/factory/list; 10 tree-op after the FQDN-helper refactor),
+  `mvn -f java compile checkstyle:checkstyle` clean (ant toolchain dropped).
 
 ### Step 1.6 — Tests (status: NOT STARTED)
 
@@ -359,3 +370,22 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   builder, SUSE tree-file fixture fix, 57 tests green on the agent VM
   (dedicated pgsql-4eclipse container after `mgradm stop`), full-core
   checkstyle clean. Status → DONE.
+* 2026-10-08 — planning round 4 (step 1.5 design): profile-options wiring at
+  the `updateCobblerFields` convergence point (single writer: the profile
+  details UI; automated callers set no options); `postKernelOptions` stays
+  raw; routing failures propagate (no catch); shared `KickstartHostHelper`
+  extracted from the step-1.2 FQDN logic. Design:
+  `50-step-1.5-profile-path.md`.
+* 2026-10-08 — step 1.5 implemented and verified: `KickstartHostHelper` added
+  (and `BaseTreeEditOperation#getServerFqdn` delegating to it, behavior
+  unchanged), `updateCobblerFields` routes the user-typed profile kernel
+  options through `KernelOptionsList` + empty-until-G6 `profileOptions` merge.
+  67 tests green on the agent VM (`mgradm stop` → pgsql-4eclipse container,
+  branch schema), `mvn -f java compile checkstyle:checkstyle` clean
+  (checkstyle now runs via Maven; ant no longer used). Status → DONE.
+* 2026-10-08 — step 1.5 follow-up (review): `KickstartHostHelper` reduced to
+  a single `getServerFqdn(String)` — provided FQDN is canonicalized,
+  null/empty falls back to the configured Java hostname unchanged (protects
+  against container-internal resolution); blank-`serverName` tree path now
+  uses the configured hostname as-is (parity delta in the step doc §4).
+  Re-verified: 44 DB-free tests local, 67 DB-backed on the agent VM.

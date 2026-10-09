@@ -204,13 +204,25 @@ if autoinstall (always true on this path):
 ### 5.4 Profile path — `frontend/action/kickstart/KickstartDetailsEditAction` → `CobblerProfileCommand#updateCobblerFields`
 
 The profile's kernel options (UI field) are pushed to the cobbler profile on
-every profile create/edit. Integration intent:
+every profile create/edit. Implemented in step 1.5
+(`50-step-1.5-profile-path.md`):
 
-* Route the user-typed string through `KernelOptionsList` (idempotent
-  handling, quoting safety).
+* The user-typed string is routed through `KernelOptionsList` (idempotent
+  handling, quoting safety) at the `updateCobblerFields` convergence point —
+  the single writer is the profile details UI
+  (`KickstartDetailsEditAction#processCobblerFormValues`); all automated
+  callers (taskomatic sync, wizard create, XML-RPC) leave the field null and
+  skip the block. Whitespace normalization applies on save (§5.1.1);
+  `<<inherit>>`, empty string and quoted values round-trip unchanged.
 * `builder.profileOptions(...)` is empty until the Cobbler exit (locked
   decision, `30-step-1.1-builders.md` §1.4): no `inst.auto` merge happens —
-  cobbler's `tftpgen` owns the installer-selection option on PXE entries.
+  cobbler's `tftpgen` owns the installer-selection option on PXE entries. The
+  merge runs via the factory (routed by `ksData.getInstallType()`, FQDN via
+  the shared `KickstartHostHelper.getServerFqdn(...)`: provided →
+  canonicalized, null/empty → configured Java hostname unchanged); routing
+  failures (`KernelOptionsBuilderException`) propagate — consistent with the
+  distro path, unreachable for existing `rhnKSInstallType` labels.
+* `postKernelOptions` keeps flowing as a raw string (untouched).
 * Cobbler profile inheritance is not used by Uyuni; always writing explicit
   options is safe.
 
@@ -256,7 +268,8 @@ values on its AutoYaST denylist get `autoyast=`, everything else (incl.
   type, assert the produced kernel-options string equals the legacy string
   (modulo the documented whitespace normalization); user-typed options win
   over computed ones; idempotency under repeated store() calls.
-* Style gates: `mvn -pl java/core compile`, `checkstyle:check`.
+* Style gates: `mvn -f java compile checkstyle:checkstyle` (ant no longer
+  used for checkstyle).
 
 ## 8. E2E verification notes
 

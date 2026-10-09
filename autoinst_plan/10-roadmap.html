@@ -119,7 +119,7 @@ footer.note {
 <a class="h3" href="#step-12-distro-path-status-done-2026-10-08">Step 1.2 — Distro path (status: DONE 2026-10-08)</a>
 <a class="h3" href="#step-13-system-path-status-not-started">Step 1.3 — System path (status: NOT STARTED)</a>
 <a class="h3" href="#step-14-initiate-path-status-not-started">Step 1.4 — Initiate path (status: NOT STARTED)</a>
-<a class="h3" href="#step-15-profile-path-status-not-started">Step 1.5 — Profile path (status: NOT STARTED)</a>
+<a class="h3" href="#step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</a>
 <a class="h3" href="#step-16-tests-status-not-started">Step 1.6 — Tests (status: NOT STARTED)</a>
 <a class="h3" href="#step-17-cleanup-verification-status-not-started">Step 1.7 — Cleanup &amp; verification (status: NOT STARTED)</a>
 <a class="h3" href="#phase-1-explicit-deferrals-documented-per-guardrail">Phase 1 explicit deferrals (documented per guardrail)</a>
@@ -252,16 +252,27 @@ before starting any step here.</p>
 <li>Route SLE16 by install type (tree resolved from the cobbler distro name in
   <code>prepareCobblerBoot</code>) — breed is <code>suse</code> for both SLES15 and SLE16.</li>
 </ul>
-<h3 id="step-15-profile-path-status-not-started">Step 1.5 — Profile path (status: NOT STARTED)</h3>
+<h3 id="step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</h3>
 <ul>
-<li>Wire <code>profileOptions</code> handling into profile create/edit:
-  <code>KickstartDetailsEditAction</code> → <code>CobblerProfileCommand#updateCobblerFields</code>
+<li>Implemented per <a href="50-step-1.5-profile-path.md"><code>50-step-1.5-profile-path.md</code></a>:
+  wire <code>profileOptions</code> handling into profile create/edit at the
+  <code>CobblerProfileCommand#updateCobblerFields</code> convergence point
   (spec: <code>20-kernel-options.md</code> §5.4). Kernel options edited in the profile
-  details UI flow through <code>KernelOptionsList</code> instead of raw strings.</li>
+  details UI flow through <code>KernelOptionsList</code> instead of raw strings;
+  <code>KickstartDetailsEditAction</code> itself needs no change.</li>
 <li>Narrowed by the step 1.1 decision: no <code>inst.auto</code>/<code>inst.auto_insecure</code>
   merge — <code>profileOptions</code> is empty until the Cobbler exit (G6), cobbler owns
   the installer-selection option on PXE entries
   (<code>30-step-1.1-builders.md</code> §1.4).</li>
+<li>Decisions (planning round 4): <code>postKernelOptions</code> stays raw;
+  routing failures (<code>KernelOptionsBuilderException</code>) propagate; the step-1.2
+  FQDN resolution moved into a shared <code>KickstartHostHelper</code> (used by
+  <code>BaseTreeEditOperation</code> + the profile path).</li>
+<li>Verified: 67 tests green on the agent VM (16 <code>CobblerCommandTest</code> incl. 7
+  new profile-options cases: normalization, quoting, <code>&lt;&lt;inherit&gt;&gt;</code>/empty
+  round-trip, idempotency, post-options raw, null-options skip; 41
+  builder/factory/list; 10 tree-op after the FQDN-helper refactor),
+  <code>mvn -f java compile checkstyle:checkstyle</code> clean (ant toolchain dropped).</li>
 </ul>
 <h3 id="step-16-tests-status-not-started">Step 1.6 — Tests (status: NOT STARTED)</h3>
 <ul>
@@ -554,6 +565,25 @@ before starting any step here.</p>
   builder, SUSE tree-file fixture fix, 57 tests green on the agent VM
   (dedicated pgsql-4eclipse container after <code>mgradm stop</code>), full-core
   checkstyle clean. Status → DONE.</li>
+<li>2026-10-08 — planning round 4 (step 1.5 design): profile-options wiring at
+  the <code>updateCobblerFields</code> convergence point (single writer: the profile
+  details UI; automated callers set no options); <code>postKernelOptions</code> stays
+  raw; routing failures propagate (no catch); shared <code>KickstartHostHelper</code>
+  extracted from the step-1.2 FQDN logic. Design:
+  <code>50-step-1.5-profile-path.md</code>.</li>
+<li>2026-10-08 — step 1.5 implemented and verified: <code>KickstartHostHelper</code> added
+  (and <code>BaseTreeEditOperation#getServerFqdn</code> delegating to it, behavior
+  unchanged), <code>updateCobblerFields</code> routes the user-typed profile kernel
+  options through <code>KernelOptionsList</code> + empty-until-G6 <code>profileOptions</code> merge.
+  67 tests green on the agent VM (<code>mgradm stop</code> → pgsql-4eclipse container,
+  branch schema), <code>mvn -f java compile checkstyle:checkstyle</code> clean
+  (checkstyle now runs via Maven; ant no longer used). Status → DONE.</li>
+<li>2026-10-08 — step 1.5 follow-up (review): <code>KickstartHostHelper</code> reduced to
+  a single <code>getServerFqdn(String)</code> — provided FQDN is canonicalized,
+  null/empty falls back to the configured Java hostname unchanged (protects
+  against container-internal resolution); blank-<code>serverName</code> tree path now
+  uses the configured hostname as-is (parity delta in the step doc §4).
+  Re-verified: 44 DB-free tests local, 67 DB-backed on the agent VM.</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run
