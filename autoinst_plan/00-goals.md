@@ -31,7 +31,10 @@ hinders another.
 **Session protocol:**
 
 1. Read this file (`00-goals.md`) and the relevant phase in `10-roadmap.md`. Read `AGENTS_CUSTOM.md` in the repository root to know the environment.
-2. Pick **one** roadmap step. Do focused research if needed.
+2. Pick **one** roadmap step. Do focused research if needed. When a design
+   builds on a claim from the plan documents or changelogs, verify it against
+   the code/git history first — documents can drift from the tree (a recorded
+   fix may never have landed, a listed API may not exist).
 3. Write/extend the step's plan (a section in `10-roadmap.md` or a dedicated
    step doc linked from it) *before* implementing.
 4. Implement, verify (`mvn compile`, checkstyle, unit tests; frontend build for

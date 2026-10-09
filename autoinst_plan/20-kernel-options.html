@@ -127,6 +127,10 @@ footer.note {
 <a class="h2" href="#6-cobbler-tftpgen-interaction-why-idempotency-matters">6. Cobbler tftpgen interaction (why idempotency matters)</a>
 <a class="h2" href="#7-test-outline">7. Test outline</a>
 <a class="h2" href="#8-e2e-verification-notes">8. E2E verification notes</a>
+<a class="h2" href="#9-test-infrastructure-notes-lessons-from-step-1314">9. Test infrastructure notes (lessons from step 1.3/1.4)</a>
+<a class="h3" href="#91-cobbler-mock-javacoresrctestjavaorgcobblermockconnectionjava">9.1 Cobbler mock (java/core/src/test/java/org/cobbler/MockConnection.java)</a>
+<a class="h3" href="#92-fixture-cookbook-db-backed">9.2 Fixture cookbook (DB-backed)</a>
+<a class="h3" href="#93-regression-map-for-the-system-path-and-the-mock">9.3 Regression map for the system path and the mock</a>
 </nav>
 <main>
 <article>
@@ -194,13 +198,18 @@ else in this document is to be built.</p>
 <td>Yes</td>
 </tr>
 <tr>
+<td><code>mediaOptions(String mediaUrl)</code></td>
+<td>The installation-source override pointing at the <strong>session-tracked media URL</strong> (<code>http://&lt;kickstartHost&gt;&lt;mediaPath&gt;</code>, the per-session tinyurl built by the schedule flow). Key per OS class: <code>install=</code> (AutoYaST), <code>inst.repo=</code> (RHEL-like), <code>inst.install_url=</code> (Agama — overrides the product&rsquo;s default <code>installation_url</code>). Written onto cobbler system records (step 1.3); this is what routes installer package fetches through the kickstart session tracking (<code>DownloadFile</code> → <code>packageFetchCount</code>).</td>
+<td>Yes (add-if-absent)</td>
+</tr>
+<tr>
 <td><code>profileOptions(Profile)</code></td>
 <td>Profile-tied options. <strong>Empty until the Cobbler exit (G6)</strong> — cobbler&rsquo;s <code>tftpgen</code> owns the installer-selection option on generated PXE entries, so Uyuni must not duplicate it on profile records. Kept in the contract as the G6 flip-switch (empty default in the base, enabling later is a one-line override).</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td><code>systemOptions(SystemRecord)</code></td>
-<td>Per-system options (<code>inst.ks.sendmac</code> + <code>ks=</code>, <code>autoyast=</code>, <code>inst.auto=</code> for Agama) — only for boot lines Uyuni composes itself (initiate path), never written to cobbler records.</td>
+<td>Per-system options for boot lines Uyuni composes itself (initiate path, step 1.4): <code>inst.ks.sendmac</code> + <code>inst.ks=</code> (RHEL), <code>autoyast=</code> (AutoYaST), <code>inst.auto=</code> (Agama). Never written to cobbler records.</td>
 <td>Yes</td>
 </tr>
 </tbody>
@@ -317,61 +326,70 @@ else (rhel/fedora/generic):        inst.repo=&lt;distTreeUrl&gt;                
   existing <code>rhnKSInstallType</code> labels).</li>
 </ul>
 <h3 id="52-system-path-managerkickstartcobblercobblersystemcreatecommandprocesskerneloptions">5.2 System path — <code>manager/kickstart/cobbler/CobblerSystemCreateCommand#processKernelOptions</code></h3>
-<p>Fires for <strong>suse breed</strong> profiles only, only when <code>kernelOptions</code>,
-<code>kickstartHost</code> and <code>mediaPath</code> are all non-null:</p>
-<pre><code>if &quot;install=&quot; absent:   add install=http://&lt;kickstartHost&gt;&lt;mediaPath&gt;
-self_update: skip when profile's RESOLVED options contain self_update=0,
-             or the string already has self_update=, or ksData == null;
-             otherwise add self_update=&lt;installer-updates URL | 0&gt;
-             (user-scoped child-channel lookup)
+<p>Implemented in step 1.3 (<code>60-step-1.3-1.4-system-and-initiate-path.md</code>) —
+<strong>generic</strong> (no breed gate; routing is install-type-only through the
+factory), fires when <code>kernelOptions</code>, <code>kickstartHost</code>, <code>mediaPath</code> and
+<code>ksData</code> are all non-null (<code>mediaPath != null</code> implies <code>ksData != null</code> —
+only the schedule-flow constructor sets a media path):</p>
+<pre><code>options   = KernelOptionsList(kernelOptions)            # user part incl. ksdevice
+builder   = factory.getBuilder(ksData.installType, kickstartHost, user)   # schedule user!
+options.addMissingOptions(builder.mediaOptions(&quot;http://&quot; + kickstartHost + mediaPath))
+resolved  = KernelOptionsList(profile.resolvedKernelOptions)
+if not (resolved has self_update=0 or inst.self_update=0):
+    options.addMissingOptions(builder.selfUpdateOption(ksData.tree))
+kernelOptions = options.toString()
 </code></pre>
 <ul>
-<li>Note the <strong>different <code>install=</code> form</strong>: <code>mediaPath</code> (the cobbler
-  <code>ks_meta media_path</code>), not <code>/ks/dist/&lt;label&gt;</code>. Preserve exactly.</li>
-<li><code>kernelOptions</code> at this point already contains the user options + <code>ksdevice=</code>
-  produced by <code>KickstartScheduleCommand#getExtraOptions</code>.</li>
-<li>Result is set on the <code>SystemRecord</code> (plus <code>kernelOptionsPost</code> handling).</li>
-<li>Suggested split (inspiration, not mandate): keep the media-path <code>install=</code>
-  local to the command (it is media-specific), delegate the <code>self_update</code>
-  part to <code>builder.selfUpdateOption(tree)</code> so the logic lives once. For SLE16
-  profiles this path must produce the Agama-compatible result (route by
-  install type, not breed).</li>
+<li>The <code>install=</code>-form media override carries the <strong>per-session tinyurl</strong>
+  (<code>/ty/&lt;token&gt;</code> → <code>DownloadFile</code> → kickstart session tracking:
+  <code>packageFetchCount</code>, state, <code>lastFileRequest</code>). <code>kickstartHost</code> is the
+  <strong>proxy</strong> when one is configured (swapped in by <code>KickstartScheduleCommand</code>),
+  so the system-record URL is already proxy-aware; the distro-record URLs
+  rely on the proxy <code>tftp_wrapper.py</code> FQDN rewrite instead (orthogonal
+  mechanisms that compose).</li>
+<li>The <code>self_update</code> part is <strong>re-evaluated at schedule time with the schedule
+  user</strong> — custom installer-updates children are org/user-tied and a
+  vendor/global lookup would miss them. The resolved opt-out is honored in
+  both <code>self_update=0</code> and <code>inst.self_update=0</code> forms; user-typed keys win.</li>
+<li>Result is set on the <code>SystemRecord</code> (plus raw <code>kernelOptionsPost</code>).</li>
+<li>Behaviour per OS class (vs. the legacy suse-breed-only logic):
+  SLES15-: <code>install=&lt;mediaPath&gt;</code> + <code>self_update=</code> (parity);
+  SLE16: <code>install=&lt;mediaPath&gt;</code> replaced by <code>inst.install_url=&lt;mediaPath&gt;</code> and
+  <code>self_update=</code> corrected to <code>inst.self_update=</code> (bug fix);
+  RHEL/fedora/generic: <code>inst.repo=&lt;mediaPath&gt;</code> (new — session tracking now
+  works for the RHEL family too, locked user decision).</li>
+<li>Parsed-key checks replace the substring <code>contains()</code> guards.</li>
 </ul>
 <h3 id="53-initiate-path-domainactionkickstartkickstartinitiateactionbuildkerneloptions">5.3 Initiate path — <code>domain/action/kickstart/KickstartInitiateAction#buildKernelOptions</code></h3>
-<p>Salt local-reboot of a registered minion; input is the <strong>fully resolved</strong>
-cobbler options map (distro + profile + system already merged) plus the
-kickstart host:</p>
-<pre><code>breed = distro.getBreed()          # suse for SLES and SLE16
-kopts = KernelOptionsList(resolvedMap)
-
-if breed == &quot;suse&quot;:
-    if kopts has &quot;textmode&quot;: remove &quot;text&quot;
-    elif kopts has &quot;text&quot;:   remove &quot;text&quot;; set textmode=1
-remove &quot;initrd&quot;                    # no extra initrd param allowed
-
-per breed:
-  redhat/blank:  &quot;inst.ks.sendmac ks=&lt;systemAutoinstallUrl&gt;&quot;
-                 (rhel6 kssendmac variant dropped — rhel6 compat removed)
-  suse:          &quot;autoyast=&lt;systemAutoinstallUrl&gt;&quot;
-  SLE16:         &quot;inst.auto=&lt;url&gt;&quot;     # committed behavior for os_version opensuse16*
-
-if autoinstall (always true on this path):
-    add info=http://&lt;kickstartHost&gt;/cblr/svc/op/nopxe/system/&lt;systemName&gt;
+<p>Implemented in step 1.4 (<code>60-step-1.3-1.4-system-and-initiate-path.md</code>):
+Salt local-reboot of a registered minion (<code>bootloader.autoinstall</code> salt
+state); input is the <strong>fully resolved</strong> cobbler options map (distro + profile
++ system already merged — including the system record&rsquo;s session media
+override) plus the kickstart host and the tree (resolved from the cobbler
+distro name in <code>prepareCobblerBoot</code>):</p>
+<pre><code>kopts   = KernelOptionsList(resolvedMap)
+if distro breed is suse:  KernelOptionsHelper.applySuseTextmode(kopts)
+kopts.removeOption(&quot;initrd&quot;)                # no extra initrd param allowed
+builder = factory.getBuilder(tree.installType, kickstartHost)
+kopts.addMissingOptions(builder.systemOptions(system))
+if autoinstall: kopts.add info=KernelOptionsHelper.cobblerSystemNopxeUrl(host, system)
 </code></pre>
 <ul>
 <li>Host is the <strong>kickstart host</strong>. Scheme <code>http://</code>.</li>
-<li>The SLE16 <code>inst.auto=</code> variant must be selected via install type (resolve the
-  tree from the cobbler distro name <code>&lt;treeLabel&gt;:&lt;orgId&gt;</code>, which
-  <code>prepareCobblerBoot</code> already parses) — breed is <code>suse</code> for both SLES15 and
-  SLE16.</li>
-<li>The shared <code>text</code>→<code>textmode</code> transform belongs in one helper, applied only
-  for suse breed; it is added in this step (first caller).</li>
-<li>Replace the hand-rolled map serializer with <code>KernelOptionsList(Map)</code> +
-  <code>toString()</code> (fixes the legacy missing-space-before-<code>autoyast</code> quirk, which
-  was masked by a trailing space; harmless normalization).</li>
-<li>The legacy debian/ubuntu branch is <strong>removed</strong>: no debian/ubuntu install
-  type exists, the branch was unreachable (locked decision,
-  <code>30-step-1.1-builders.md</code> §1.3).</li>
+<li>Installer selection per OS class via <code>systemOptions</code>: <code>inst.ks.sendmac</code></li>
+<li><code>inst.ks=&lt;systemAutoinstallUrl&gt;</code> (RHEL), <code>autoyast=</code> (AutoYaST),
+  <code>inst.auto=</code> (Agama). The rhel6 <code>kssendmac</code> variant and the dead
+  debian/ubuntu branch are removed (locked step-1.1 decisions);
+  <code>inst.ks=</code> is the user-locked RHEL 7+ form (the legacy <code>ks=</code> string is
+  superseded — documented normalization).</li>
+<li>The <code>text</code>→<code>textmode</code> transform lives once in
+  <code>KernelOptionsHelper.applySuseTextmode</code>, applied only for suse breed
+  (first caller: this path).</li>
+<li>If the user typed an installer-selection option in the profile options, it
+  wins — legacy appended a duplicate-key occurrence (normalization).</li>
+<li>The hand-rolled map serializer is replaced by <code>KernelOptionsList(Map)</code> +
+  <code>toString()</code> (fixes the legacy missing-space-before-<code>autoyast</code> quirk and
+  the trailing-space artifact; harmless normalization).</li>
 </ul>
 <h3 id="54-profile-path-frontendactionkickstartkickstartdetailseditaction-cobblerprofilecommandupdatecobblerfields">5.4 Profile path — <code>frontend/action/kickstart/KickstartDetailsEditAction</code> → <code>CobblerProfileCommand#updateCobblerFields</code></h3>
 <p>The profile&rsquo;s kernel options (UI field) are pushed to the cobbler profile on
@@ -454,6 +472,60 @@ values on its AutoYaST denylist get <code>autoyast=</code>, everything else (inc
   <code>inst.self_update=</code>), minion re-provisioning via Salt initiate for SLES15
   and SLE16.</li>
 </ul>
+<h2 id="9-test-infrastructure-notes-lessons-from-step-1314">9. Test infrastructure notes (lessons from step 1.3/1.4)</h2>
+<p>Non-obvious facts about the DB-backed test setup — read before writing tests
+against the cobbler mock or the kickstart fixtures.</p>
+<h3 id="91-cobbler-mock-javacoresrctestjavaorgcobblermockconnectionjava">9.1 Cobbler mock (<code>java/core/src/test/java/org/cobbler/MockConnection.java</code>)</h3>
+<ul>
+<li>Kernel options strings are stored <strong>raw</strong> on modify (except <code>""</code>, which the
+  mock turns into an empty dict, and <code>&lt;&lt;inherit&gt;&gt;</code>, which it interprets as
+  inherit on read) — while <code>CobblerObject#getKernelOptions()</code> is typed
+  <code>Optional&lt;Map&lt;String, Object&gt;&gt;</code>. The established profile tests assert the
+  raw string; bridge with <code>String.valueOf(rec.getKernelOptions().get())</code> or
+  parse via <code>KernelOptionsList</code> — do not cast.</li>
+<li><code>get_item_resolved_value(uid, key)</code> resolves the attribute with a proper
+  inheritance merge — system → profile → distro, lower objects win, string
+  values parsed the way cobbler parses option strings. Repaired in step 1.3:
+  before that it could never match (it searched by the attribute key as if
+  it were a uid) and every resolved getter silently returned <code>null</code>.</li>
+<li>Inheritance references resolve <strong>by name across all collections</strong> (the
+  system stores the profile <em>name</em>, the profile the distro <em>name</em>). A
+  profile named exactly like its distro — the saltboot fixtures do this via
+  <code>SaltbootUtils.makeCobblerName(org, BOOT_IMAGE)</code> for both — becomes its
+  own parent; the visited-set cycle guard keeps resolution finite (the
+  merged result is then just the item&rsquo;s own options).</li>
+<li>Resolved maps are <code>HashMap</code>s — <strong>option order is not stable</strong>, for the
+  legacy serializer and <code>KernelOptionsList(Map)</code> alike. Assert boot lines
+  composed from resolved options by sorted option tokens, not exact strings.</li>
+</ul>
+<h3 id="92-fixture-cookbook-db-backed">9.2 Fixture cookbook (DB-backed)</h3>
+<ul>
+<li>Install-type labels in <code>rhnKSInstallType</code>: <code>sles15generic</code> (SLE15),
+  <code>opensuse16.1</code> (SLE16/Agama), <code>rhel_7</code>, <code>generic_rpm</code>; the cobbler breed
+  is <code>suse</code> for both SLES15 and SLE16.</li>
+<li><code>KickstartDataTest.createKickstartWithDefaultKey(org)</code> builds ksdata +
+  defaults + channel + tree (incl. mock cobbler distro/profile) + a default
+  session. Change the install type afterwards via
+  <code>ksdata.getTree().setInstallType(...)</code> + save, and align the mock distro&rsquo;s
+  <code>setBreed</code>/<code>setOsVersion</code> when a test depends on them.</li>
+<li>Installer-updates child for the self_update lookups:
+  <code>ChannelTestUtils.createChildChannel(user, tree.getChannel())</code> +
+  <code>channel.setInstallerUpdates(true)</code>; the schedule-scoped lookups go
+  through <code>getAccessibleChildrenFor(user)</code>.</li>
+<li>System record options round-trip: build the command, <code>store()</code>, then read
+  back via <code>SystemRecord.lookupById(con, server.getCobblerId())</code> (store
+  persists <code>server.setCobblerId</code>).</li>
+</ul>
+<h3 id="93-regression-map-for-the-system-path-and-the-mock">9.3 Regression map for the system path and the mock</h3>
+<p>Touching <code>CobblerSystemCreateCommand</code>, the builders, or <code>MockConnection</code> —
+run at least: <code>CobblerSystemCreateCommandTest</code>, <code>CobblerCommandTest</code> (16,
+incl. the step-1.5 profile-options cases), <code>SystemHandlerProvisioningTest</code>
+(exercises the full <code>provisionSystem</code> flow and asserts the media override),
+the saltboot suites (<code>SaltbootUtilsTest</code>, <code>PXEEventTest</code>,
+<code>SaltbootMigrationUtilsTest</code> — they hit the mock inheritance path), the
+tree-op suites (<code>TreeCreateOperationTest</code>,
+<code>BaseTreeEditOperationKernelOptionsTest</code>), the builder/factory/list suites,
+and <code>KickstartInitiateActionTest</code> (initiate-path parity).</p>
 </article>
 <footer class="note">Generated from <code>20-kernel-options.md</code> — do not edit by hand; run
 <code>autoinst_plan/build_html.py</code> to regenerate.</footer>

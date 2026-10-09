@@ -433,6 +433,11 @@ caveat (<code>00-goals.md</code> §5.1) before any SLE16 PXE attempt on the VM.<
   agent VM (<code>mgradm stop</code> → dedicated pgsql-4eclipse container with branch
   schema incl. <code>opensuse16.1</code>): 57 tests green (16 tree-op + 41
   builder/factory/list); full-core checkstyle audit clean. Status → DONE.</li>
+<li>2026-10-09 — correction (planning round 5): the §9 &ldquo;RHEL <code>systemOptions</code>
+  <code>inst.ks=</code> → <code>ks=</code> repair&rdquo; did not stick and is superseded — <code>inst.ks=</code> is
+  the committed, user-locked form (RHEL 7+ consumes <code>inst.ks</code>); only the
+  spec wording was stale. See
+  <code>60-step-1.3-1.4-system-and-initiate-path.md</code> §1.8.</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>40-step-1.2-distro-path.md</code> — do not edit by hand; run

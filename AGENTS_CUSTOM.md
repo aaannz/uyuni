@@ -117,6 +117,23 @@ rsync -avz -e "ssh -i ~/workbase/id_ssh_agents -o StrictHostKeyChecking=no" /pat
 
 A VM restored from a snapshot can run far behind the workstation. Check `date` on the VM (and `podman exec uyuni-server date`) and update the time and date of the VM.
 
+### VM quirks relevant for test runs
+
+- **SELinux is enforcing on the VM.** Plain bind mounts are unreadable from
+  containers (even as root — `ls /manager` fails with "Permission denied").
+  Always append `:Z` to volume flags when mounting host directories into
+  test containers, e.g.
+  `podman run -d --name uyuni-test-pgsql -p 5432:5432 -v ~/worktree/<branch>:/manager:Z <image>`.
+- **JDK 17** (the java build pins `<release>17</release>`; the VM default
+  `java` is 21) is at `/usr/lib64/jvm/java-17-openjdk` — run Maven with
+  `JAVA_HOME=/usr/lib64/jvm/java-17-openjdk`.
+- The worktree under `~/worktree/<branch>` is an **rsync copy** — the VM has
+  no `git`. Sync changed sources with rsync (see above) before running
+  tests; `java/buildconf/test/rhn.conf` and `~/.m2/repository` persist
+  across sessions, so only the pgsql test container must be recreated
+  (remove it with `podman rm -f uyuni-test-pgsql` afterwards and restore the
+  deployed stack with `mgradm start`).
+
 ### Deployment of the code using mvn
 
 Deployment is integrated with the Maven deploy phase and is handled by the script java/scripts/maven/deploy.sh. Currently, only the deployment of the webapp is integrated into the build.

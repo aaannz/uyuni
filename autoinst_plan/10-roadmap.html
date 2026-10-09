@@ -117,8 +117,8 @@ footer.note {
 <a class="h2" href="#phase-1-unified-kernel-options-g0">Phase 1 — Unified kernel options (G0)</a>
 <a class="h3" href="#step-11-port-builder-hierarchy-status-done-2026-10-08">Step 1.1 — Port builder hierarchy (status: DONE 2026-10-08)</a>
 <a class="h3" href="#step-12-distro-path-status-done-2026-10-08">Step 1.2 — Distro path (status: DONE 2026-10-08)</a>
-<a class="h3" href="#step-13-system-path-status-not-started">Step 1.3 — System path (status: NOT STARTED)</a>
-<a class="h3" href="#step-14-initiate-path-status-not-started">Step 1.4 — Initiate path (status: NOT STARTED)</a>
+<a class="h3" href="#step-13-system-path-status-done-2026-10-09">Step 1.3 — System path (status: DONE 2026-10-09)</a>
+<a class="h3" href="#step-14-initiate-path-status-done-2026-10-09">Step 1.4 — Initiate path (status: DONE 2026-10-09)</a>
 <a class="h3" href="#step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</a>
 <a class="h3" href="#step-16-tests-status-not-started">Step 1.6 — Tests (status: NOT STARTED)</a>
 <a class="h3" href="#step-17-cleanup-verification-status-not-started">Step 1.7 — Cleanup &amp; verification (status: NOT STARTED)</a>
@@ -222,35 +222,60 @@ before starting any step here.</p>
   (<code>kernelOptionsPost</code> untouched); user-scoped installer-updates channel
   lookup (§5.5); the <code>useonlinerepo</code> flag survives round-trips (decision
   <code>00-goals.md</code> §5.8).</li>
-<li>On the way: step-1.1 defect repaired (RHEL <code>systemOptions</code> emitted <code>inst.ks=</code>
-  instead of the spec/legacy <code>ks=</code>); test fixture gap fixed
-  (<code>TreeOperationTestBase</code> now also creates the SUSE loader kernel/initrd
-  layout — SUSE-type <code>store()</code> used to fail validation).</li>
+<li>On the way: test fixture gap fixed (<code>TreeOperationTestBase</code> now also
+  creates the SUSE loader kernel/initrd layout — SUSE-type <code>store()</code> used to
+  fail validation). (The originally recorded &ldquo;RHEL <code>systemOptions</code> <code>inst.ks=</code>
+  → <code>ks=</code> repair&rdquo; did not stick: <code>inst.ks=</code> is the committed, user-locked
+  form — RHEL 7+ consumes <code>inst.ks</code>; the spec wording was stale and is
+  corrected in the step-1.3/1.4 round, see
+  <code>60-step-1.3-1.4-system-and-initiate-path.md</code> §1.8.)</li>
 <li>Verified on the agent VM (dedicated pgsql-4eclipse container after
   <code>mgradm stop</code>; branch schema incl. <code>opensuse16.1</code>): 57 tests green,
   full-core checkstyle audit clean. PXE E2E matrix stays with step 1.7.</li>
 </ul>
-<h3 id="step-13-system-path-status-not-started">Step 1.3 — System path (status: NOT STARTED)</h3>
+<h3 id="step-13-system-path-status-done-2026-10-09">Step 1.3 — System path (status: DONE 2026-10-09)</h3>
 <ul>
-<li>Replace <code>CobblerSystemCreateCommand#processKernelOptions</code> (suse-breed
-  <code>install=&lt;mediaPath&gt;</code> + <code>self_update</code> logic) per <code>20-kernel-options.md</code>
-  §5.2; keep <code>kernelOptionsPost</code> handling; respect the resolved
-  <code>self_update=0</code> opt-out.</li>
+<li>Implemented per <code>20-kernel-options.md</code> §5.2 and the design in
+  <a href="60-step-1.3-1.4-system-and-initiate-path.md"><code>60-step-1.3-1.4-system-and-initiate-path.md</code></a>:
+  <code>CobblerSystemCreateCommand#processKernelOptions</code> is generic (no breed
+  gate, install-type routing via the factory) — session-tracked media
+  override (<code>mediaOptions</code>: <code>install=</code> / <code>inst.repo=</code> / <code>inst.install_url=</code>)
+  plus <code>self_update</code> re-evaluated at schedule time with the schedule user
+  (custom installer-updates children are org/user-tied); resolved opt-out
+  honored in both <code>self_update=0</code> and <code>inst.self_update=0</code> forms;
+  <code>kernelOptionsPost</code> still raw. SLE16 records now get the Agama form
+  <code>inst.self_update=</code> (bug fix); RHEL-family records get <code>inst.repo=</code> (new
+  session tracking for every OS, locked user decision).</li>
 <li><code>KickstartScheduleCommand#getExtraOptions</code> continues to produce the user
   part (<code>ksdevice=</code> + custom options) for now (full resolution in step 2.6).</li>
+<li>On the way: <code>MockConnection#get_item_resolved_value</code> repaired (it could
+  never match — resolved getters always returned null under the mock; now a
+  proper inheritance merge with a cycle guard — the saltboot fixtures name a
+  profile like its distro); <code>KernelOptionsList#getValue</code> added (was in the
+  spec&rsquo;s starting-point description but never implemented);
+  <code>SystemHandlerProvisioningTest</code> expectation updated to the intended
+  <code>inst.repo=</code> override.</li>
 </ul>
-<h3 id="step-14-initiate-path-status-not-started">Step 1.4 — Initiate path (status: NOT STARTED)</h3>
+<h3 id="step-14-initiate-path-status-done-2026-10-09">Step 1.4 — Initiate path (status: DONE 2026-10-09)</h3>
 <ul>
-<li>Replace <code>KickstartInitiateAction#buildKernelOptions</code> and the hand-rolled map
-  serializer per <code>20-kernel-options.md</code> §5.3: feed resolved cobbler options
-  into <code>KernelOptionsList</code>, shared SUSE <code>text</code>→<code>textmode</code> helper (added here —
-  first caller), compose via the builder&rsquo;s <code>systemOptions</code>, keep <code>info=</code>
-  (nopxe URL) behavior.</li>
-<li>Drop the dead debian/ubuntu branch (no debian/ubuntu install type exists)
-  and the rhel6 <code>kssendmac</code> branch (compat dropped — always
-  <code>inst.ks.sendmac</code>).</li>
-<li>Route SLE16 by install type (tree resolved from the cobbler distro name in
-  <code>prepareCobblerBoot</code>) — breed is <code>suse</code> for both SLES15 and SLE16.</li>
+<li>Implemented per <code>20-kernel-options.md</code> §5.3 and the step design:
+  <code>KickstartInitiateAction#buildKernelOptions</code> composes
+  <code>KernelOptionsList(resolved cobbler options)</code> → <code>KernelOptionsHelper
+  .applySuseTextmode</code> (shared SUSE helper, first caller, breed-gated) →
+  <code>removeOption(initrd)</code> → factory-routed <code>systemOptions</code> (<code>autoyast=</code> /
+  <code>inst.auto=</code> / <code>inst.ks.sendmac</code> + <code>inst.ks=</code>) → <code>info=</code> via
+  <code>cobblerSystemNopxeUrl</code>; the hand-rolled map serializer is gone; the
+  debian/ubuntu and rhel6 branches are dropped (locked); routing by install
+  type (tree resolved from the cobbler distro name in <code>prepareCobblerBoot</code>).</li>
+<li>The salt state (<code>bootloader.autoinstall</code>) kopts now include the resolved
+  system options — among them the session-tracked media URL — plus the
+  builder&rsquo;s system options, per the planning-round-5 requirement.</li>
+<li>Design + decisions (planning round 5, combined with 1.3):
+  <a href="60-step-1.3-1.4-system-and-initiate-path.md"><code>60-step-1.3-1.4-system-and-initiate-path.md</code></a>.</li>
+<li>Verified together with 1.3: 126 + 109 tests green on the agent VM
+  (<code>mgradm stop</code> → pgsql-4eclipse container via <code>:Z</code> mount — SELinux
+  enforcing; branch schema incl. <code>opensuse16.1</code>), <code>mvn -f java compile
+  checkstyle:checkstyle</code> clean (no ant). PXE E2E matrix stays with 1.7.</li>
 </ul>
 <h3 id="step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</h3>
 <ul>
@@ -451,6 +476,8 @@ before starting any step here.</p>
 </code></pre>
 <ul>
 <li>1.1 → 1.2 → 1.3/1.4/1.5 (parallelizable), 1.6/1.7 last.</li>
+<li>Phase 1 status: 1.1, 1.2, 1.3, 1.4, 1.5 DONE — only 1.6 (tests) and
+  1.7 (cleanup + E2E matrix) remain.</li>
 <li>2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.</li>
 <li>3.x depends on 2.x UI foundation and Phase 1 builders.</li>
 <li>4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).</li>
@@ -584,6 +611,40 @@ before starting any step here.</p>
   against container-internal resolution); blank-<code>serverName</code> tree path now
   uses the configured hostname as-is (parity delta in the step doc §4).
   Re-verified: 44 DB-free tests local, 67 DB-backed on the agent VM.</li>
+<li>2026-10-09 — planning round 5 (steps 1.3 + 1.4 design, combined in one
+  session): per-OS <code>mediaOptions</code> contract method — <code>install=</code> (AutoYaST),
+  <code>inst.repo=</code> (RHEL, new session tracking), <code>inst.install_url=</code> (Agama
+  product-default override) — so the per-session tinyurl media tracking works
+  for every OS; <code>self_update</code> stays on the system record with schedule-user
+  re-evaluation (custom installer-updates children are org/user-tied);
+  suse-breed gate dropped for install-type routing; standalone
+  <code>KernelOptionsHelper</code> (text→textmode transform, nopxe URL); RHEL
+  <code>systemOptions</code> stays <code>inst.ks.sendmac inst.ks=</code> (user-locked — the
+  step-1.2 &ldquo;repaired to ks=&rdquo; note was wrong and is corrected above).
+  Research findings: tinyurl = <code>DownloadFile</code> kickstart session progress
+  tracking (<code>packageFetchCount</code>/state), orthogonal to the proxy FQDN rewrite
+  in <code>tftp_wrapper.py</code>; <code>mediaPath != null</code> ⟹ <code>ksData != null</code>.
+  Design: <code>60-step-1.3-1.4-system-and-initiate-path.md</code>.</li>
+<li>2026-10-09 — steps 1.3 + 1.4 implemented and verified: generic system path
+  (media override + schedule-time self_update re-evaluation, SLE16
+  <code>inst.self_update=</code> fix, RHEL <code>inst.repo=</code> session tracking), initiate path
+  composed via <code>systemOptions</code> + <code>KernelOptionsHelper</code> (textmode + nopxe
+  URL), dead branches removed. Supporting fixes: mock
+  <code>get_item_resolved_value</code> repaired (with cycle guard for the saltboot
+  name-collision fixtures), <code>KernelOptionsList#getValue</code> added,
+  <code>SystemHandlerProvisioningTest</code> expectation updated to the intended
+  <code>inst.repo=</code> override. Agent VM window 10:20–11:00 CEST (mount via <code>:Z</code> —
+  SELinux enforcing on the VM): 126 + 109 tests green, checkstyle clean, no
+  server   deployment. Statuses → DONE.</li>
+<li>2026-10-09 — retrospective amendments after steps 1.3/1.4: session-protocol
+  rule added (<code>00-goals.md</code> §1.2 — verify doc/changelog claims against
+  code/git before designing on them; both the step-1.2 &ldquo;ks= repair&rdquo; note and
+  the spec&rsquo;s <code>KernelOptionsList.getValue</code> entry had drifted);
+  <code>20-kernel-options.md</code> gained §9 test-infrastructure notes (cobbler mock
+  semantics incl. the repaired resolved-value merge, fixture cookbook,
+  system-path regression map); <code>AGENTS_CUSTOM.md</code> §3 gained the VM quirks
+  (SELinux enforcing → <code>:Z</code> mounts, JDK 17 path, rsync-only worktree) —
+  outside the plan docs.</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run

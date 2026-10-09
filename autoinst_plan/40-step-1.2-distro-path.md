@@ -267,3 +267,8 @@ Deviations and discoveries recorded while implementing:
   agent VM (`mgradm stop` → dedicated pgsql-4eclipse container with branch
   schema incl. `opensuse16.1`): 57 tests green (16 tree-op + 41
   builder/factory/list); full-core checkstyle audit clean. Status → DONE.
+* 2026-10-09 — correction (planning round 5): the §9 "RHEL `systemOptions`
+  `inst.ks=` → `ks=` repair" did not stick and is superseded — `inst.ks=` is
+  the committed, user-locked form (RHEL 7+ consumes `inst.ks`); only the
+  spec wording was stale. See
+  `60-step-1.3-1.4-system-and-initiate-path.md` §1.8.

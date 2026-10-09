@@ -52,35 +52,60 @@ before starting any step here.
   (`kernelOptionsPost` untouched); user-scoped installer-updates channel
   lookup (§5.5); the `useonlinerepo` flag survives round-trips (decision
   `00-goals.md` §5.8).
-* On the way: step-1.1 defect repaired (RHEL `systemOptions` emitted `inst.ks=`
-  instead of the spec/legacy `ks=`); test fixture gap fixed
-  (`TreeOperationTestBase` now also creates the SUSE loader kernel/initrd
-  layout — SUSE-type `store()` used to fail validation).
+* On the way: test fixture gap fixed (`TreeOperationTestBase` now also
+  creates the SUSE loader kernel/initrd layout — SUSE-type `store()` used to
+  fail validation). (The originally recorded "RHEL `systemOptions` `inst.ks=`
+  → `ks=` repair" did not stick: `inst.ks=` is the committed, user-locked
+  form — RHEL 7+ consumes `inst.ks`; the spec wording was stale and is
+  corrected in the step-1.3/1.4 round, see
+  `60-step-1.3-1.4-system-and-initiate-path.md` §1.8.)
 * Verified on the agent VM (dedicated pgsql-4eclipse container after
   `mgradm stop`; branch schema incl. `opensuse16.1`): 57 tests green,
   full-core checkstyle audit clean. PXE E2E matrix stays with step 1.7.
 
-### Step 1.3 — System path (status: NOT STARTED)
+### Step 1.3 — System path (status: DONE 2026-10-09)
 
-* Replace `CobblerSystemCreateCommand#processKernelOptions` (suse-breed
-  `install=<mediaPath>` + `self_update` logic) per `20-kernel-options.md`
-  §5.2; keep `kernelOptionsPost` handling; respect the resolved
-  `self_update=0` opt-out.
+* Implemented per `20-kernel-options.md` §5.2 and the design in
+  [`60-step-1.3-1.4-system-and-initiate-path.md`](60-step-1.3-1.4-system-and-initiate-path.md):
+  `CobblerSystemCreateCommand#processKernelOptions` is generic (no breed
+  gate, install-type routing via the factory) — session-tracked media
+  override (`mediaOptions`: `install=` / `inst.repo=` / `inst.install_url=`)
+  plus `self_update` re-evaluated at schedule time with the schedule user
+  (custom installer-updates children are org/user-tied); resolved opt-out
+  honored in both `self_update=0` and `inst.self_update=0` forms;
+  `kernelOptionsPost` still raw. SLE16 records now get the Agama form
+  `inst.self_update=` (bug fix); RHEL-family records get `inst.repo=` (new
+  session tracking for every OS, locked user decision).
 * `KickstartScheduleCommand#getExtraOptions` continues to produce the user
   part (`ksdevice=` + custom options) for now (full resolution in step 2.6).
+* On the way: `MockConnection#get_item_resolved_value` repaired (it could
+  never match — resolved getters always returned null under the mock; now a
+  proper inheritance merge with a cycle guard — the saltboot fixtures name a
+  profile like its distro); `KernelOptionsList#getValue` added (was in the
+  spec's starting-point description but never implemented);
+  `SystemHandlerProvisioningTest` expectation updated to the intended
+  `inst.repo=` override.
 
-### Step 1.4 — Initiate path (status: NOT STARTED)
+### Step 1.4 — Initiate path (status: DONE 2026-10-09)
 
-* Replace `KickstartInitiateAction#buildKernelOptions` and the hand-rolled map
-  serializer per `20-kernel-options.md` §5.3: feed resolved cobbler options
-  into `KernelOptionsList`, shared SUSE `text`→`textmode` helper (added here —
-  first caller), compose via the builder's `systemOptions`, keep `info=`
-  (nopxe URL) behavior.
-* Drop the dead debian/ubuntu branch (no debian/ubuntu install type exists)
-  and the rhel6 `kssendmac` branch (compat dropped — always
-  `inst.ks.sendmac`).
-* Route SLE16 by install type (tree resolved from the cobbler distro name in
-  `prepareCobblerBoot`) — breed is `suse` for both SLES15 and SLE16.
+* Implemented per `20-kernel-options.md` §5.3 and the step design:
+  `KickstartInitiateAction#buildKernelOptions` composes
+  `KernelOptionsList(resolved cobbler options)` → `KernelOptionsHelper
+  .applySuseTextmode` (shared SUSE helper, first caller, breed-gated) →
+  `removeOption(initrd)` → factory-routed `systemOptions` (`autoyast=` /
+  `inst.auto=` / `inst.ks.sendmac` + `inst.ks=`) → `info=` via
+  `cobblerSystemNopxeUrl`; the hand-rolled map serializer is gone; the
+  debian/ubuntu and rhel6 branches are dropped (locked); routing by install
+  type (tree resolved from the cobbler distro name in `prepareCobblerBoot`).
+* The salt state (`bootloader.autoinstall`) kopts now include the resolved
+  system options — among them the session-tracked media URL — plus the
+  builder's system options, per the planning-round-5 requirement.
+* Design + decisions (planning round 5, combined with 1.3):
+  [`60-step-1.3-1.4-system-and-initiate-path.md`](60-step-1.3-1.4-system-and-initiate-path.md).
+* Verified together with 1.3: 126 + 109 tests green on the agent VM
+  (`mgradm stop` → pgsql-4eclipse container via `:Z` mount — SELinux
+  enforcing; branch schema incl. `opensuse16.1`), `mvn -f java compile
+  checkstyle:checkstyle` clean (no ant). PXE E2E matrix stays with 1.7.
 
 ### Step 1.5 — Profile path (status: DONE 2026-10-08)
 
@@ -292,6 +317,8 @@ Phase 1 (kernel options) ──► Phase 2 (raw-only + UI)
 ```
 
 * 1.1 → 1.2 → 1.3/1.4/1.5 (parallelizable), 1.6/1.7 last.
+* Phase 1 status: 1.1, 1.2, 1.3, 1.4, 1.5 DONE — only 1.6 (tests) and
+  1.7 (cleanup + E2E matrix) remain.
 * 2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.
 * 3.x depends on 2.x UI foundation and Phase 1 builders.
 * 4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).
@@ -389,3 +416,37 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   against container-internal resolution); blank-`serverName` tree path now
   uses the configured hostname as-is (parity delta in the step doc §4).
   Re-verified: 44 DB-free tests local, 67 DB-backed on the agent VM.
+* 2026-10-09 — planning round 5 (steps 1.3 + 1.4 design, combined in one
+  session): per-OS `mediaOptions` contract method — `install=` (AutoYaST),
+  `inst.repo=` (RHEL, new session tracking), `inst.install_url=` (Agama
+  product-default override) — so the per-session tinyurl media tracking works
+  for every OS; `self_update` stays on the system record with schedule-user
+  re-evaluation (custom installer-updates children are org/user-tied);
+  suse-breed gate dropped for install-type routing; standalone
+  `KernelOptionsHelper` (text→textmode transform, nopxe URL); RHEL
+  `systemOptions` stays `inst.ks.sendmac inst.ks=` (user-locked — the
+  step-1.2 "repaired to ks=" note was wrong and is corrected above).
+  Research findings: tinyurl = `DownloadFile` kickstart session progress
+  tracking (`packageFetchCount`/state), orthogonal to the proxy FQDN rewrite
+  in `tftp_wrapper.py`; `mediaPath != null` ⟹ `ksData != null`.
+  Design: `60-step-1.3-1.4-system-and-initiate-path.md`.
+* 2026-10-09 — steps 1.3 + 1.4 implemented and verified: generic system path
+  (media override + schedule-time self_update re-evaluation, SLE16
+  `inst.self_update=` fix, RHEL `inst.repo=` session tracking), initiate path
+  composed via `systemOptions` + `KernelOptionsHelper` (textmode + nopxe
+  URL), dead branches removed. Supporting fixes: mock
+  `get_item_resolved_value` repaired (with cycle guard for the saltboot
+  name-collision fixtures), `KernelOptionsList#getValue` added,
+  `SystemHandlerProvisioningTest` expectation updated to the intended
+  `inst.repo=` override. Agent VM window 10:20–11:00 CEST (mount via `:Z` —
+  SELinux enforcing on the VM): 126 + 109 tests green, checkstyle clean, no
+  server   deployment. Statuses → DONE.
+* 2026-10-09 — retrospective amendments after steps 1.3/1.4: session-protocol
+  rule added (`00-goals.md` §1.2 — verify doc/changelog claims against
+  code/git before designing on them; both the step-1.2 "ks= repair" note and
+  the spec's `KernelOptionsList.getValue` entry had drifted);
+  `20-kernel-options.md` gained §9 test-infrastructure notes (cobbler mock
+  semantics incl. the repaired resolved-value merge, fixture cookbook,
+  system-path regression map); `AGENTS_CUSTOM.md` §3 gained the VM quirks
+  (SELinux enforcing → `:Z` mounts, JDK 17 path, rsync-only worktree) —
+  outside the plan docs.
