@@ -151,11 +151,25 @@ before starting any step here.
   signature (documented caveat). Verified: 161 mock + 50/55 real-mode
   tests green on the agent VM, checkstyle clean.
 
-### Step 1.7 — Cleanup & verification (status: NOT STARTED)
+### Step 1.7 — Cleanup & verification (status: DONE 2026-10-12)
 
 * Remove dead string-building code after all sites migrated; checkstyle; E2E
   regression matrix per `20-kernel-options.md` §8 on the agent VM (mind the
   cobbler PR #177 caveat for SLE16 PXE).
+* Implemented per
+  [`80-step-1.7-cleanup-verification.md`](80-step-1.7-cleanup-verification.md)
+  (scope A+B+C: 7 verified-dead members removed incl. the test-only ones,
+  `getValue` stays). The legacy string-building code itself was already
+  deleted during steps 1.2–1.4.
+* Verified on the agent VM: checkstyle clean; 180 mock-mode tests + 50/55
+  real-mode tests (SLE16 skips, PR #177) green. E2E matrix executed with
+  fake content through the real flow: SLES15 tree/profile/schedule +
+  cobbler records (`install=`/`self_update=0`, media tinyurl override on the
+  system record), RHEL7 (`inst.repo=`), salt initiate pillar showing the
+  full composed boot line (`autoyast=` + media override + `info=`), SLE16
+  documented PR #177 caveat (cobbler rejection recorded). First backend
+  deploy of the branch on the VM (deploy quirks recorded in
+  `AGENTS_CUSTOM.md` §3); stack restored.
 
 ### Phase 1 explicit deferrals (documented per guardrail)
 
@@ -332,7 +346,7 @@ Phase 1 (kernel options) ──► Phase 2 (raw-only + UI)
 ```
 
 * 1.1 → 1.2 → 1.3/1.4/1.5 (parallelizable), 1.6/1.7 last.
-* Phase 1 status: 1.1–1.6 DONE — only 1.7 (cleanup + E2E matrix) remains.
+* Phase 1 status: **1.1–1.7 all DONE — Phase 1 (G0) complete.**
 * 2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.
 * 3.x depends on 2.x UI foundation and Phase 1 builders.
 * 4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).
@@ -486,3 +500,21 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   (5 SLE16 skips, PR #177 caveat), checkstyle clean, deployed stack
   restored. Status → DONE — Phase 1 has only 1.7 (cleanup + E2E matrix)
   left.
+* 2026-10-12 — planning round 7 + step 1.7 (cleanup & verification):
+  dead-code inventory verified against the tree (the legacy string building
+  was already deleted in steps 1.2–1.4; 7 unused members remained — scope
+  A+B+C locked incl. the test-only ones, `getValue` stays); E2E matrix run
+  for real with fake content through the real flow (custom channels + dummy
+  kernel/initrd layouts): SLES15 tree/profile/schedule + cobbler records,
+  RHEL7 `inst.repo=`, salt-initiate pillar with the full composed boot
+  line, SLE16 attempt-and-record (deployed cobbler lacks PR #177 — PRs
+  merged, release syncs with the code release). First backend deploy of the
+  branch on the agent VM; deployment quirks documented in `AGENTS_CUSTOM.md`
+  §3 (`--health-on-failure=stop` container cycling wipes deploy writes;
+  deploy.sh `-r` restart path triggers it; direct systemctl restarts are
+  safe; a version-matched stack still needs the branch's
+  `upgrade/next` + access-data SQL). Agent VM window ~09:40–11:05 CEST:
+  180 mock + 50/55 real-mode tests green, checkstyle clean, stack restored
+  (spacewalk-java-5.3.1-260400.1.2.uyuni6, cobbler 3.3.3-…uyuni6). Design
+  and results: `80-step-1.7-cleanup-verification.md`. Status → DONE —
+  **Phase 1 (G0) complete**; next: step 2.0 (feature tiering decisions).

@@ -206,6 +206,47 @@ misleadingly negative:
 - In case tests needs to be run in the VM, stop the deployed uyuni by using
   `mgradm stop` command.
 
+### Deploying branch Java code to the deployed instance
+
+`java/scripts/maven/deploy.sh backend --host 192.168.200.201` (webapp built
+first via `mvn -f java package`) copies the webapp + core/branding jars into
+`uyuni-server` (covers tomcat **and** taskomatic via the taskomatic jar
+symlinks). VM-specific facts (learned 2026-10-12):
+
+- **The container is disposable by design.** `uyuni-server.service` runs
+  `podman run --rm` with `Restart=on-success` and
+  `--health-on-failure=stop`: any clean PID1 exit recreates the container
+  from the image and **discards everything written to `/usr/share`**
+  (the deploy target). This includes the deploy script's own `-r` restart
+  path (`rctomcat`/`rctaskomatic` → the login-page healthcheck fails during
+  the tomcat restart window → podman stops the container → clean recreate).
+- **Working deploy recipe:** run `deploy.sh backend` **without** `-r`, then
+  restart services directly inside the container —
+  `podman exec uyuni-server systemctl restart tomcat taskomatic` — these do
+  NOT cycle the container. To make even those restarts cycle-proof (e.g.
+  for repeated deploys), temporarily override the unit:
+  drop-in `/etc/systemd/system/uyuni-server.service.d/99-no-healthstop.conf`
+  redefining `ExecStart` (copy of the original with
+  `--health-on-failure=none`), `systemctl daemon-reload`,
+  `systemctl restart uyuni-server`, deploy, verify — remove the drop-in and
+  restart the unit afterwards to restore stock behavior.
+- **A version-matched stack still needs the branch DB deltas.** The
+  container boot only applies schema upgrades when the schema package
+  version changes; a branch sharing the deployed version silently skips its
+  `schema/spacewalk/upgrade/next/*.sql`. Apply them by hand (plus the
+  fresh-install access data files `namespace.sql`, `accessGroup.sql`,
+  `endpoint.sql`, `endpointNamespace.sql`, `accessGroupNamespace.sql` — all
+  idempotent), or SparkFilter fails at boot
+  (`transactional_mode does not exist`, then `RbacRouteValidationException`
+  listing the missing endpoints). Webapp boot errors appear in
+  `/var/log/tomcat/localhost.log` (SEVERE) inside the container.
+- `deploy.sh` (SSH executor) needs non-interactive root SSH to the target:
+  add an `~/.ssh/config` Host entry with `IdentityFile` for the VM.
+- `mgrctl exec -- <cmd>` enters `uyuni-server` (podman exec equivalent);
+  host paths are NOT visible inside the container — use `podman cp` to move
+  files in. The `/srv/www`, `/etc/*`, `/var/lib/cobbler` paths are volumes
+  (persist across container recreation); `/usr/share` is not.
+
 ### Salt Minion Test Registration
 
 To get a managed system for testing (e.g. script-run or highstate validation),
