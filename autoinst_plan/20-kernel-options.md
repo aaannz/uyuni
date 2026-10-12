@@ -353,3 +353,37 @@ the saltboot suites (`SaltbootUtilsTest`, `PXEEventTest`,
 tree-op suites (`TreeCreateOperationTest`,
 `BaseTreeEditOperationKernelOptionsTest`), the builder/factory/list suites,
 and `KickstartInitiateActionTest` (initiate-path parity).
+
+### 9.4 Real-cobbler test mode (step 1.6)
+
+Opt-in mode running the phase-1 DB-backed suites against the cobbler shipped
+in the pgsql-4eclipse test container — design and full findings:
+`70-step-1.6-tests.md` §3/§8. Essence:
+
+* **Activation:** `-Duse.real.cobbler=true` (read by
+  `KickstartTestUtils.useRealCobbler()`); `setupTestConfiguration` then
+  re-points the `CobblerXMLRPCHelper`/`CobblerConnection` config keys to the
+  real classes and skips (assumeTrue) when cobbler is unreachable. Unset ⇒
+  byte-identical mock behaviour. **Every test must clean up cobbler
+  afterwards** (`KickstartTestUtils.cleanUpCobbler()` in `@AfterEach`):
+  real cobbler rejects the fixtures' duplicate fixed MAC.
+* **Container setup:** `java/buildconf/test/cobbler/setup-cobbler-test.sh`
+  (run via `podman exec` inside the test container) starts cobblerd +
+  apache (`/cobbler_api` proxy) + the accept-all auth shim
+  (`cobbler-auth-shim.py` emulating the Uyuni side of the
+  `authentication.spacewalk` callback protocol), links the template dirs and
+  patches two cobbler 3.3.3 defects (container-only, `cbltest-patch`
+  marker). Test `rhn.conf` needs `cobbler.port = 8080` (published port);
+  `/tmp/kickstart` and `/tmp/opt` must be bind-mounted `:Z` into the
+  container (cobbler validates kernel/initrd and template paths there).
+* **Assertion rules (mock vs real):** real cobbler returns kernel options
+  as unordered maps — compare sorted tokens; blank option values round-trip
+  as `~` — the test helpers normalize `=~` back to bare flags; the mock
+  keeps raw strings and lists unsaved profiles, real cobbler only saved
+  ones and validates kernel/initrd/template paths at save/modify time.
+* **SLE16 caveat in real mode:** the VM's cobbler lacks the `opensuse16.1`
+  signature (PR #177) — the five SLE16 fixtures skip via
+  `KickstartTestUtils.cobblerSupportsSles16()`; they run in mock mode and
+  CI.
+* `java-unittests-pgsql.sh` (ant-based CI harness) is mock-only: it never
+  starts cobblerd and is unaffected by this mode.

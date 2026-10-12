@@ -129,12 +129,27 @@ before starting any step here.
   builder/factory/list; 10 tree-op after the FQDN-helper refactor),
   `mvn -f java compile checkstyle:checkstyle` clean (ant toolchain dropped).
 
-### Step 1.6 — Tests (status: NOT STARTED)
+### Step 1.6 — Tests (status: DONE 2026-10-09)
 
 * Per `20-kernel-options.md` §7: pure-logic builder/factory tests, entity
   tests for install-type routing, call-site parity tests (legacy string
   equality modulo documented whitespace normalization), idempotency tests.
   DB/Cobbler-free where possible (CI runs the rest).
+* Design in [`70-step-1.6-tests.md`](70-step-1.6-tests.md): remaining §7
+  gaps closed (abstract-builder org-global branch, `KickstartHostHelper`,
+  predicate truth table + breed/os-version identity, RHEL merge +
+  Agama mixed-children, `KernelOptionsList` API holes, exact-string SLE16/
+  RHEL system parity, schedule-user negative scoping, tree-edit recompute,
+  initiate idempotency + RHEL text survival).
+* Opt-in **real-cobbler test mode** (`-Duse.real.cobbler=true` +
+  availability assumption): the phase-1 DB-backed suites run against the
+  cobbler shipped in the pgsql-4eclipse test container (accept-all auth
+  shim for the `authentication.spacewalk` callback protocol + container
+  setup script under `java/buildconf/test/cobbler/`), with mandatory
+  per-test cobbler cleanup. Mock-vs-real audit findings in the step doc
+  §8.1; the five SLE16 fixtures skip against a cobbler without the PR #177
+  signature (documented caveat). Verified: 161 mock + 50/55 real-mode
+  tests green on the agent VM, checkstyle clean.
 
 ### Step 1.7 — Cleanup & verification (status: NOT STARTED)
 
@@ -317,8 +332,7 @@ Phase 1 (kernel options) ──► Phase 2 (raw-only + UI)
 ```
 
 * 1.1 → 1.2 → 1.3/1.4/1.5 (parallelizable), 1.6/1.7 last.
-* Phase 1 status: 1.1, 1.2, 1.3, 1.4, 1.5 DONE — only 1.6 (tests) and
-  1.7 (cleanup + E2E matrix) remain.
+* Phase 1 status: 1.1–1.6 DONE — only 1.7 (cleanup + E2E matrix) remains.
 * 2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.
 * 3.x depends on 2.x UI foundation and Phase 1 builders.
 * 4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).
@@ -450,3 +464,25 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   system-path regression map); `AGENTS_CUSTOM.md` §3 gained the VM quirks
   (SELinux enforcing → `:Z` mounts, JDK 17 path, rsync-only worktree) —
   outside the plan docs.
+* 2026-10-09 — planning round 6 (step 1.6 design): remaining §7 gaps
+  enumerated against the steps-1.1–1.5 coverage; opt-in real-cobbler test
+  mode designed and dry-run-validated on the agent VM (cobbler 3.3.3 in the
+  pgsql-4eclipse image, apache `/cobbler_api` proxy, accept-all auth shim for
+  the `authentication.spacewalk` callback protocol, `settings.d/*.settings`
+  glob, host fixture-dir bind mounts). Decisions: `-Duse.real.cobbler=true` +
+  availability assumption (CI unchanged), phase-1 suites only, per-test
+  cobbler cleanup mandatory (fixed test MAC), scripts under
+  `java/buildconf/test/cobbler/`, protected `listAllChildren` seam for the
+  DB-free org-global branch test, mock-vs-real deltas are findings not
+  relaxations. Design: `70-step-1.6-tests.md`. Status → IN PROGRESS.
+* 2026-10-09 — step 1.6 implemented and verified: all §7 gap tests added;
+  real-cobbler mode live (`use.real.cobbler` property, shim auth, container
+  setup script, per-test cleanup, SLE16 capability probe). Real-mode audit
+  surfaced and resolved: unordered option maps (sorted-token assertions),
+  blank values round-trip as `~`, template/kernel path validation at
+  modify/save, two container-only cobbler 3.3.3 patches (copyfile samefile
+  on missing dst; sync-race on the per-distro copy). Agent VM window
+  13:10–17:05 CEST: 161 mock tests + 50/55 real-mode tests green
+  (5 SLE16 skips, PR #177 caveat), checkstyle clean, deployed stack
+  restored. Status → DONE — Phase 1 has only 1.7 (cleanup + E2E matrix)
+  left.

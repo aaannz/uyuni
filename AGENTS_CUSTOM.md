@@ -134,6 +134,37 @@ A VM restored from a snapshot can run far behind the workstation. Check `date` o
   (remove it with `podman rm -f uyuni-test-pgsql` afterwards and restore the
   deployed stack with `mgradm start`).
 
+### Running Java unit tests against a real Cobbler
+
+The `uyuni-master-pgsql(-4eclipse)` test images ship cobbler 3.3.3 + apache.
+The opt-in real-cobbler test mode (phase-1 kernel-options suites; design in
+`autoinst_plan/70-step-1.6-tests.md` §3, mock-vs-real findings in §8.1):
+
+```bash
+mgradm stop                                   # frees :5432 and :80
+mkdir -p /tmp/kickstart /tmp/opt              # fixture dirs, bind-mounted :Z
+podman run -d --name uyuni-test-pgsql \
+  -p 5432:5432 -p 8080:80 \
+  -v ~/worktree/<branch>:/manager:Z \
+  -v /tmp/kickstart:/tmp/kickstart:Z -v /tmp/opt:/tmp/opt:Z \
+  registry.opensuse.org/systemsmanagement/uyuni/master/docker/containers/uyuni-master-pgsql-4eclipse
+# test rhn.conf (local, gitignored):
+echo "cobbler.port = 8080" >> ~/worktree/<branch>/java/buildconf/test/rhn.conf
+# start cobbler inside the container (idempotent; logs in /tmp/cobbler-test-*.log):
+podman exec uyuni-test-pgsql /manager/java/buildconf/test/cobbler/setup-cobbler-test.sh
+# run on the VM host:
+cd ~/worktree/<branch>/java/core && JAVA_HOME=/usr/lib64/jvm/java-17-openjdk \
+  mvn test -DskipTests=false -Duse.real.cobbler=true -Dtest='<suites>'
+```
+
+Without `-Duse.real.cobbler=true` the same container serves the ordinary
+mock-mode runs. `java/buildconf/test/cobbler/setup-cobbler-test.sh` also
+applies two container-only patches for cobbler 3.3.3 defects (a
+`samefile`-on-missing-dst crash in `utils.copyfile` and a sync-race in
+`collection.add`) — recorded as potential upstream findings. The ant-based
+`java-unittests-pgsql.sh` CI harness never starts cobbler and stays
+mock-only.
+
 ### Deployment of the code using mvn
 
 Deployment is integrated with the Maven deploy phase and is handled by the script java/scripts/maven/deploy.sh. Currently, only the deployment of the webapp is integrated into the build.

@@ -131,6 +131,7 @@ footer.note {
 <a class="h3" href="#91-cobbler-mock-javacoresrctestjavaorgcobblermockconnectionjava">9.1 Cobbler mock (java/core/src/test/java/org/cobbler/MockConnection.java)</a>
 <a class="h3" href="#92-fixture-cookbook-db-backed">9.2 Fixture cookbook (DB-backed)</a>
 <a class="h3" href="#93-regression-map-for-the-system-path-and-the-mock">9.3 Regression map for the system path and the mock</a>
+<a class="h3" href="#94-real-cobbler-test-mode-step-16">9.4 Real-cobbler test mode (step 1.6)</a>
 </nav>
 <main>
 <article>
@@ -526,6 +527,39 @@ the saltboot suites (<code>SaltbootUtilsTest</code>, <code>PXEEventTest</code>,
 tree-op suites (<code>TreeCreateOperationTest</code>,
 <code>BaseTreeEditOperationKernelOptionsTest</code>), the builder/factory/list suites,
 and <code>KickstartInitiateActionTest</code> (initiate-path parity).</p>
+<h3 id="94-real-cobbler-test-mode-step-16">9.4 Real-cobbler test mode (step 1.6)</h3>
+<p>Opt-in mode running the phase-1 DB-backed suites against the cobbler shipped
+in the pgsql-4eclipse test container — design and full findings:
+<code>70-step-1.6-tests.md</code> §3/§8. Essence:</p>
+<ul>
+<li><strong>Activation:</strong> <code>-Duse.real.cobbler=true</code> (read by
+  <code>KickstartTestUtils.useRealCobbler()</code>); <code>setupTestConfiguration</code> then
+  re-points the <code>CobblerXMLRPCHelper</code>/<code>CobblerConnection</code> config keys to the
+  real classes and skips (assumeTrue) when cobbler is unreachable. Unset ⇒
+  byte-identical mock behaviour. <strong>Every test must clean up cobbler
+  afterwards</strong> (<code>KickstartTestUtils.cleanUpCobbler()</code> in <code>@AfterEach</code>):
+  real cobbler rejects the fixtures&rsquo; duplicate fixed MAC.</li>
+<li><strong>Container setup:</strong> <code>java/buildconf/test/cobbler/setup-cobbler-test.sh</code>
+  (run via <code>podman exec</code> inside the test container) starts cobblerd +
+  apache (<code>/cobbler_api</code> proxy) + the accept-all auth shim
+  (<code>cobbler-auth-shim.py</code> emulating the Uyuni side of the
+  <code>authentication.spacewalk</code> callback protocol), links the template dirs and
+  patches two cobbler 3.3.3 defects (container-only, <code>cbltest-patch</code>
+  marker). Test <code>rhn.conf</code> needs <code>cobbler.port = 8080</code> (published port);
+  <code>/tmp/kickstart</code> and <code>/tmp/opt</code> must be bind-mounted <code>:Z</code> into the
+  container (cobbler validates kernel/initrd and template paths there).</li>
+<li><strong>Assertion rules (mock vs real):</strong> real cobbler returns kernel options
+  as unordered maps — compare sorted tokens; blank option values round-trip
+  as <code>~</code> — the test helpers normalize <code>=~</code> back to bare flags; the mock
+  keeps raw strings and lists unsaved profiles, real cobbler only saved
+  ones and validates kernel/initrd/template paths at save/modify time.</li>
+<li><strong>SLE16 caveat in real mode:</strong> the VM&rsquo;s cobbler lacks the <code>opensuse16.1</code>
+  signature (PR #177) — the five SLE16 fixtures skip via
+  <code>KickstartTestUtils.cobblerSupportsSles16()</code>; they run in mock mode and
+  CI.</li>
+<li><code>java-unittests-pgsql.sh</code> (ant-based CI harness) is mock-only: it never
+  starts cobblerd and is unaffected by this mode.</li>
+</ul>
 </article>
 <footer class="note">Generated from <code>20-kernel-options.md</code> — do not edit by hand; run
 <code>autoinst_plan/build_html.py</code> to regenerate.</footer>

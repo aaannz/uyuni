@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>70-step-1.6-tests — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">70-step-1.6-tests</p>
+<a class="h2" href="#1-research-findings-verified-against-code-and-the-agent-vm-2026-10-09">1. Research findings (verified against code and the agent VM, 2026-10-09)</a>
+<a class="h3" href="#11-test-content-inventory-what-steps-1115-already-cover">1.1 Test-content inventory (what steps 1.1–1.5 already cover)</a>
+<a class="h3" href="#12-test-infrastructure-facts-code">1.2 Test-infrastructure facts (code)</a>
+<a class="h3" href="#13-real-cobbler-findings-dry-runs-against-ephemeral">1.3 Real-cobbler findings (dry-runs against ephemeral</a>
+<a class="h2" href="#2-decisions-locked-in-this-round-planning-round-6">2. Decisions locked in this round (planning round 6)</a>
+<a class="h2" href="#3-design-a-real-cobbler-test-infrastructure">3. Design A — real-cobbler test infrastructure</a>
+<a class="h3" href="#31-container-side-javabuildconftestcobbler">3.1 Container side (java/buildconf/test/cobbler/)</a>
+<a class="h3" href="#32-test-side-javacoresrctestjava">3.2 Test side (java/core/src/test/java/...)</a>
+<a class="h3" href="#33-agent-vm-run-recipe">3.3 Agent-VM run recipe</a>
+<a class="h2" href="#4-design-b-remaining-7-test-content">4. Design B — remaining §7 test content</a>
+<a class="h3" href="#41-db-free-run-locally">4.1 DB-free (run locally)</a>
+<a class="h3" href="#42-db-backed-agent-vm-ci-runs-them-with-the-mock">4.2 DB-backed (agent VM; CI runs them with the mock)</a>
+<a class="h2" href="#5-verification-plan">5. Verification plan</a>
+<a class="h2" href="#6-documentation-updates">6. Documentation updates</a>
+<a class="h2" href="#7-out-of-scope">7. Out of scope</a>
+<a class="h2" href="#8-implementation-notes-2026-10-09">8. Implementation notes (2026-10-09)</a>
+<a class="h3" href="#81-real-cobbler-findings-mock-vs-real-audit">8.1 Real-cobbler findings (mock-vs-real audit)</a>
+<a class="h3" href="#82-verification-results">8.2 Verification results</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-16-design-tests-builder-suite-completion-real-cobbler-option">Step 1.6 Design — Tests (builder suite completion + real-cobbler option)</h1>
+<blockquote>
+<p>Implementation design for roadmap step 1.6 (<code>10-roadmap.md</code> Phase 1). The
+behavioural specification remains <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>
+(§7 test outline, §9 test-infrastructure notes); this document fixes the
+remaining test-content plan and the design of the opt-in <strong>real-cobbler test
+mode</strong>, and records the planning-round-6 decisions.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-09</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-09)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1, <code>10-roadmap.md</code> step 1.6, <code>20-kernel-options.md</code> §7/§9, step docs 30/40/50/60</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-research-findings-verified-against-code-and-the-agent-vm-2026-10-09">1. Research findings (verified against code and the agent VM, 2026-10-09)</h2>
+<h3 id="11-test-content-inventory-what-steps-1115-already-cover">1.1 Test-content inventory (what steps 1.1–1.5 already cover)</h3>
+<p>The §7 outline is largely implemented as a by-product of steps 1.1–1.5:</p>
+<ul>
+<li><strong>Pure-logic:</strong> per-builder <code>distroOptions</code>/<code>selfUpdateOption</code>/<code>mediaOptions</code>
+  /<code>profileOptions</code>/<code>systemOptions</code> for all three builders
+  (<code>AgamaKernelOptionsBuilderTest</code>, <code>AutoYastKernelOptionsBuilderTest</code>,
+  <code>RhelKernelOptionsBuilderTest</code> — jMock + <code>ByteBuddyClassImposteriser</code>, DB-free);
+  <code>KernelOptionsHelperTest</code> (text→textmode, nopxe URL);
+  <code>KernelOptionsBuilderFactoryTest</code> (routing incl. SLE16-before-SUSE
+  precedence, unknown-type/null-type/FQDN failures); <code>KernelOptionsListTest</code>
+  (container semantics).</li>
+<li><strong>Call-site parity (DB-backed):</strong> tree create
+  (<code>TreeCreateOperationTest</code>: SLES15/SLE16/RHEL + user-wins + idempotency),
+  system create (<code>CobblerSystemCreateCommandTest</code>: exact SLES15 string, parsed
+  SLE16/RHEL, opt-outs in both forms, user-wins, post-options raw,
+  store-twice idempotency), initiate (<code>KickstartInitiateActionTest</code>: sorted
+  tokens per OS class, textmode, <code>initrd</code> removal, <code>info=</code> gating),
+  profile edit (<code>CobblerCommandTest</code>: normalization, quoting, <code>&lt;&lt;inherit&gt;&gt;</code>/
+  empty round-trip, idempotency, post raw, null-skip), full provisioning flow
+  (<code>SystemHandlerProvisioningTest</code> media override).</li>
+</ul>
+<p>Remaining gaps (this step&rsquo;s B-scope, §4 below):</p>
+<ol>
+<li><code>AbstractKernelOptionsBuilder</code> has no dedicated test; the <strong>org-global
+   fallback branch</strong> (<code>ChannelFactory.listAllChildrenForChannel</code>,
+   <code>AbstractKernelOptionsBuilder.java:80</code> — the §5.5 &ldquo;no user → org-global&rdquo;
+   half) is never exercised, nor are the URL helpers directly.</li>
+<li><code>KickstartHostHelper</code> (step 1.5) has no tests: canonicalization,
+   null/empty → <code>ConfigDefaults.getJavaHostname()</code> fallback,
+   <code>UnknownHostException</code> fallback are untested.</li>
+<li><code>KickstartInstallType</code> predicates <code>isSUSE</code>/<code>isRhel</code>/<code>isFedora</code>/<code>isGeneric</code>
+   are only covered transitively via factory routing;
+   <code>getCobblerBreed()</code>/<code>getCobblerOsVersion()</code> for <code>opensuse16.1</code> are never
+   asserted (spec §5.1 &ldquo;cobbler breed <code>suse</code>&rdquo; is a locked decision).</li>
+<li>Exact-string parity exists only for SLES15 in the system path
+   (<code>CobblerSystemCreateCommandTest#testSles15SystemKernelOptions</code>); SLE16 and
+   RHEL system records are asserted parsed-key style only.</li>
+<li><code>RhelKernelOptionsBuilder</code> lacks a merge/user-wins/idempotency case (the
+   other two builders have <code>testMergeIsUserWinsAndIdempotent</code>); the Agama
+   builder lacks the &ldquo;ignores non-installer-updates children&rdquo; case.</li>
+<li><code>KernelOptionsList</code> API holes: <code>getValue</code>, <code>hasOption(key, value)</code>,
+   <code>setFlagIfNotPresent</code> have no dedicated tests.</li>
+<li>Tree <strong>edit</strong>/XML-RPC-update recompute (step 1.2&rsquo;s core fix) is only
+   covered at tree create — <code>TreeEditOperationTest</code> has no kernel-options
+   assertions.</li>
+<li>Schedule-user scoping negative case: no test where the installer-updates
+   child exists but is <strong>not accessible</strong> to the schedule user (system path).</li>
+<li>Initiate-path idempotency (re-compose over an already-composed line) and
+   the RHEL &ldquo;raw <code>text</code> survives untransformed&rdquo; case are untested.</li>
+</ol>
+<h3 id="12-test-infrastructure-facts-code">1.2 Test-infrastructure facts (code)</h3>
+<ol>
+<li><code>KickstartTestUtils.setupTestConfiguration(User)</code> is the single config
+   seam: it maps the <code>CobblerXMLRPCHelper</code> config key to <code>MockXMLRPCInvoker</code>
+   and <code>org.cobbler.CobblerConnection</code> to <code>MockConnection</code>
+   (<code>KickstartTestUtils.java:35–62</code>), clears the mock, and sets the
+   <code>/tmp/kickstart</code> mount points. Every cobbler-touching suite calls it.</li>
+<li><code>CobblerCommandTestBase(boolean connectToCobbler)</code> already implements the
+   real-cobbler config swap (<code>CobblerCommandTestBase.java:72–76</code> — re-points
+   both config keys to the real classes) but is <strong>dead code</strong>: no test uses
+   <code>super(true)</code>. The connection class is resolved via
+   <code>MethodUtil.getClassFromConfig</code> (<code>CobblerXMLRPCHelper.getConnection</code>,
+   <code>CobblerCommand</code> constructor), so the swap affects the commands themselves,
+   not just test clients.</li>
+<li>Test fixtures live under host paths <code>/tmp/kickstart/...</code>
+   (<code>KickstartableTreeTest.KICKSTART_TREE_PATH = /tmp/kickstart/images</code>) and
+   <code>/tmp/opt/repo/...</code> (<code>CobblerCommandTestBase#ksdata</code> base path); cobbler
+   validates the kernel/initrd paths of a distro at save time, so a real
+   cobbler must see the same filesystem.</li>
+<li>Tests reuse a <strong>fixed MAC</strong> (<code>NetworkInterfaceTest.TEST_MAC</code>); real cobbler
+   rejects duplicate MACs across system records — per-test cleanup of real
+   cobbler objects is therefore mandatory, not just hygiene.</li>
+<li>No mockito in the test classpath (jMock + ByteBuddy only, <code>java/core/pom.xml:492–508</code>);
+   static calls (<code>ChannelFactory.listAllChildrenForChannel</code>) cannot be
+   jMock-imposterised.</li>
+<li>The <code>java-unittests-pgsql.sh</code> automation flow
+   (<code>susemanager-utils/testing/automation/</code> → <code>java/scripts/docker-testing-pgsql.sh</code>)
+   never starts cobblerd and runs the ant targets with the mock
+   <code>rhn.conf.example</code> — it is a <strong>mock-only</strong> flow (cobbler is installed in
+   the image but not running and never contacted there). Cobbler being
+   installed in the test image does not mean it is used.</li>
+</ol>
+<h3 id="13-real-cobbler-findings-dry-runs-against-ephemeral">1.3 Real-cobbler findings (dry-runs against ephemeral</h3>
+<p><code>uyuni-master-pgsql-4eclipse</code> containers on the agent VM, 2026-10-09)</p>
+<ol>
+<li>The test image contains <strong>cobbler 3.3.3</strong> (uyuni fork,
+   <code>cobbler-3.3.3-260400.41.1.uyuni6</code>), apache2 (+prefork, mod_wsgi), the
+   <code>authentication/spacewalk.py</code> module and <code>cobblerd</code>. Storage is
+   file-based (<code>/var/lib/cobbler/collections</code>) — <strong>no mongodb needed</strong>.
+   Tooling in the image: JDK 17 + ant; <strong>no maven</strong> (tests run via maven on
+   the VM host, as in previous steps).</li>
+<li>Java reaches cobbler through <code>http://&lt;cobbler.host&gt;:&lt;cobbler.port&gt;/cobbler_api</code>
+   (<code>ConfigDefaults.getCobblerServerUrl</code>, default port 80). Apache proxies
+   <code>/cobbler_api</code> → <code>http://127.0.0.1:25151/</code> (<code>01-cobblerapi.conf</code>
+   ProxyPass); <strong>cobblerd itself is path-sensitive</strong> — XML-RPC POSTs to
+   <code>/cobbler_api</code> on :25151 return 404, only <code>/</code> works. Apache is required.</li>
+<li>Apache needs two fixes inside the container: <code>vhost-ssl.conf</code> aborts
+   startup (<code>SSLCertificateFile /etc/pki/tls/certs/spacewalk.crt</code> missing — a
+   deployment-time artifact; move the file aside) and startup is
+   <code>/usr/sbin/start_apache2 -k start</code> (no <code>apache2ctl</code> in the image).</li>
+<li><strong>Auth is the real work.</strong> The image ships
+   <code>module = authentication.configfile</code> in <code>/etc/cobbler/modules.conf</code>
+   (digest user <code>cobbler</code>/<code>cobbler</code> in <code>users.digest</code>), but the Java side
+   hard-codes the <em>spacewalk module</em> protocol: <code>IntegrationService.authorize</code>
+   logs into cobbler with <code>taskomatic_user</code> + <code>web.session_secret_1</code>
+   (automated user) or a SessionSwap-encoded random (regular users); cobbler&rsquo;s
+   <code>authentication.spacewalk</code> then validates <strong>by calling back into a Uyuni
+   XML-RPC API</strong> at <code>uyuni_authentication_endpoint</code> (<code>auth.checkAuthToken</code>
+   for token-looking passwords, else <code>auth.login</code> + <code>user.listRoles</code>).
+   Without a running Uyuni server no credential can validate.
+   Solution that preserves production semantics: run a tiny <strong>accept-all
+   XML-RPC shim</strong> inside the test container implementing exactly the three
+   calls the module makes (<code>auth.checkAuthToken</code> → 1, <code>auth.login</code> → token,
+   <code>user.listRoles</code> → <code>["org_admin"]</code>), switch the module to
+   <code>authentication.spacewalk</code>, and point
+   <code>uyuni_authentication_endpoint: http://127.0.0.1:8000</code> at the shim. The
+   whole Java auth flow (token generation, <code>CobblerLoginCommand</code>,
+   token re-check) then works unmodified.</li>
+<li>Cobbler settings include from <code>settings.d/</code> glob <strong><code>*.settings</code> only</strong>
+   (<code>cobbler/settings/__init__.py:103</code>). The shipped
+   <code>settings.d/zz-uyuni.conf</code> is never loaded (verified:
+   <code>get_settings</code> returned <code>''</code> for the endpoint key) — the recipe writes its
+   own <code>zz-uyuni.settings</code>.</li>
+<li><code>get_item_resolved_value</code> takes <strong><code>(uid, attribute)</code> — no token</strong>
+   (real cobbler 3.3.3 raises &ldquo;takes 3 positional arguments but 4 were
+   given&rdquo; with a token appended). This matches the Java call
+   (<code>CobblerObject.java:361</code> invokes it via <code>invokeMethod</code>, not
+   <code>invokeTokenMethod</code>) and the step-1.3 mock repair.</li>
+<li>Kernel/initrd files: distro save validates the paths and copies the files
+   into <code>/srv/www/cobbler/images/</code>. Bind-mounting the host fixture dirs into
+   the container makes them visible: <code>-v /tmp/kickstart:/tmp/kickstart:Z -v
+   /tmp/opt:/tmp/opt:Z</code>. SELinux enforcing → <code>:Z</code> required; <strong>podman refuses
+   to relabel <code>/tmp</code> itself</strong> (&ldquo;SELinux relabeling of /tmp is not allowed&rdquo;) —
+   only the subdirectories can be mounted.</li>
+<li>Full round-trip validated inside an ephemeral container: shim + module
+   switch → <code>login("taskomatic_user", &lt;session secret&gt;)</code> returns a token →
+   distro create/modify/save (kernel/initrd from the host-mounted fixture
+   dir) → profile create/modify/save → <code>get_item_resolved_value</code> →
+   <code>remove_*</code> cleanup.</li>
+<li><strong>Real cobbler rejects any token it did not issue itself.</strong> Per-call
+   validation goes <code>check_access</code> → <code>get_user_from_token</code>
+   (<code>cobbler/remote.py:563–564</code>): <code>if token not in self.token_cache: raise
+   CX("invalid token")</code> — the cache is only populated by successful <code>login()</code>
+   calls. This rules out the &ldquo;keep the login mocked, swap only
+   <code>CobblerConnection</code> to real&rdquo; alternative: every CRUD call would die with
+   <code>CX: invalid token</code>. A real login through the <code>authentication.spacewalk</code>
+   callback protocol (i.e. the shim) is therefore mandatory for the
+   real-cobbler mode.</li>
+</ol>
+<h2 id="2-decisions-locked-in-this-round-planning-round-6">2. Decisions locked in this round (planning round 6)</h2>
+<ol>
+<li><strong>Activation by system property + assumption.</strong> <code>-Duse.real.cobbler=true</code>
+   switches the phase-1 DB-backed suites to a real cobbler; a cheap
+   availability probe (TCP connect with 3s timeout to <code>cobbler.host:cobbler.port</code>)
+   plus JUnit <code>assumeTrue</code> skips the tests when cobbler is absent. No
+   auto-detection and no silent mode changes: unset property ⇒ byte-identical
+   behaviour to today (mock), CI unaffected.</li>
+<li><strong>Scope: the phase-1 suites only</strong> — <code>CobblerCommandTestBase</code> (profile
+   tests), <code>CobblerSystemCreateCommandTest</code>, <code>KickstartInitiateActionTest</code>,
+   <code>TreeOperationTestBase</code>. Other <code>setupTestConfiguration</code> callers stay
+   mock-only for now; extending them later is a one-liner each.</li>
+<li><strong>Per-test cleanup in real mode is part of the contract</strong> (decision 1.2-4:
+   fixed MAC duplicates; fresh cobbler state per test). Mock mode keeps
+   <code>MockConnection.clear()</code>.</li>
+<li><strong>The container setup script and shim are committed</strong> to
+   <code>java/buildconf/test/cobbler/</code> (next to the test <code>rhn.conf</code> sources) —
+   reproducible, reviewable, idempotent.</li>
+<li><strong>Minimal testability seam in <code>AbstractKernelOptionsBuilder</code></strong>: the
+   org-global branch moves behind a protected
+   <code>listAllChildren(Channel)</code> hook (delegating to
+   <code>ChannelFactory.listAllChildrenForChannel</code>), overridable in the DB-free
+   test. No behavior change; no new mocking dependency (mockito is not on the
+   classpath and jMock cannot intercept statics).</li>
+<li><strong>Real-cobbler deltas are findings, not relaxations.</strong> The mock must
+   mirror real cobbler (it is the unit-test oracle for CI). Any mismatch
+   surfacing in real mode (attribute aliases, resolved-value semantics,
+   <code>&lt;&lt;inherit&gt;&gt;</code> handling) gets investigated and documented — potentially a
+   mock/product fix — before the parity tests are allowed to assert it.</li>
+</ol>
+<h2 id="3-design-a-real-cobbler-test-infrastructure">3. Design A — real-cobbler test infrastructure</h2>
+<h3 id="31-container-side-javabuildconftestcobbler">3.1 Container side (<code>java/buildconf/test/cobbler/</code>)</h3>
+<p><strong><code>cobbler-auth-shim.py</code></strong> — the validated shim (single file, stdlib only):</p>
+<pre><code class="language-python">from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
+
+class Handler(SimpleXMLRPCRequestHandler):
+    rpc_paths = (&quot;/rpc/api&quot;,)
+
+def checkAuthToken(user, token):        # accept-all: test-only trust boundary
+    return 1
+def login(user, password):
+    return &quot;shim-session-token-0001&quot;
+def listRoles(session, user):
+    return [&quot;org_admin&quot;]
+
+server = SimpleXMLRPCServer((&quot;127.0.0.1&quot;, 8000), requestHandler=Handler,
+                            logRequests=False, allow_none=True)
+server.register_function(checkAuthToken, &quot;auth.checkAuthToken&quot;)  # dotted names,
+server.register_function(login, &quot;auth.login&quot;)                    # as spacewalk.py
+server.register_function(listRoles, &quot;user.listRoles&quot;)            # calls them
+server.serve_forever()
+</code></pre>
+<p><strong><code>setup-cobbler-test.sh</code></strong> — idempotent (safe to re-run; waits for the
+stack to answer), runs <em>inside</em> the container:</p>
+<ol>
+<li><code>sed</code> <code>/etc/cobbler/modules.conf</code>:
+   <code>authentication.configfile</code> → <code>authentication.spacewalk</code>.</li>
+<li>Write <code>/etc/cobbler/settings.d/zz-uyuni.settings</code>:
+   <code>uyuni_authentication_endpoint: http://127.0.0.1:8000</code> +
+   <code>redhat_management_permissive: true</code> + <code>manage_tftpd: false</code> (the
+   login-fallback branch of the auth module needs the permissive flag; the
+   tftpd management is not needed by the tests and its background sync work
+   races with the per-distro file copies). Note: cobbler only loads
+   <code>settings.d/*.settings</code>, not the shipped <code>zz-uyuni.conf</code>.</li>
+<li>Disable <code>/etc/apache2/vhosts.d/vhost-ssl.conf</code> (missing deployment cert).</li>
+<li>Link <code>/var/lib/cobbler/templates/{wizard,raw}</code> to the test kickstart dir
+   (finding 8.1-3: cobbler validates the profile&rsquo;s template path there).</li>
+<li>Expose <code>/cobbler_api</code> beyond localhost via
+   <code>/etc/apache2/conf.d/zz-cobblerapi-test.conf</code> (the tests connect through
+   the published port; same approach as the acceptance suite).</li>
+<li>Apply the two container-only cobbler patches (finding 8.1-5) and restart
+   cobblerd when running.</li>
+<li>Start <code>cobbler-auth-shim.py</code> (background), wait for :8000.</li>
+<li>Start <code>cobblerd</code> (background), wait for :25151.</li>
+<li>Start <code>/usr/sbin/start_apache2 -k start</code> (or restart when running),
+   wait for :80.</li>
+<li>Smoke check: XML-RPC <code>login(taskomatic_user, &lt;anything&gt;)</code> against
+    <code>http://127.0.0.1/cobbler_api</code> — exits non-zero on failure.
+    Logs: <code>/tmp/cobbler-test-{shim,cobblerd,apache}.log</code>.</li>
+</ol>
+<h3 id="32-test-side-javacoresrctestjava">3.2 Test side (<code>java/core/src/test/java/...</code>)</h3>
+<p><strong><code>KickstartTestUtils</code></strong> (<code>com.redhat.rhn.domain.kickstart</code>):</p>
+<pre><code class="language-java">public static final String USE_REAL_COBBLER_PROPERTY = &quot;use.real.cobbler&quot;;
+
+public static boolean useRealCobbler() {
+    return Boolean.getBoolean(USE_REAL_COBBLER_PROPERTY);
+}
+
+/** Existing mock setup; delegates to the overload with useRealCobbler(). */
+public static void setupTestConfiguration(User u) throws Exception {
+    setupTestConfiguration(u, useRealCobbler());
+}
+
+public static void setupTestConfiguration(User u, boolean realCobbler)
+        throws Exception {
+    /* ... existing mock configuration unchanged ... */
+    if (realCobbler) {
+        assumeTrue(&quot;Cobbler not reachable&quot;, isCobblerReachable());
+        // same swap CobblerCommandTestBase(true) always did:
+        Config.get().setString(CobblerXMLRPCHelper.class.getName(),
+                CobblerXMLRPCHelper.class.getName());
+        Config.get().setString(CobblerConnection.class.getName(),
+                CobblerConnection.class.getName());
+    }
+    /* ... mount-point dirs, MockConnection.clear() stays (harmless) ... */
+}
+
+private static boolean isCobblerReachable() {
+    // Socket.connect(new InetSocketAddress(host, port), 3000) against
+    // ConfigDefaults.get().getCobblerServerUrl(); false on any IOException
+}
+
+/** Teardown: real cobbler -&gt; wipe collections (systems first: dependency
+ *  order); mock -&gt; clear the static state. */
+public static void cleanUpCobbler() {
+    if (useRealCobbler()) {
+        CobblerConnection con = CobblerXMLRPCHelper.getUncachedAutomatedConnection();
+        SystemRecord.list(con).forEach(CobblerObject::remove);
+        Profile.list(con).forEach(CobblerObject::remove);
+        Distro.list(con).forEach(CobblerObject::remove);
+    }
+    else {
+        MockConnection.clear();
+    }
+}
+</code></pre>
+<ul>
+<li><code>forEach(CobblerObject::remove)</code> uses the instance <code>CobblerObject.remove()</code>
+  (<code>CobblerObject.java:393</code>); <code>SystemRecord.list</code>/<code>Profile.list</code>/
+  <code>Distro.list(CobblerConnection)</code> all exist.</li>
+<li>Order systems → profiles → distros: real cobbler rejects removing a distro
+  that profiles still reference.</li>
+<li>Cleanup runs in <code>@AfterEach</code> — before <code>BaseTestCase</code>&rsquo;s <code>Config.clear()</code>
+  (subclass <code>@AfterEach</code> methods run first in JUnit 5).</li>
+<li>Images are not cleaned: no phase-1 suite creates cobbler images
+  (saltboot does, but it is out of this step&rsquo;s scope).</li>
+</ul>
+<p><strong>Base wiring:</strong></p>
+<ul>
+<li><code>CobblerCommandTestBase</code>: its <code>connectToCobbler</code> constructor flag is unified
+  with the property — <code>real = connectToCobbler || KickstartTestUtils
+  .useRealCobbler()</code> — and the inline config swap is replaced by
+  <code>KickstartTestUtils.setupTestConfiguration(user, real)</code> (keeping the
+  existing <code>TestUtils.commitAndCloseSession()</code> after the swap). Plus an
+  <code>@AfterEach</code> calling <code>cleanUpCobbler()</code>.</li>
+<li><code>CobblerSystemCreateCommandTest</code>, <code>KickstartInitiateActionTest</code>,
+  <code>TreeOperationTestBase</code>: their existing
+  <code>KickstartTestUtils.setupTestConfiguration(user)</code> calls become
+  property-aware automatically; each gains an <code>@AfterEach</code> →
+  <code>cleanUpCobbler()</code>.</li>
+</ul>
+<h3 id="33-agent-vm-run-recipe">3.3 Agent-VM run recipe</h3>
+<pre><code># on the VM (worktree rsync'd to ~/worktree/&lt;branch&gt;):
+mgradm stop                                  # frees :5432 (and :80)
+mkdir -p /tmp/kickstart /tmp/opt             # bind-mount sources
+podman run -d --name uyuni-test-pgsql \
+  -p 5432:5432 -p 8080:80 \
+  -v ~/worktree/&lt;branch&gt;:/manager:Z \
+  -v /tmp/kickstart:/tmp/kickstart:Z -v /tmp/opt:/tmp/opt:Z \
+  registry.opensuse.org/systemsmanagement/uyuni/master/docker/containers/uyuni-master-pgsql-4eclipse
+
+# test rhn.conf (local, gitignored):
+echo &quot;cobbler.port = 8080&quot; &gt;&gt; java/buildconf/test/rhn.conf
+
+# start the real cobbler inside the container:
+podman exec uyuni-test-pgsql /manager/java/buildconf/test/cobbler/setup-cobbler-test.sh
+
+# run (VM host, JAVA_HOME=/usr/lib64/jvm/java-17-openjdk):
+mvn -f java/core test -DskipTests=false \
+    -Dtest='CobblerCommandTest,CobblerSystemCreateCommandTest,KickstartInitiateActionTest,TreeCreateOperationTest,TreeEditOperationTest,TreeDeleteOperationTest' \
+    -Duse.real.cobbler=true
+</code></pre>
+<p>Without <code>-Duse.real.cobbler=true</code> the same container serves the mock-mode
+runs (the §9.3 regression map). The <code>cobbler.port=8080</code> line is inert in mock
+mode and in CI (nothing connects).</p>
+<h2 id="4-design-b-remaining-7-test-content">4. Design B — remaining §7 test content</h2>
+<h3 id="41-db-free-run-locally">4.1 DB-free (run locally)</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>New content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AbstractKernelOptionsBuilderTest</code> (new, <code>...autoinstallation/builder/</code>)</td>
+<td>URL helpers (<code>distTreeUrl</code>, <code>cobblerSystemAutoinstallUrl</code>) exact strings; <code>installerUpdatesValue</code> user-scoped branch (mocked <code>Channel#getAccessibleChildrenFor</code>, mirroring the existing builder tests); <strong>org-global branch</strong> via a test subclass overriding the new protected <code>listAllChildren</code> hook (decision 5); mixed-children filtering; <code>require</code> null-message shape.</td>
+</tr>
+<tr>
+<td><code>KickstartHostHelperTest</code> (new, <code>...manager/kickstart/</code>)</td>
+<td>provided FQDN canonicalized; null/empty → <code>ConfigDefaults.getJavaHostname()</code> unchanged; unresolvable host (<code>*.invalid</code>) → input returned unchanged (<code>UnknownHostException</code> fallback). Needs only <code>Config</code>/<code>ConfigDefaults</code> — DB-free, local-runnable.</td>
+</tr>
+<tr>
+<td><code>KickstartInstallTypeTest</code> (extend)</td>
+<td>direct <code>isSUSE</code>/<code>isRhel</code>/<code>isFedora</code>/<code>isGeneric</code> truth table incl. <code>opensuse16.1</code> (<code>isSUSE()</code> true, SLE16 routing precedes); <code>getCobblerBreed()</code> = <code>suse</code> and <code>getCobblerOsVersion()</code> for <code>opensuse16.1</code> (locked §5.1 identity).</td>
+</tr>
+<tr>
+<td><code>RhelKernelOptionsBuilderTest</code> (extend)</td>
+<td><code>testMergeIsUserWinsAndIdempotent</code> parity case (user <code>inst.repo=</code> wins; re-merge no-op).</td>
+</tr>
+<tr>
+<td><code>AgamaKernelOptionsBuilderTest</code> (extend)</td>
+<td>mixed-children case (one installer-updates child among non-flagged children) — parity with AutoYaST.</td>
+</tr>
+<tr>
+<td><code>KernelOptionsListTest</code> (extend)</td>
+<td><code>getValue</code> (present/absent), <code>hasOption(key, value)</code>, <code>setFlagIfNotPresent</code> dedicated cases.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-db-backed-agent-vm-ci-runs-them-with-the-mock">4.2 DB-backed (agent VM; CI runs them with the mock)</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>New content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CobblerSystemCreateCommandTest</code> (extend)</td>
+<td>exact-string parity for SLE16 (<code>inst.install_url=… inst.self_update=…</code>) and RHEL (<code>inst.repo=…</code>) with an empty profile-kopts fixture (deterministic option order — resolved maps are unordered, <code>20-kernel-options.md</code> §9.1); <strong>schedule-user negative scoping</strong>: installer-updates child exists but is not accessible to the schedule user → <code>self_update=0</code>/<code>inst.self_update=0</code> fallback.</td>
+</tr>
+<tr>
+<td><code>TreeEditOperationTest</code> (extend)</td>
+<td>kernel-options recompute on <strong>edit</strong> and XML-RPC update (the step-1.2 fix): computed options re-appear after edit; user-typed options win; idempotent second store. Uses the <code>TreeOperationTestBase</code> SUSE-loader fixtures.</td>
+</tr>
+<tr>
+<td><code>KickstartInitiateActionTest</code> (extend)</td>
+<td>idempotency: feeding a previously composed line back into <code>buildKernelOptions</code> yields the same option set; RHEL: a resolved <code>text</code> option survives untransformed (no textmode swap outside suse breed).</td>
+</tr>
+</tbody>
+</table>
+<p>Assertion style follows the established patterns (exact strings where order
+is deterministic; parsed-key/sorted-token where resolved maps are involved).</p>
+<h2 id="5-verification-plan">5. Verification plan</h2>
+<ol>
+<li><strong>Local:</strong> DB-free suites + <code>mvn -f java/core test -DskipTests=false
+   -Dtest='&lt;db-free classes&gt;'</code>; <code>mvn -f java compile checkstyle:checkstyle</code>.</li>
+<li><strong>Agent VM, mock mode:</strong> §9.3 regression map (all listed suites) — guards
+   against regressions from the config-seam refactor.</li>
+<li><strong>Agent VM, real mode:</strong> the four suites with <code>-Duse.real.cobbler=true</code>
+   per §3.3. First real run doubles as the mock-vs-real parity audit
+   (decision 6): any delta is triaged before relaxing anything.</li>
+<li>Record VM window, container/versions and results in
+   <code>agents-workbench/autoinstallation/session-log.md</code>.</li>
+</ol>
+<h2 id="6-documentation-updates">6. Documentation updates</h2>
+<ul>
+<li><code>10-roadmap.md</code>: step 1.6 status + changelog entry (this round).</li>
+<li><code>20-kernel-options.md</code> §9: the real-cobbler test mode (settings.d glob,
+  shim auth, bind-mount constraints, <code>get_item_resolved_value</code> signature,
+  port publishing) as test-infrastructure notes.</li>
+<li><code>AGENTS_CUSTOM.md</code> §3: the run recipe (VM quirks section, following the
+  established pattern of recording environment learnings there).</li>
+<li>Regenerate presentation HTMLs (<code>.venv/bin/python autoinst_plan/build_html.py</code>).</li>
+</ul>
+<h2 id="7-out-of-scope">7. Out of scope</h2>
+<ul>
+<li>Saltboot suites and any non-phase-1 <code>setupTestConfiguration</code> caller
+  (decision 2 — later one-liners).</li>
+<li>Cobbler <code>Image</code> records cleanup (no phase-1 suite creates images).</li>
+<li>CI wiring of a real cobbler container (CI keeps the mock; the property
+  stays opt-in).</li>
+<li>Step 1.7 (dead-code cleanup, E2E matrix) and the cobbler PR #177 PXE
+  validation.</li>
+<li>Changing any production (<code>src/main</code>) behavior; the only main-tree change is
+  the <code>listAllChildren</code> seam (§2 decision 5) and nothing else.</li>
+</ul>
+<h2 id="8-implementation-notes-2026-10-09">8. Implementation notes (2026-10-09)</h2>
+<p>Everything of §3/§4 was implemented as designed. The real-cobbler mode&rsquo;s
+first full run surfaced additional mock-vs-real deltas (decision 6 audit);
+all were resolved on the test/infrastructure side — no production behavior
+change beyond the <code>listAllChildren</code> seam.</p>
+<h3 id="81-real-cobbler-findings-mock-vs-real-audit">8.1 Real-cobbler findings (mock-vs-real audit)</h3>
+<ol>
+<li><strong>Kernel options come back as unordered maps.</strong> The mock stores the raw
+   string set via modify; real cobbler parses it into a dict and the XML-RPC
+   response arrives as a Java <code>Map</code> (unordered). All parity assertions use
+   sorted-token comparisons (<code>assertOptionTokens</code>/<code>assertKoptsEqual</code>
+   helpers); the option order is not part of the contract.</li>
+<li><strong>Blank option values round-trip as <code>~</code>.</strong> Real cobbler serializes blank
+   dict values through its YAML storage (<code>flag</code> → <code>{flag: null}</code> → read back
+   as the string <code>"~"</code>). The assertion helpers normalize <code>=~</code> back to bare
+   flags, so mock and real render identically. Legacy parity: the old
+   hand-rolled serializer rendered <code>text=</code> for the mock-shaped empty value
+   and production read real cobbler&rsquo;s <code>text=~</code> — both compositions are
+   covered (<code>testRhelTextSurvivesUntransformed</code> expects <code>text=</code> on the mock
+   and <code>text=~</code> on real cobbler).</li>
+<li><strong>Cobbler validates the profile&rsquo;s autoinstall template path at
+   <code>modify</code>-time</strong> (<code>Invalid automatic installation template file location
+   ... file not found</code>). The fixtures create the (empty) template file
+   before setting the profile&rsquo;s <code>kickstart</code> field, and the container setup
+   script links <code>/var/lib/cobbler/templates/{wizard,raw}</code> to the test
+   kickstart dir (<code>/tmp/kickstart/...</code>), where the Java side writes.</li>
+<li><strong>Cobbler validates distro kernel/initrd paths at save</strong> (existence <em>and</em>
+   the kernel filename pattern) — the initiate-path fixture&rsquo;s hardcoded
+   <code>/tmp/kickstart/images/vmlinuz</code> never existed and had to point at real
+   fixture files.</li>
+<li><strong>Cobbler 3.3.3 defects, patched inside the test container only</strong> (by
+   <code>setup-cobbler-test.sh</code>, guarded by a <code>cbltest-patch</code> marker):
+   * <code>utils.copyfile</code> calls <code>os.path.samefile(src, dst)</code> in its error path
+     with a not-yet-existing destination — raises and masks the original
+     copy error (hit whenever distro files are copied across devices, e.g.
+     from the host-mounted fixture directory).
+   * <code>collection.add</code>&rsquo;s synchronous per-distro file copy races with the
+     background full-sync tasks (triggered by the commands under test via
+     <code>CobblerSyncCommand</code> → <code>background_sync</code>) whose <code>clean trees</code> step
+     removes the target directories mid-copy. The patch tolerates the
+     resulting <code>FileNotFoundError</code> — the tests never read the tftpboot/www
+     copies.</li>
+<li><strong><code>opensuse16.1</code> is not in the VM cobbler&rsquo;s signature list</strong> (the
+   documented PR #177 caveat, <code>00-goals.md</code> §5.1): distro saves with that
+   os_version are rejected. <code>KickstartTestUtils.cobblerSupportsSles16()</code>
+   probes it once per JVM (create+remove a probe distro); the five SLE16
+   fixtures that create cobbler distros skip via <code>assumeTrue</code> in real mode
+   and still run in mock mode and CI.</li>
+<li><strong>Misc API semantics</strong>: <code>get_profiles</code> lists only <em>saved</em> profiles (the
+   mock lists unsaved <code>new_profile</code> items); <code>new_profile</code> requires a distro
+   reference at profile save; <code>get_profiles</code> returns an <code>XmlRpcArray</code>
+   (cast to <code>List</code>, not <code>LinkedList</code>); <code>get_item_resolved_value(uid,
+   attribute)</code> takes no token (already matched by the step-1.3 mock
+   repair).</li>
+<li><strong><code>testLogin</code> simplified</strong>: the role juggling (<code>addPermanentRole</code> +
+   <code>save</code> + <code>reload</code>) tripped a Hibernate <code>rhnusergroup.current_members</code>
+   flush quirk under real mode and is irrelevant for what the test asserts
+   (the shim accepts all logins anyway).</li>
+</ol>
+<h3 id="82-verification-results">8.2 Verification results</h3>
+<ul>
+<li>Local sandbox: 66 DB-free tests green, <code>mvn -f java/core test</code> +
+  <code>mvn -pl core checkstyle:checkstyle</code> clean.</li>
+<li>Agent VM (window 13:10–17:05 CEST, <code>mgradm stop</code> → dedicated
+  <code>uyuni-test-pgsql</code> container from <code>uyuni-master-pgsql-4eclipse</code>, worktree
+  at <code>/manager:Z</code>, fixture dirs <code>/tmp/kickstart</code> + <code>/tmp/opt</code> mounted <code>:Z</code>,
+  API published on <code>:8080</code>):</li>
+<li>Mock mode (§9.3 regression map + all builder/factory/list suites +
+    <code>KickstartInstallTypeTest</code> + <code>KickstartHostHelperTest</code>):
+    <strong>161 tests green</strong>.</li>
+<li>Real mode (<code>-Duse.real.cobbler=true</code>, cobbler started inside the test
+    container via <code>setup-cobbler-test.sh</code>): <strong>55 tests, 50 green, 5 skipped
+    (SLE16, finding 6), 0 failures</strong>.</li>
+<li>Deployed stack restored afterwards (<code>mgradm start</code>,
+    <code>spacewalk-java-5.3.1-260400.1.2.uyuni6.noarch</code>,
+    <code>cobbler-3.3.3-260400.41.1.uyuni6</code> — unchanged).</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-09 — created from planning round 6: real-cobbler test mode
+  (property + assumption, phase-1 scope, container scripts committed,
+  mandatory per-test cleanup) designed from VM dry-run findings; remaining
+  §7 gaps enumerated and planned; <code>AbstractKernelOptionsBuilder</code> test seam
+  decision.</li>
+<li>2026-10-09 — shim necessity verified after review feedback: the
+  <code>java-unittests-pgsql.sh</code> flow is mock-only (no cobblerd started, no real
+  cobbler contact — hence no auth needed there); real cobbler requires
+  login-issued tokens (<code>remote.py</code> invalid-token check), ruling out the
+  mocked-login alternative. Accept-all shim kept as the
+  production-protocol-preserving solution (user decision).</li>
+<li>2026-10-09 — implemented and verified: container scripts, config toggle
+  with availability assumption, mandatory per-test cleanup, <code>listAllChildren</code>
+  seam, all §7 gap tests (new: <code>AbstractKernelOptionsBuilderTest</code>,
+  <code>KickstartHostHelperTest</code>; extended: install-type predicates/breed,
+  RHEL merge, Agama mixed children, <code>KernelOptionsList</code> API holes, SLE16/RHEL
+  exact system parity, schedule-user scoping, tree-edit recompute,
+  initiate idempotency + RHEL text). Real-mode audit findings recorded in
+  §8.1 (sorted-token assertions, <code>~</code> blank-value round-trip, template-path
+  validation, two container-only cobbler patches, SLE16 probe + skips).
+  161 mock tests + 50/55 real-mode tests green on the agent VM; checkstyle
+  clean. Status → DONE.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>70-step-1.6-tests.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>
