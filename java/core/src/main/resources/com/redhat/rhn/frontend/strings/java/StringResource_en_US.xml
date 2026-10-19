@@ -9658,6 +9658,9 @@ Alternatively, you will want to download &lt;strong&gt;Incremental Channel Conte
       <trans-unit id="pxeeventfailed" xml:space="preserve">
         <source>PXE Event Failed</source>
       </trans-unit>
+      <trans-unit id="saltbootconfigurationproblem" xml:space="preserve">
+        <source>Saltboot Configuration Problem</source>
+      </trans-unit>
       <trans-unit id="sccoptoutwarning" xml:space="preserve">
         <source>SCC Data Sync Disabled</source>
       </trans-unit>
@@ -9718,6 +9721,9 @@ For a detailed analysis, please refer to the log files.</source>
       </trans-unit>
       <trans-unit id="notification.pxeeventfailed" xml:space="preserve">
         <source>Processing of a PXE event for the minion {0} failed</source>
+      </trans-unit>
+      <trans-unit id="notification.saltbootconfigurationproblem" xml:space="preserve">
+        <source>Saltboot configuration problem for {0}</source>
       </trans-unit>
       <trans-unit id="event.proxymigrationstarted" xml:space="preserve">
         <source>Proxy migration: started</source>

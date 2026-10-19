@@ -383,6 +383,10 @@ import com.redhat.rhn.taskomatic.domain.TaskoTemplate;
 
 import com.suse.cloud.domain.PaygDimensionComputation;
 import com.suse.cloud.domain.PaygDimensionResult;
+import com.suse.manager.autoinstallation.saltboot.SaltbootBranch;
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfig;
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfigAssignment;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
 import com.suse.manager.errata.model.errata.ErrataAdvisoryMap;
 import com.suse.manager.model.attestation.CoCoAttestationResult;
 import com.suse.manager.model.attestation.CoCoEnvironmentTypeConverter;
@@ -703,6 +707,10 @@ public class AnnotationRegistry {
             SCCRepositoryNoAuth.class,
             SCCRepositoryTokenAuth.class,
             SCCSubscription.class,
+            SaltbootBranch.class,
+            SaltbootConfig.class,
+            SaltbootConfigAssignment.class,
+            SaltbootTerminal.class,
             ScapAction.class,
             ScapActionDetails.class,
             ScapContent.class,

@@ -30,6 +30,8 @@ import com.redhat.rhn.manager.entitlement.EntitlementManager;
 import com.redhat.rhn.manager.system.SystemManager;
 import com.redhat.rhn.manager.system.entitling.SystemEntitlementManager;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootFormulaMapper;
 import com.suse.manager.saltboot.SaltbootException;
 import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.manager.webui.services.pillar.MinionPillarManager;
@@ -74,6 +76,9 @@ public class FormulaFactory {
     /** Saltboot group deployment formula */
     public static final String SALTBOOT_GROUP = "saltboot-group";
     public static final String SALTBOOT_PILLAR = PREFIX + SALTBOOT_GROUP;
+
+    /** Saltboot partitioning formula */
+    public static final String SALTBOOT = "saltboot";
 
     // Logger for this class
     private static final Logger LOG = LogManager.getLogger(FormulaFactory.class);
@@ -221,14 +226,31 @@ public class FormulaFactory {
         if (PROMETHEUS_EXPORTERS.equals(formulaName)) {
             saveGroupForPrometheusExporters(formData, group);
         }
-        // Handle Saltboot group - create Cobbler profile
+        // Handle Saltboot group - mirror into the domain, create Cobbler profile
         else if (SALTBOOT_GROUP.equals(formulaName)) {
+            mirrorToSaltbootDomain(() -> SaltbootFormulaMapper.applyBranchFormula(group, formData));
             try {
                 SaltbootUtils.createSaltbootProfile(group);
             }
             catch (SaltbootException e) {
                 LOG.warn(e.getMessage());
             }
+        }
+        else if (SALTBOOT.equals(formulaName)) {
+            mirrorToSaltbootDomain(() -> SaltbootFormulaMapper.applyGroupConfigFormula(group, formData));
+        }
+    }
+
+    /**
+     * The saltboot formulas stay authoritative while assigned, their data is mirrored into the saltboot domain
+     * model (dual-write). A failing mirror must not prevent saving the formula.
+     */
+    private static void mirrorToSaltbootDomain(Runnable mirror) {
+        try {
+            mirror.run();
+        }
+        catch (RuntimeException e) {
+            LOG.error("Unable to mirror saltboot formula data into the saltboot domain model", e);
         }
     }
 
@@ -258,6 +280,10 @@ public class FormulaFactory {
             minion.getPillars().add(pillar);
             return pillar;
         }).setPillar(formData);
+
+        if (SALTBOOT.equals(formulaName)) {
+            mirrorToSaltbootDomain(() -> SaltbootFormulaMapper.applyServerConfigFormula(minion, formData));
+        }
 
         // Add the monitoring entitlement if at least one of the exporters is enabled
         if (PROMETHEUS_EXPORTERS.equals(formulaName)) {
@@ -436,8 +462,9 @@ public class FormulaFactory {
         List<String> deletedFormulas = getFormulasByGroup(group);
         deletedFormulas.removeAll(selectedFormulas);
 
-        // Try to remove SaltbootProfile first. It this fails, stop removing formulas
-        if (deletedFormulas.contains(SALTBOOT_GROUP)) {
+        // Try to remove SaltbootProfile first. It this fails, stop removing formulas.
+        // With saltboot branch settings in the domain the profile is still needed: they take over from the formula.
+        if (deletedFormulas.contains(SALTBOOT_GROUP) && SaltbootFactory.lookupBranch(group).isEmpty()) {
             try {
                 SaltbootUtils.deleteSaltbootProfile(group.getName(), group.getOrg());
             }

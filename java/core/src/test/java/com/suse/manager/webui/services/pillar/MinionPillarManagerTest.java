@@ -35,6 +35,11 @@ import com.redhat.rhn.testing.ChannelTestUtils;
 import com.redhat.rhn.testing.ServerTestUtils;
 import com.redhat.rhn.testing.TestUtils;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfig;
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfigAssignment;
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTestUtils;
+
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -224,4 +229,23 @@ public class MinionPillarManagerTest extends BaseTestCaseWithUser {
         assertEquals(proxyHostname, channelFromFile.get("host"));
     }
 
+    @Test
+    public void testGeneratePillarIncludesTheSaltbootPillar() throws Exception {
+        MinionServer minion = MinionServerFactoryTest.createTestMinionServer(user);
+        MinionServer plain = MinionServerFactoryTest.createTestMinionServer(user);
+        SaltbootConfig config = SaltbootTestUtils.createConfig(user, "single", null,
+                SaltbootTestUtils.layout("JeOS", "1.0.0"));
+        SaltbootFactory.save(new SaltbootConfigAssignment(config, minion));
+
+        MinionPillarManager.INSTANCE.generatePillar(minion);
+        MinionPillarManager.INSTANCE.generatePillar(plain);
+
+        assertEquals(SaltbootTestUtils.layout("JeOS", "1.0.0"),
+                minion.getPillarByCategory(SaltbootPillarGenerator.CATEGORY).orElseThrow().getPillar()
+                        .get("partitioning"));
+        assertTrue(plain.getPillarByCategory(SaltbootPillarGenerator.CATEGORY).isEmpty());
+
+        MinionPillarManager.INSTANCE.removePillar(minion);
+        assertTrue(minion.getPillarByCategory(SaltbootPillarGenerator.CATEGORY).isEmpty());
+    }
 }

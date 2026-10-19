@@ -29,6 +29,7 @@ import com.redhat.rhn.manager.BaseTransactionCommand;
 import com.redhat.rhn.taskomatic.TaskomaticApi;
 import com.redhat.rhn.taskomatic.TaskomaticApiException;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootDomainMigration;
 import com.suse.manager.saltboot.SaltbootMigrationException;
 import com.suse.manager.saltboot.SaltbootMigrationUtils;
 import com.suse.manager.webui.services.iface.SaltApi;
@@ -62,6 +63,7 @@ public class UpgradeCommand extends BaseTransactionCommand {
     public static final String ALL_SYSTEMS_SYNC_ALL = UPGRADE_TASK_NAME + "all_systems_sync_all";
     public static final String MIGRATE_COBBLER = UPGRADE_TASK_NAME + "migrate_cobbler";
     public static final String MGR_SYNC_ALL = UPGRADE_TASK_NAME + "mgr_sync_all";
+    public static final String MIGRATE_SALTBOOT_DOMAIN = UPGRADE_TASK_NAME + "migrate_saltboot_domain";
 
     /**
      * Constructor
@@ -116,6 +118,9 @@ public class UpgradeCommand extends BaseTransactionCommand {
                         break;
                     case MGR_SYNC_ALL:
                         mgrSyncAll();
+                        break;
+                    case MIGRATE_SALTBOOT_DOMAIN:
+                        SaltbootDomainMigration.migrate();
                         break;
                     case MIGRATE_COBBLER:
                         migrateCobbler(t);

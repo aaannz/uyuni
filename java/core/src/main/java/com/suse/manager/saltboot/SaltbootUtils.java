@@ -32,6 +32,11 @@ import com.redhat.rhn.domain.server.ServerFactory;
 import com.redhat.rhn.domain.server.ServerGroup;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootBranch;
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminalResolver;
+import com.suse.manager.webui.services.pillar.SaltbootPillarGenerator;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -326,7 +331,7 @@ public final class SaltbootUtils {
                      d -> updateDistroProfile(con, name, d, "Default image for " + name),
                      () -> LOG.error("Can't update the profile for {}", name));
 
-            selectDistro(remainingDistros, makeCobblerFilterName(info))
+            selectDistro(remainingDistros, makeCobblerFilterNameV(info))
                  .map(n -> Distro.lookupByName(con, n))
                  .ifPresentOrElse(
                      d -> updateDistroProfile(con, nameV, d, "Default image for " + nameV),
@@ -402,29 +407,49 @@ public final class SaltbootUtils {
     }
 
     private static Map<String, String> getKernelOptions(ServerGroup group) {
-        Map<String, Object> formData = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR)
-                .orElseThrow(() -> new SaltbootException("Missing saltboot group pillar"))
-                .getPillar();
-        Map<String, Object> saltboot = (Map<String, Object>) formData.get("saltboot");
+        // While the formula is assigned it is authoritative, the domain branch takes over afterwards
+        Optional<Pillar> formula = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR);
+        if (formula.isPresent()) {
+            Map<String, Object> saltboot = (Map<String, Object>) formula.get().getPillar().get("saltboot");
+            Map<String, String> kernelOptions = getKernelOptions(group.getName(),
+                    (String) saltboot.get("download_server"),
+                    Boolean.TRUE.equals(saltboot.get("disable_id_prefix")),
+                    Boolean.TRUE.equals(saltboot.get("disable_unique_suffix")),
+                    (String) saltboot.get("minion_id_naming"), (String) saltboot.get("default_kernel_parameters"));
+            // the formula always set the master, even when the download server is left empty
+            kernelOptions.putIfAbsent("MASTER", null);
+            return kernelOptions;
+        }
+        SaltbootBranch branch = SaltbootFactory.lookupBranch(group)
+                .orElseThrow(() -> new SaltbootException("Missing saltboot group pillar"));
+        return getKernelOptions(group.getName(), SaltbootTerminalResolver.proxyFqdn(branch).orElse(null),
+                branch.isDisableIdPrefix(), branch.isDisableUniqueSuffix(), branch.getMinionIdNaming(),
+                branch.getDefaultKernelParameters());
+    }
+
+    private static Map<String, String> getKernelOptions(String groupName, String downloadServer,
+            boolean disableIdPrefix, boolean disableUniqueSuffix, String minionIdNaming,
+            String defaultBranchOptions) {
         Map<String, String> kernelOptions = new HashMap<>();
-        kernelOptions.put("MINION_ID_PREFIX", group.getName());
-        kernelOptions.put("MASTER", (String)saltboot.get("download_server"));
-        if (Boolean.TRUE.equals(saltboot.get("disable_id_prefix"))) {
+        kernelOptions.put("MINION_ID_PREFIX", groupName);
+        if (downloadServer != null) {
+            kernelOptions.put("MASTER", downloadServer);
+        }
+        if (disableIdPrefix) {
             kernelOptions.put("DISABLE_ID_PREFIX", "1");
         }
-        if (Boolean.TRUE.equals(saltboot.get("disable_unique_suffix"))) {
+        if (disableUniqueSuffix) {
             kernelOptions.put("DISABLE_UNIQUE_SUFFIX", "1");
         }
-        if ("FQDN".equals(saltboot.get("minion_id_naming"))) {
+        if ("FQDN".equals(minionIdNaming)) {
             kernelOptions.put("USE_FQDN_MINION_ID", "1");
         }
-        else if ("HWType".equals(saltboot.get("minion_id_naming"))) {
+        else if ("HWType".equals(minionIdNaming)) {
             kernelOptions.put("DISABLE_HOSTNAME_ID", "1");
         }
-        else if ("MAC".equals(saltboot.get("minion_id_naming"))) {
+        else if ("MAC".equals(minionIdNaming)) {
             kernelOptions.put("USE_MAC_MINION_ID", "1");
         }
-        String defaultBranchOptions = (String) saltboot.get("default_kernel_parameters");
         if (defaultBranchOptions != null && !defaultBranchOptions.isEmpty()) {
             kernelOptions.putAll(splitStringIgnoreQuotes(defaultBranchOptions));
         }
@@ -434,10 +459,17 @@ public final class SaltbootUtils {
     static Optional<String> getGroupImageName(ServerGroup group) {
         Org org = group.getOrg();
 
+        // While the formula is assigned it is authoritative, the domain branch takes over afterwards
         Optional<Map<String, Object>> formDataOpt = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR)
                 .map(Pillar::getPillar);
         if (formDataOpt.isEmpty()) {
-            return Optional.empty();
+            return SaltbootFactory.lookupBranch(group).map(branch -> {
+                if (StringUtils.isEmpty(branch.getDefaultBootImage())) {
+                    LOG.debug("Using default image for group {}, org {}", group.getName(), org.getName());
+                    return makeCobblerName(org, DEFAULT_BOOT_IMAGE);
+                }
+                return makeCobblerName(org, branch.getDefaultBootImage());
+            });
         }
         Map<String, Object> saltboot = (Map<String, Object>) formDataOpt.get().get("saltboot");
         String bootImage = (String)saltboot.get("default_boot_image");
@@ -659,6 +691,7 @@ public final class SaltbootUtils {
                 // If flag is set somewhere else, then we can't reset it
                 removeSaltbootRedeployPillar(minion);
                 removeSaltbootRedeployCustomInfo(minion);
+                removeSaltbootRedeployTerminalFlags(minion);
             },
             () -> LOG.error("Trying to reset saltboot flag for nonexisting minion {}", minionId));
     }
@@ -701,6 +734,22 @@ public final class SaltbootUtils {
                 }
             }
         );
+    }
+
+    /**
+     * Clear the force flags of the terminal state in the saltboot domain and regenerate the saltboot pillar
+     * @param minion
+     */
+    private static void removeSaltbootRedeployTerminalFlags(MinionServer minion) {
+        SaltbootFactory.lookupTerminal(minion.getId())
+                .filter(terminal -> terminal.isForceRedeploy() || terminal.isForceRepartition())
+                .ifPresent(terminal -> {
+                    terminal.setForceRedeploy(false);
+                    terminal.setForceRepartition(false);
+                    SaltbootFactory.save(terminal);
+                    SaltbootPillarGenerator.INSTANCE.generatePillarData(minion);
+                    LOG.debug("saltboot terminal redeploy flags removed");
+                });
     }
 
     /**

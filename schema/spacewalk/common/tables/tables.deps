@@ -267,6 +267,10 @@ suseProductExtension               :: suseProducts
 suseSccProxy                       :: scc_proxy_status_t
 suseChannelTemplate                :: suseProducts suseSCCRepository
 suseSaltPillar                     :: rhnServer rhnServerGroup web_customer
+suseSaltbootBranch                 :: rhnServerGroup rhnServer
+suseSaltbootConfig                 :: web_customer
+suseSaltbootConfigAssignment       :: suseSaltbootConfig rhnServerGroup rhnServer
+suseSaltbootTerminal               :: rhnServer
 suseSCCOrderItem                   :: suseCredentials
 suseSCCRegCache                    :: suseCredentials rhnServer
 suseSCCRepositoryAuth              :: suseCredentials rhnContentSource

@@ -8136,6 +8136,96 @@ INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
     ON CONFLICT DO NOTHING;
 INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
     SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.create_branch' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/createBranch' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.get_branch' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/getBranch' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.update_branch' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/updateBranch' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.delete_branch' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/deleteBranch' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.list_branches' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/listBranches' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.create_config' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/createConfig' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.get_config' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/getConfig' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.get_effective_config' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/getEffectiveConfig' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.update_config' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/updateConfig' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.delete_config' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/deleteConfig' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.list_configs' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/listConfigs' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.assign_config_to_group' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/assignConfigToGroup' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.assign_config_to_system' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/assignConfigToSystem' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.unassign_config_from_group' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/unassignConfigFromGroup' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.unassign_config_from_system' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/unassignConfigFromSystem' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.get_terminal_state' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/getTerminalState' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.get_effective_terminal_config' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/saltboot/getEffectiveTerminalConfig' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.saltboot.schedule_force_redeploy' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/saltboot/scheduleForceRedeploy' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
     WHERE ns.namespace = 'api.saltkey.accept' AND ns.access_mode = 'W'
     AND ep.endpoint = '/manager/api/saltkey/accept' AND ep.http_method = 'POST'
     ON CONFLICT DO NOTHING;

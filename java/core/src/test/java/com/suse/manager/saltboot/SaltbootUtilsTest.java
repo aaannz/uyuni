@@ -16,6 +16,7 @@
 package com.suse.manager.saltboot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +38,14 @@ import com.redhat.rhn.testing.BaseTestCaseWithUser;
 import com.redhat.rhn.testing.ImageTestUtils;
 import com.redhat.rhn.testing.ServerGroupTestUtils;
 import com.redhat.rhn.testing.TestUtils;
+
+import com.suse.manager.autoinstallation.saltboot.SaltbootBranch;
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfig;
+import com.suse.manager.autoinstallation.saltboot.SaltbootConfigAssignment;
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTestUtils;
+import com.suse.manager.webui.services.pillar.SaltbootPillarGenerator;
 
 import org.cobbler.CobblerConnection;
 import org.cobbler.Distro;
@@ -473,5 +482,118 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
                 conflictingSystemName), "Conflicting system should be deleted");
         assertNotNull(SystemRecord.lookupByName(client,
                 SaltbootUtils.makeCobblerName(user.getOrg(), "conflicting-minion")));
+    }
+
+    @Test
+    public void testCreateSaltbootProfileFromDomainBranch() throws Exception {
+        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
+        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
+        ServerGroup group = ServerGroupTestUtils.createManaged(user);
+        group.setName("domain-branch");
+        TestUtils.saveAndFlush(group);
+        SaltbootBranch branch = new SaltbootBranch(group);
+        branch.setProxy(SaltbootTestUtils.createProxy(user, "proxy.example.com"));
+        branch.setMinionIdNaming(SaltbootBranch.NAMING_MAC);
+        branch.setDisableIdPrefix(true);
+        branch.setDisableUniqueSuffix(true);
+        branch.setDefaultBootImage("my-image-1.0.0");
+        branch.setDefaultKernelParameters("quiet MY_OPT=1");
+        SaltbootFactory.save(branch);
+
+        SaltbootUtils.createSaltbootProfile(group, client);
+
+        Profile profile = Profile.lookupByName(client, SaltbootUtils.makeCobblerName(user.getOrg(), "domain-branch"));
+        assertNotNull(profile);
+        assertEquals(SaltbootUtils.makeCobblerName(user.getOrg(), "my-image-1.0.0"), profile.getParent());
+        Map<String, Object> kernelOptions = profile.getKernelOptions().get();
+        assertEquals("domain-branch", kernelOptions.get("MINION_ID_PREFIX"));
+        assertEquals("proxy.example.com", kernelOptions.get("MASTER"));
+        assertEquals("1", kernelOptions.get("DISABLE_ID_PREFIX"));
+        assertEquals("1", kernelOptions.get("DISABLE_UNIQUE_SUFFIX"));
+        assertEquals("1", kernelOptions.get("USE_MAC_MINION_ID"));
+        assertFalse(kernelOptions.containsKey("USE_FQDN_MINION_ID"));
+        assertEquals("1", kernelOptions.get("MY_OPT"));
+        assertTrue(kernelOptions.containsKey("quiet"));
+    }
+
+    @Test
+    public void testDomainBranchWithoutImageUsesTheDefaultImage() throws Exception {
+        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
+        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
+        ServerGroup group = ServerGroupTestUtils.createManaged(user);
+        group.setName("domain-branch-default");
+        TestUtils.saveAndFlush(group);
+        SaltbootFactory.save(new SaltbootBranch(group));
+
+        SaltbootUtils.createSaltbootProfile(group, client);
+
+        Profile profile = Profile.lookupByName(client,
+                SaltbootUtils.makeCobblerName(user.getOrg(), "domain-branch-default"));
+        assertEquals(SaltbootUtils.makeCobblerName(user.getOrg(), SaltbootUtils.DEFAULT_BOOT_IMAGE),
+                profile.getParent());
+        // no proxy yet: the branch must not advertise a master
+        assertFalse(profile.getKernelOptions().get().containsKey("MASTER"));
+    }
+
+    @Test
+    public void testFormulaStaysAuthoritativeWhileAssigned() throws Exception {
+        ImageInfo image = createImageHelper(user, "my-image", "1.0.0", 1);
+        SaltbootUtils.createSaltbootDistro(image, Distro.list(client), client);
+        ServerGroup group = createSaltbootGroupHelper(user, "both-sources");
+        SaltbootBranch branch = new SaltbootBranch(group);
+        branch.setProxy(SaltbootTestUtils.createProxy(user, "domain.example.com"));
+        SaltbootFactory.save(branch);
+
+        SaltbootUtils.createSaltbootProfile(group, client);
+
+        Profile profile = Profile.lookupByName(client, SaltbootUtils.makeCobblerName(user.getOrg(), "both-sources"));
+        assertEquals("mybranch.example.com", profile.getKernelOptions().get().get("MASTER"));
+    }
+
+    @Test
+    public void testNoProfileWithoutFormulaAndBranch() {
+        ServerGroup group = ServerGroupTestUtils.createManaged(user);
+
+        assertThrows(SaltbootException.class, () -> SaltbootUtils.createSaltbootProfile(group, client));
+    }
+
+    @Test
+    public void testDeletingAnImageKeepsTheOtherVersionProfilesApart() throws Exception {
+        ImageInfo imageV1 = createImageHelper(user, "my-image", "1.0.0", 1);
+        ImageInfo imageV2 = createImageHelper(user, "my-image", "2.0.0", 1);
+        SaltbootUtils.createSaltbootDistro(imageV1, Distro.list(client), client);
+        SaltbootUtils.createSaltbootDistro(imageV2, Distro.list(client), client);
+        String nameV1VR = SaltbootUtils.makeCobblerNameVR(imageV1);
+        String nameV2 = SaltbootUtils.makeCobblerName(user.getOrg(), "my-image-2.0.0");
+
+        SaltbootUtils.deleteSaltbootDistro(imageV2, client);
+
+        // the name-version profile of the deleted version must not be re-pointed to another version
+        Profile profileV2 = Profile.lookupByName(client, nameV2);
+        assertTrue(profileV2 == null || profileV2.getDistro() == null ||
+                !nameV1VR.equals(profileV2.getDistro().getName()));
+    }
+
+    @Test
+    public void testResetRedeployFlagsClearsTheTerminalState() {
+        MinionServer minion = MinionServerFactoryTest.createTestMinionServer(user);
+        SaltbootConfig config = SaltbootTestUtils.createConfig(user, "single", null,
+                SaltbootTestUtils.layout("JeOS", "1.0.0"));
+        SaltbootFactory.save(new SaltbootConfigAssignment(config, minion));
+        SaltbootTerminal terminal = SaltbootFactory.lookupOrCreateTerminal(minion.getId());
+        terminal.setForceRedeploy(true);
+        terminal.setForceRepartition(true);
+        SaltbootFactory.save(terminal);
+        SaltbootPillarGenerator.INSTANCE.generatePillarData(minion);
+        assertTrue(((Map<String, Object>) minion.getPillarByCategory("saltboot").orElseThrow().getPillar()
+                .get("saltboot")).containsKey("force_redeploy"));
+
+        SaltbootUtils.resetSaltbootRedeployFlags(minion.getMinionId());
+
+        SaltbootTerminal reset = SaltbootFactory.lookupTerminal(minion.getId()).orElseThrow();
+        assertFalse(reset.isForceRedeploy());
+        assertFalse(reset.isForceRepartition());
+        assertFalse(((Map<String, Object>) minion.getPillarByCategory("saltboot").orElseThrow().getPillar()
+                .get("saltboot")).containsKey("force_redeploy"));
     }
 }

@@ -2166,6 +2166,60 @@ INSERT INTO access.namespace (namespace, access_mode, description)
     VALUES ('api.recurring.playbook.update', 'W', 'Update a recurring Ansible playbook action')
     ON CONFLICT (namespace, access_mode) DO NOTHING;
 INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.create_branch', 'W', 'Create the saltboot settings of a branch group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.get_branch', 'R', 'Get the saltboot settings of a branch group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.update_branch', 'W', 'Update the saltboot settings of a branch group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.delete_branch', 'W', 'Delete the saltboot settings of a branch group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.list_branches', 'R', 'List the saltboot branches')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.create_config', 'W', 'Create a saltboot config')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.get_config', 'R', 'Get a saltboot config')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.get_effective_config', 'R', 'Get the effective values of a saltboot config')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.update_config', 'W', 'Update a saltboot config')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.delete_config', 'W', 'Delete a saltboot config')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.list_configs', 'R', 'List the saltboot configs')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.assign_config_to_group', 'W', 'Assign a saltboot config to a system group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.assign_config_to_system', 'W', 'Assign a saltboot config to a system')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.unassign_config_from_group', 'W', 'Remove the saltboot config assignment of a system group')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.unassign_config_from_system', 'W', 'Remove the saltboot config assignment of a system')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.get_terminal_state', 'R', 'Get the deployment state of a saltboot terminal')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.get_effective_terminal_config', 'R', 'Get the saltboot settings that apply to a terminal')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.saltboot.schedule_force_redeploy', 'W', 'Flag a saltboot terminal for redeployment')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
     VALUES ('api.saltkey.accept', 'W', 'Accept a minion key')
     ON CONFLICT (namespace, access_mode) DO NOTHING;
 INSERT INTO access.namespace (namespace, access_mode, description)

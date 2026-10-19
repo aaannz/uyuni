@@ -64,6 +64,7 @@ import com.redhat.rhn.frontend.xmlrpc.recurringaction.RecurringActionHandler;
 import com.redhat.rhn.frontend.xmlrpc.recurringaction.RecurringCustomStateHandler;
 import com.redhat.rhn.frontend.xmlrpc.recurringaction.RecurringHighstateHandler;
 import com.redhat.rhn.frontend.xmlrpc.recurringaction.RecurringPlaybookHandler;
+import com.redhat.rhn.frontend.xmlrpc.saltboot.SaltbootHandler;
 import com.redhat.rhn.frontend.xmlrpc.saltkey.SaltKeyHandler;
 import com.redhat.rhn.frontend.xmlrpc.schedule.ScheduleHandler;
 import com.redhat.rhn.frontend.xmlrpc.subscriptionmatching.PinnedSubscriptionHandler;
@@ -95,6 +96,7 @@ import com.redhat.rhn.manager.system.SystemManager;
 import com.redhat.rhn.manager.system.entitling.SystemEntitlementManager;
 import com.redhat.rhn.taskomatic.TaskomaticApi;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootManager;
 import com.suse.manager.hub.HubClientFactory;
 import com.suse.manager.hub.HubManager;
 import com.suse.manager.hub.migration.IssMigratorFactory;
@@ -229,6 +231,7 @@ public class HandlerFactory {
         factory.addHandler("recurring.highstate", new RecurringHighstateHandler());
         factory.addHandler("recurring.custom", new RecurringCustomStateHandler());
         factory.addHandler("recurring.playbook", new RecurringPlaybookHandler());
+        factory.addHandler("saltboot", new SaltbootHandler(new SaltbootManager(saltApi)));
         factory.addHandler("saltkey", new SaltKeyHandler(saltKeyUtils));
         factory.addHandler("schedule", new ScheduleHandler());
         factory.addHandler("subscriptionmatching.pinnedsubscription", new PinnedSubscriptionHandler());
