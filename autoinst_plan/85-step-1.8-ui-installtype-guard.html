@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>85-step-1.8-ui-installtype-guard — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">85-step-1.8-ui-installtype-guard</p>
+<a class="h2" href="#1-finding-user-report-2026-10-15">1. Finding (user report, 2026-10-15)</a>
+<a class="h2" href="#2-root-cause">2. Root cause</a>
+<a class="h2" href="#3-fix-minimal-action-level-only-user-locked-scope">3. Fix (minimal, action-level only — user-locked scope)</a>
+<a class="h2" href="#4-tests">4. Tests</a>
+<a class="h2" href="#5-web-ui-e2e-closes-the-step-17-ui-gap">5. Web-UI E2E (closes the step-1.7 UI gap)</a>
+<a class="h2" href="#6-documentationdeployment-notes">6. Documentation/deployment notes</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-18-addendum-web-ui-install-type-guard-distro-createedit-npe-fix">Step 1.8 Addendum — Web UI install-type guard (distro create/edit NPE fix)</h1>
+<blockquote>
+<p>Post-Phase-1 addendum, opened by a live-test finding: creating a
+distribution through the web UI NPEd when the posted <code>installtype</code> did not
+resolve. This doc records the root cause, the minimal fix, and the web-UI
+E2E verification that closes the step-1.7 gap (its matrix was XML-RPC
+only).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-15</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-15)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>10-roadmap.md</code> step 1.2 / 1.7, <code>40-step-1.2-distro-path.md</code>, <code>80-step-1.7-cleanup-verification.md</code>, <code>AGENTS_CUSTOM.md</code> §3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-finding-user-report-2026-10-15">1. Finding (user report, 2026-10-15)</h2>
+<p>Creating a distro via the web UI crashed with:</p>
+<pre><code>java.lang.NullPointerException: Cannot invoke
+&quot;com.redhat.rhn.domain.kickstart.KickstartInstallType.isSUSE()&quot; because
+&quot;this.installType&quot; is null
+    at KickstartableTree.getDefaultInitrdPaths(KickstartableTree.java:394)
+    at KickstartableTree.getInitrdPath(KickstartableTree.java:439)
+    at BaseTreeEditOperation.validateBasePath(BaseTreeEditOperation.java:168)
+    at BaseTreeEditOperation.store(BaseTreeEditOperation.java:81)
+    at TreeCreateOperation.store(TreeCreateOperation.java:63)
+    at BaseEditAction.execute(BaseEditAction.java:65)
+</code></pre>
+<h2 id="2-root-cause">2. Root cause</h2>
+<ol>
+<li><code>BaseTreeAction#processCommandSetters</code> assigned
+   <code>KickstartFactory.lookupKickstartInstallTypeByLabel(form value)</code> to the
+   tree <strong>without a null check</strong>. A posted <code>installtype</code> label that is not in
+   <code>rhnKsInstallType</code> (unknown label, stale page, empty install-type list —
+   e.g. branch code deployed before the branch DB deltas) silently produced a
+   tree without an install type.</li>
+<li><code>BaseTreeEditOperation#validateBasePath</code> → <code>KickstartableTree
+   .getInitrdPath()</code> → <code>getDefaultInitrdPaths()</code> dereferences
+   <code>installType.isSUSE()</code> (same landmine in <code>getDefaultKernelPaths</code> and the
+   two xen getters). Even without the NPE, <code>applyDistroKernelOptions()</code>
+   (step 1.2) would throw <code>KernelOptionsBuilderException</code> one line later —
+   the factory routes unknown/null install types.</li>
+<li>Pre-existing legacy behavior: phase 1 never touched <code>KickstartableTree</code>,
+   <code>BaseTreeAction</code> or <code>BaseEditAction</code> (verified via git log — only the
+   maven/jakarta/infrastructure commits touch them). The XML-RPC path was
+   already guarded (<code>KickstartTreeHandler#getInstallType</code> throws
+   <code>NoSuchKickstartInstallTypeException</code>); only the Struts path was not.</li>
+</ol>
+<p>Trace-forensics note: the stack trace line numbers (<code>TreeCreateOperation
+.java:63</code> = branch&rsquo;s <code>super.store()</code>; stock 5.3.1 has it at line 70, verified
+via <code>javap</code> line tables) proved the report came from a branch deployment —
+on the VM the running jar was stock after the step-1.7 rollback while the DB
+retained <code>opensuse16.1</code> (id 13).</p>
+<h2 id="3-fix-minimal-action-level-only-user-locked-scope">3. Fix (minimal, action-level only — user-locked scope)</h2>
+<p><code>BaseTreeAction#processCommandSetters</code>: resolve the label defensively and
+return a <code>ValidatorError</code> instead of setting a null install type (covers
+create <strong>and</strong> edit; mirrors the XML-RPC guard):</p>
+<ul>
+<li>null/unknown label → <code>new ValidatorError("kickstart.tree.invalidinstalltype",
+  installTypeLabel)</code> — the UI shows the offending label.</li>
+<li>The null-label check sits before the lookup because
+  <code>HibernateFactory#lookupObjectByParam</code> throws a raw NPE on a null parameter
+  (<code>Objects.requireNonNull</code>).</li>
+<li>New message key <code>kickstart.tree.invalidinstalltype</code>
+  (&ldquo;The installer type is not valid: {0}&rdquo;) in <code>StringResource_en_US.xml</code> and
+  <code>StringResource_de.xml</code> (repo convention; other locales follow l10n sync).</li>
+<li>No domain hardening (deliberate — user decision): a null install type on a
+  tree remains a programming error; the action guard prevents the only
+  realistic source.</li>
+</ul>
+<h2 id="4-tests">4. Tests</h2>
+<ul>
+<li>New DB-backed <code>BaseTreeActionTest</code>
+  (<code>java/core/src/test/java/com/redhat/rhn/frontend/action/kickstart/tree/</code>,
+  <code>JMockBaseTestCaseWithUser</code> + <code>ByteBuddyClassImposteriser</code> for
+  <code>DynaActionForm</code>/<code>HttpServletRequest</code> — first Struts-action-level test in
+  the tree, following the step-1.1 jMock pattern):</li>
+<li>unknown label → <code>ValidatorError</code> key <code>kickstart.tree.invalidinstalltype</code>,
+    install type stays null, no NPE;</li>
+<li>missing (null) form value → same rejection;</li>
+<li>valid label (<code>opensuse16.1</code>) → type set, label/basepath applied, store
+    values untouched.</li>
+<li>VM run (pgsql-4eclipse container, branch schema): 16 tests green —
+  3 <code>BaseTreeActionTest</code> + 8 <code>TreeCreateOperationTest</code> + 5
+  <code>TreeEditOperationTest</code>.</li>
+<li>Local sandbox: <code>mvn -f java/core compile</code> / <code>test-compile</code> /
+  <code>checkstyle:checkstyle</code> clean.</li>
+</ul>
+<h2 id="5-web-ui-e2e-closes-the-step-17-ui-gap">5. Web-UI E2E (closes the step-1.7 UI gap)</h2>
+<p>Executed 2026-10-15 on the agent VM against the branch-deployed backend
+(deploy per <code>AGENTS_CUSTOM.md</code> §3; deployed-code fingerprint verified:
+<code>applyDistroKernelOptions</code> in the jar&rsquo;s <code>BaseTreeEditOperation</code> constant
+pool + <code>TreeCreateOperation.store</code> line-63 signature). Reused the step-1.7
+<code>e2e17-*</code> channels + dummy kernel/initrd layouts under <code>/srv/www/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create page renders; dropdown lists <code>opensuse16.1</code></td>
+<td>OK</td>
+</tr>
+<tr>
+<td>Create with <code>installtype=bogus-install-type</code></td>
+<td>HTTP 200 + &ldquo;The installer type is not valid: bogus-install-type&rdquo;, no NPE (page and <code>rhn_web_ui.log</code>)</td>
+</tr>
+<tr>
+<td>Create <code>ui18-sles15</code> (sles15generic)</td>
+<td>success; DB + cobbler kopts <code>install=http://…/ks/dist/ui18-sles15 self_update=0</code></td>
+</tr>
+<tr>
+<td>Create <code>ui18-rhel7</code> (rhel_7)</td>
+<td>success; <code>inst.repo=http://…/ks/dist/ui18-rhel7</code></td>
+</tr>
+<tr>
+<td>Create <code>ui18-sle16</code> (opensuse16.1)</td>
+<td>cobbler PR #177 rejection (<code>os_version … given was "opensuse16.1"</code>) — the documented caveat; DB row rolled back; the cobbler distro stub left by the failure path was removed manually</td>
+</tr>
+<tr>
+<td>Edit <code>ui18-sles15</code> install type → rhel_7</td>
+<td>add-missing recompute: stale <code>install=</code>/<code>self_update=0</code> kept + <code>inst.repo=</code> added (step-1.2 §4 delta), cobbler distro updated in sync</td>
+</tr>
+<tr>
+<td>Edit with <code>installtype=bogus-edit-type</code></td>
+<td>HTTP 200 + validation error; tree unchanged</td>
+</tr>
+<tr>
+<td>Revert edit → sles15generic</td>
+<td>options keep the stale <code>inst.repo=</code> (add-missing-only, documented)</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>localhost</code> in option URLs is a curl artifact (<code>request.getLocalName()</code>
+from the AJP request); a browser session produces the accessed hostname.</p>
+<h2 id="6-documentationdeployment-notes">6. Documentation/deployment notes</h2>
+<ul>
+<li><code>AGENTS_CUSTOM.md</code> §3: deployed-code fingerprint check added to the deploy
+  recipe (rpm NVR is blind to overlay deploys — check the jar itself).</li>
+<li>VM clock skew note: the sandbox runs ~2 h ahead of the VM; deploy tar
+  warnings &ldquo;time stamp … in the future&rdquo; are benign for this flow.</li>
+<li>Remnants left on the VM (recorded in the session log): <code>ui18-sles15</code> /
+  <code>ui18-rhel7</code> trees + channels + cobbler distros (mirroring the <code>e2e17-*</code>
+  remnants), branch backend deployed (rhn.jar overlay; a container
+  recreation reverts to stock per §3).</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-15 — created: root cause, fix, tests, UI E2E matrix, deploy
+  fingerprint note. Status → DONE.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>85-step-1.8-ui-installtype-guard.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

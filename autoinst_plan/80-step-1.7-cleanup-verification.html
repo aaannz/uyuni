@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>80-step-1.7-cleanup-verification — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">80-step-1.7-cleanup-verification</p>
+<a class="h2" href="#1-research-findings-verified-against-the-tree-2026-10-12">1. Research findings (verified against the tree, 2026-10-12)</a>
+<a class="h2" href="#2-decisions-locked-this-round-planning-round-7">2. Decisions locked this round (planning round 7)</a>
+<a class="h2" href="#3-execution-plan">3. Execution plan</a>
+<a class="h2" href="#4-results-2026-10-12">4. Results (2026-10-12)</a>
+<a class="h3" href="#41-dead-code-cleanup-scope-abc">4.1 Dead-code cleanup (scope A+B+C)</a>
+<a class="h3" href="#42-agent-vm-session-window-09401105-cest-2026-10-12">4.2 Agent-VM session (window ~09:40–11:05 CEST 2026-10-12)</a>
+<a class="h3" href="#43-test-suites-on-the-vm-fresh-uyuni-test-pgsql-branch-schema">4.3 Test suites on the VM (fresh uyuni-test-pgsql, branch schema)</a>
+<a class="h3" href="#44-stack-restored">4.4 Stack restored</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-17-design-cleanup-verification-phase-1-close-out">Step 1.7 Design — Cleanup &amp; Verification (Phase 1 close-out)</h1>
+<blockquote>
+<p>Implementation design for roadmap step 1.7 (<code>10-roadmap.md</code> Phase 1): remove
+dead code left behind by the steps-1.1–1.5 migrations, checkstyle, and the
+E2E regression matrix per <code>20-kernel-options.md</code> §8 on the agent VM.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-12</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-12)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §1 (session protocol/VM), §4 (guardrails), <code>10-roadmap.md</code> step 1.7, <code>20-kernel-options.md</code> §8/§9, <code>70-step-1.6-tests.md</code> (real-cobbler mode recipe)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-research-findings-verified-against-the-tree-2026-10-12">1. Research findings (verified against the tree, 2026-10-12)</h2>
+<p>The legacy string-building code was <strong>already deleted</strong> during steps 1.2–1.4
+(commits <code>c87a62680fc</code>, <code>f4f4a5e18d7</code>): the <code>TreeCreateOperation</code> inline
+builders, the <code>KickstartInitiateAction</code> hand-rolled map serializer + the
+debian/ubuntu and rhel6 <code>kssendmac</code> branches, and the suse-breed-gated
+<code>CobblerSystemCreateCommand</code> logic are gone. What remained is a small tail of
+unused API surface, verified by repo-wide grep (zero callers in main <strong>and</strong>
+test):</p>
+<table>
+<thead>
+<tr>
+<th>Candidate</th>
+<th>Location</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KernelOptionsList.isEmpty()</code></td>
+<td><code>KernelOptionsList.java:329</code></td>
+<td>migration-born, fully dead</td>
+</tr>
+<tr>
+<td><code>KernelOptionsBuilderException(String,Throwable)</code></td>
+<td><code>KernelOptionsBuilderException.java:32</code></td>
+<td>migration-born, fully dead (all throws use the 1-arg ctor)</td>
+</tr>
+<tr>
+<td>1-arg ctors <code>Agama/AutoYast/RhelKernelOptionsBuilder(String)</code></td>
+<td><code>Agama:32</code>, <code>AutoYast:30</code>, <code>Rhel:29</code></td>
+<td>migration-born, fully dead (factory + tests use the 2-arg ctors)</td>
+</tr>
+<tr>
+<td><code>BaseTreeEditOperation.replaceLegacyPackageNames(List)</code></td>
+<td><code>BaseTreeEditOperation.java:250</code></td>
+<td>pre-existing dead (lost its last caller pre-branch, maven migration)</td>
+</tr>
+<tr>
+<td><code>BaseTreeEditOperation.getServerName()</code></td>
+<td><code>BaseTreeEditOperation.java:211</code></td>
+<td>pre-existing dead getter (setter is used)</td>
+</tr>
+<tr>
+<td><code>KernelOptionsList.setOptionOrReplace</code> / <code>applyOverrides</code></td>
+<td><code>:174</code> / <code>:199</code></td>
+<td>test-only (<code>KernelOptionsListTest</code>)</td>
+</tr>
+<tr>
+<td><code>BaseTreeEditOperation.KICKSTART_CAPABILITY</code></td>
+<td><code>:54</code></td>
+<td>test-only (<code>PackageManagerTest:462,472</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Deliberately <strong>kept</strong>:</p>
+<ul>
+<li><code>KernelOptionsList.getValue</code> — test-only today but a deliberate step-1.3
+  addition (spec §1 starting-point API, part of the G6-ready container).</li>
+<li><code>KickstartData.LEGACY_KICKSTART_PACKAGE_NAME</code> — other live callers
+  (<code>ChannelManager</code>), unaffected by removing the dead method.</li>
+<li>All deferred §6.3 sites (schedule/SSM/wizard option resolution, saltboot PXE
+  maps, <code>CobblerDistroSyncCommand#backsync</code>, <code>KickstartCloneCommand</code>,
+  <code>DownloadFile</code> <code>useonlinerepo</code>, <code>CobblerDistroHelper</code>, <code>KickstartTreeHandler</code>)
+  — confirmed intact with their legacy logic, untouched per plan.</li>
+</ul>
+<h2 id="2-decisions-locked-this-round-planning-round-7">2. Decisions locked this round (planning round 7)</h2>
+<ol>
+<li><strong>Cleanup scope A+B+C</strong> (user decision 2026-10-12): remove all seven
+   candidates above, including the test-only members. <code>PackageManagerTest</code>
+   switches to the literal <code>"rhn.kickstart.boot_image"</code>;
+   <code>KernelOptionsListTest</code> loses the <code>setOptionOrReplace</code>/<code>applyOverrides</code>
+   cases (their semantics live on in <code>setOption(key, value, true)</code> tests).
+   <code>getValue</code> stays.</li>
+<li><strong>E2E matrix rows are tested for real, not documented</strong> — fake content
+   through the real flow: custom base channels via XML-RPC, dummy
+   kernel/initrd layouts on the <code>uyuni-server</code> container filesystem (exact
+   expected names — <code>boot/x86_64/loader/{linux,initrd}</code> for SUSE,
+   <code>images/pxeboot/{vmlinuz,initrd.img}</code> for RHEL), then the real
+   <code>kickstart.tree.create</code> / profile upload / <code>kickstart.system.scheduleKickstart</code>
+   flow against the deployed server; assertions on DB
+   (<code>rhnKickstartableTree.kernel_options</code>) <strong>and</strong> cobbler records. Phase 1
+   changes option strings, not media handling, so dummy media is sufficient
+   and any accidental boot is harmless.</li>
+<li><strong>SLE16 PXE on the deployed VM</strong>: cobbler lacks PR #177 (no <code>opensuse16</code>
+   signature; user-confirmed: PRs merged upstream, release will sync with the
+   code release — the deployed VM simply predates it). The SLE16 tree-create
+   row is <strong>attempted and its rejection recorded as evidence</strong>, then the
+   documented caveat applies; unit-level parity evidence from step 1.6 (mock
+   mode green, real-mode skips) stands. No signature backport on the VM.</li>
+<li><strong>Salt initiate row (SLES15)</strong> safety protocol: the <code>bootloader.autoinstall</code>
+   state ends in <code>shutdown -r +1</code> — capture the composed <code>kopts</code> pillar from
+   the salt job-publish event (<code>salt-run state.event</code>), then immediately
+   <code>shutdown -c</code>, cancel the kickstart session, and restore the boot
+   configuration (remove <code>/etc/grub.d/42_uyuni_reinstall</code>, restore
+   <code>GRUB_DEFAULT</code>, <code>grub2-mkconfig</code>). Scheduled last in the VM window.</li>
+<li><strong>Backend deployment</strong> to the VM (<code>deploy.sh backend</code>: tomcat + taskomatic)
+   is required for the matrix to exercise branch code; deployed versions
+   recorded before/after per the guardrail-8 protocol.</li>
+<li><code>java/core/pom.xml</code> (uncommitted servlet-API exclusion from an earlier
+   session) stays uncommitted — local build fix, noted in the session log.</li>
+</ol>
+<h2 id="3-execution-plan">3. Execution plan</h2>
+<ol>
+<li>Step doc + roadmap status (this document).</li>
+<li>Dead-code removal (§2 decision 1) → <code>mvn -f java compile
+   checkstyle:checkstyle</code> + DB-free suites locally.</li>
+<li>VM window: pre-flight (clock, deployed versions, PR #177 signature check,
+   <code>rhnKsInstallType</code> rows — seed <code>opensuse16.1</code> from the upgrade SQL if
+   missing) → backend deploy → matrix rows (SLES15 tree+profile+schedule,
+   RHEL7 tree, SLE16 attempt, salt initiate) → §9.3 mock-mode regression map +
+   real-cobbler mode (1.6 recipe) → restore deployed stack, record versions.</li>
+<li>Wrap-up: results recorded here, roadmap status → DONE + changelog, session
+   log, HTML regeneration.</li>
+</ol>
+<h2 id="4-results-2026-10-12">4. Results (2026-10-12)</h2>
+<h3 id="41-dead-code-cleanup-scope-abc">4.1 Dead-code cleanup (scope A+B+C)</h3>
+<p>Removed (all verified zero-caller before deletion):</p>
+<ul>
+<li><code>KernelOptionsList.isEmpty()</code> / <code>setOptionOrReplace</code> / <code>applyOverrides</code>
+  (<code>getValue</code> kept — deliberate step-1.3 addition). <code>KernelOptionsListTest</code>
+  lost the applyOverrides case; the setOption-replace case now drives the
+  3-arg <code>setOption(key, value, true)</code> directly.</li>
+<li><code>KernelOptionsBuilderException(String, Throwable)</code>.</li>
+<li>1-arg ctors of <code>Agama</code>/<code>AutoYast</code>/<code>RhelKernelOptionsBuilder</code>.</li>
+<li><code>BaseTreeEditOperation.replaceLegacyPackageNames</code> (+ <code>EMPTY_STRING</code>,
+  <code>KickstartData</code>/<code>PackageListItem</code> imports — <code>LEGACY_KICKSTART_PACKAGE_NAME</code>
+  itself stays, it has live callers in <code>ChannelManager</code>) and the dead
+  <code>getServerName()</code> getter.</li>
+<li><code>BaseTreeEditOperation.KICKSTART_CAPABILITY</code> — <code>PackageManagerTest</code> now
+  declares the <code>"rhn.kickstart.boot_image"</code> literal itself.</li>
+</ul>
+<p>Local sandbox: <code>mvn -f java compile checkstyle:checkstyle</code> clean; DB-free
+suites green (the only failing local test, `KickstartInstallTypeTest</p>
+<h1 id="testksinstalltype-needs-a-db-and-runs-on-the-vm">testKsInstallType`, needs a DB and runs on the VM).</h1>
+<h3 id="42-agent-vm-session-window-09401105-cest-2026-10-12">4.2 Agent-VM session (window ~09:40–11:05 CEST 2026-10-12)</h3>
+<p><strong>Deployment learnings</strong> (recorded in <code>AGENTS_CUSTOM.md</code> §3):</p>
+<ul>
+<li><code>uyuni-server.service</code> runs <code>podman run --rm</code> with <code>Restart=on-success</code>,
+  <code>ExecStartPre=podman rm --force</code> and <strong><code>--health-on-failure=stop</code></strong>: any
+  clean PID1 exit recreates the container and discards the writable layer.
+  The login-page healthcheck (30 s interval, 3 retries) fails during every
+  tomcat restart, so the deploy script&rsquo;s <code>-r</code> path (rctomcat/rctaskomatic)
+  always cycles the container and wipes the freshly deployed webapp. A
+  temporary unit drop-in redefining <code>ExecStart</code> with
+  <code>--health-on-failure=none</code> made deploys + direct
+  <code>podman exec uyuni-server systemctl restart tomcat|taskomatic</code> safe
+  (verified: container survives, canary persists). Drop-in removed after the
+  session.</li>
+<li>First backend deploy of the branch (<code>deploy.sh backend</code>) also required the
+  branch&rsquo;s unapplied DB deltas: the deployed 2026.08 stack reports the same
+  schema package version as the branch, so <code>91-schema-update.sh</code> skips
+  them. Applied manually: <code>schema/spacewalk/upgrade/next/</code> (001, 100, 101,
+  500, 520, 540, 550) and, after the RBAC boot validator demanded them, the
+  fresh-install access data (<code>namespace.sql</code>, <code>accessGroup.sql</code>,
+  <code>endpoint.sql</code>, <code>endpointNamespace.sql</code>, <code>accessGroupNamespace.sql</code> — all
+  idempotent <code>ON CONFLICT DO NOTHING</code>; re-run duplicate-key errors are
+  benign). Without this, SparkFilter fails at boot (<code>transactional_mode does
+  not exist</code>, then <code>RbacRouteValidationException</code> for 5 branch endpoints).</li>
+<li><code>opensuse16.1</code> seeded into <code>rhnKsInstallType</code> (id 13) from the branch
+  upgrade SQL; visible via <code>kickstart.tree.listInstallTypes</code>.</li>
+</ul>
+<p><strong>E2E regression matrix</strong> (§8 rows; fake content through the real flow —
+custom base channels + dummy kernel/initrd layouts at <code>/srv/www/e2e17-*</code>
+inside the container):</p>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>Result</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SLES15 tree + profile + schedule</td>
+<td>PASS</td>
+<td><code>kickstart.tree.create</code> with <strong>empty</strong> kopts → DB <code>install=http://agentvm.ai.local/ks/dist/e2e17-sles15 self_update=0</code>, cobbler distro identical; <code>kickstart.createProfile</code> → cobbler profile kopts <code>&lt;&lt;inherit&gt;&gt;</code>; <code>system.provisionSystem</code> (action 7) → cobbler system record <code>install=http://agentvm.ai.local/ty/6agQ3w1P</code> (session tinyurl — the step-1.3 media override) with <code>kernel_options_post</code> <code>&lt;&lt;inherit&gt;&gt;</code></td>
+</tr>
+<tr>
+<td>RHEL7 tree</td>
+<td>PASS</td>
+<td><code>inst.repo=http://agentvm.ai.local/ks/dist/e2e17-rhel7</code> (DB + cobbler distro)</td>
+</tr>
+<tr>
+<td>SLE16 tree</td>
+<td>documented caveat</td>
+<td>cobbler rejects the distro save: <code>os_version for breed "suse" must be one of ... given was "opensuse16.1"</code> — the deployed VM cobbler lacks PR #177 (user-confirmed: PRs merged, release will sync with the code release). Unit-level parity evidence from step 1.6 stands (mock-mode exact-string tests green, real-mode fixtures skip)</td>
+</tr>
+<tr>
+<td>Salt initiate (SLES15)</td>
+<td>PASS</td>
+<td>minion <code>victim01</code> (venv-salt-minion) → <code>state.apply bootloader.autoinstall</code> pillar captured via <code>salt-run state.event</code>: <code>kopts = "self_update=0 install=http://agentvm.ai.local/ty/6agQ3w1P autoyast=http://agentvm.ai.local/cblr/svc/op/autoinstall/system/victim01:1 info=http://agentvm.ai.local/cblr/svc/op/nopxe/system/victim01:1"</code> with kernel/initrd from the tree saltfs — the complete step-1.4 composition (resolved options incl. the media override, installer selection, nopxe signaling; textmode no-op without <code>text</code>; no <code>initrd</code> param). The <code>shutdown -r +1</code> step never ran (no grub on the VM host — requisite failure, expected and harmless); action 7 recorded as failed with the full salt result in <code>rhnserveraction.result_msg</code></td>
+</tr>
+</tbody>
+</table>
+<p>Artifacts: <code>tasklist/validation/e2e17_matrix_rows.py</code>,
+<code>tasklist/validation/e2e17_provision.py</code>,
+<code>tasklist/validation/artifacts/e2e17_matrix_rows.json</code>,
+<code>tasklist/validation/artifacts/e2e17_provision.json</code>.</p>
+<h3 id="43-test-suites-on-the-vm-fresh-uyuni-test-pgsql-branch-schema">4.3 Test suites on the VM (fresh <code>uyuni-test-pgsql</code>, branch schema)</h3>
+<ul>
+<li>Mock mode (§9.3 regression map + <code>PackageManagerTest</code>): <strong>180 tests, 0
+  failures, BUILD SUCCESS</strong>.</li>
+<li>Real-cobbler mode (<code>-Duse.real.cobbler=true</code>, cobbler 3.3.3 in the test
+  container): <strong>55 run, 50 green, 5 skipped</strong> (SLE16, PR #177) — identical
+  to the step-1.6 baseline. One environmental flake: the first real-mode
+  run wedged inside <code>cleanUpCobbler</code> → <code>Profile.invokeRemove</code> (cobblerd
+  never answered the remove; redstone has no read timeout). Recovered by
+  recreating the test container; the second run was fully green. Pre-existing
+  container flake — step 1.7 touched no test-infrastructure code.</li>
+</ul>
+<h3 id="44-stack-restored">4.4 Stack restored</h3>
+<ul>
+<li>Test container removed, <code>mgradm start</code>, healthcheck drop-in removed →
+  stock container from the image (deploy overlays are ephemeral by design).
+  <code>spacewalk-java-5.3.1-260400.1.2.uyuni6.noarch</code> +
+  <code>cobbler-3.3.3-260400.41.1.uyuni6.noarch</code> unchanged, login page 200,
+  tomcat/taskomatic active.</li>
+<li>DB remnants on the (recycled) VM: branch next-upgrade deltas + access
+  data applied, <code>opensuse16.1</code> install type, the <code>e2e17-*</code> fixture
+  channels/trees/profile, action 7 and minion <code>victim01</code>.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-12 — created from planning round 7: dead-code inventory verified
+  against the tree (legacy builders already deleted in 1.2–1.4), scope A+B+C
+  locked, E2E matrix protocol fixed (fake-content/real-flow rows, SLE16
+  attempt-and-record, initiate safety protocol, backend deploy).</li>
+<li>2026-10-12 — implemented and verified: cleanup (7 members removed),
+  checkstyle clean, 180 mock-mode tests + 50/55 real-mode tests green on the
+  agent VM, E2E matrix executed (SLES15/RHEL7/salt-initiate PASS, SLE16
+  documented PR #177 caveat with recorded cobbler rejection). Deployment
+  quirks recorded in <code>AGENTS_CUSTOM.md</code> §3 (health-on-failure=stop container
+  cycling, deploy.sh -r path, branch DB deltas on a version-matched stack).
+  Stack restored. Status → DONE — <strong>Phase 1 complete</strong>.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>80-step-1.7-cleanup-verification.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

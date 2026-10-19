@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>90-step-3.1-saltboot-model — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">90-step-3.1-saltboot-model</p>
+<a class="h2" href="#1-current-state-verified-2026-10-19">1. Current state (verified 2026-10-19)</a>
+<a class="h3" href="#11-formulas-external-package-saltboot-formula">1.1 Formulas (external package saltboot-formula)</a>
+<a class="h3" href="#12-how-formula-data-is-merged-today">1.2 How formula data is merged today</a>
+<a class="h3" href="#13-storage">1.3 Storage</a>
+<a class="h3" href="#14-force-redeploy-force-repartition-flags">1.4 Force-redeploy / force-repartition flags</a>
+<a class="h3" href="#15-images-and-cobbler-entries">1.5 Images and cobbler entries</a>
+<a class="h3" href="#16-triggers-and-writers">1.6 Triggers and writers</a>
+<a class="h3" href="#17-legacy-retail-branch-server-path-unsupported-decision-d1">1.7 Legacy retail branch server path (unsupported, decision D1)</a>
+<a class="h3" href="#18-supporting-facts">1.8 Supporting facts</a>
+<a class="h3" href="#19-found-on-the-way-recorded-not-fixed-here">1.9 Found on the way (recorded, not fixed here)</a>
+<a class="h2" href="#2-model">2. Model</a>
+<a class="h3" href="#21-principles">2.1 Principles</a>
+<a class="h3" href="#22-two-entity-families">2.2 Two entity families</a>
+<a class="h3" href="#23-effective-config-chain-merge">2.3 Effective config: chain merge</a>
+<a class="h3" href="#24-resolution-which-config-applies-to-a-terminal-d7">2.4 Resolution: which config applies to a terminal (D7)</a>
+<a class="h3" href="#25-java-domain">2.5 Java domain</a>
+<a class="h3" href="#26-pillar-generation-and-precedence">2.6 Pillar generation and precedence</a>
+<a class="h3" href="#27-relation-to-the-future-unified-profile-entity-step-21">2.7 Relation to the future unified profile entity (step 2.1)</a>
+<a class="h2" href="#3-decisions-user-planning-round-8-2026-10-19">3. Decisions (user, planning round 8, 2026-10-19)</a>
+<a class="h2" href="#4-migration-and-transition">4. Migration and transition</a>
+<a class="h3" href="#41-upgrade-time-migration-d8">4.1 Upgrade-time migration (D8)</a>
+<a class="h3" href="#42-dual-write-d4">4.2 Dual-write (D4)</a>
+<a class="h2" href="#5-api-sketch-implemented-in-step-32">5. API sketch (implemented in step 3.2)</a>
+<a class="h2" href="#6-hand-offs">6. Hand-offs</a>
+<a class="h3" href="#61-step-32-domain-schema-api">6.1 Step 3.2 — domain, schema, API</a>
+<a class="h3" href="#62-step-34-kernel-options-via-builders">6.2 Step 3.4 — kernel options via builders</a>
+<a class="h3" href="#63-step-35-trigger-orchestration">6.3 Step 3.5 — trigger / orchestration</a>
+<a class="h3" href="#64-step-33-react-ui">6.4 Step 3.3 — React UI</a>
+<a class="h3" href="#65-follow-ups">6.5 Follow-ups</a>
+<a class="h2" href="#7-risks-and-open-items">7. Risks and open items</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-31-design-saltboot-deployment-model">Step 3.1 Design — Saltboot Deployment Model</h1>
+<blockquote>
+<p>Design for roadmap step 3.1 (<code>10-roadmap.md</code> Phase 3): Saltboot deployment
+is modeled in the Java autoinstallation domain instead of group formula
+data. This document records the verified current state, the data model, the
+resolution and merge rules, the migration/transition path, an API sketch,
+and the hand-offs to steps 3.2–3.5. Design only — no code lands in this
+step.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-19</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (design, 2026-10-19)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G3/§5.4/§5.7 (amended)/§5.9, <code>10-roadmap.md</code> Phase 3, <code>20-kernel-options.md</code> §6</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-current-state-verified-2026-10-19">1. Current state (verified 2026-10-19)</h2>
+<p>Paths are relative to the repository root; Java paths relative to
+<code>java/core/src/main/java/</code>. Line numbers refer to tree <code>583440e9b18</code>.</p>
+<h3 id="11-formulas-external-package-saltboot-formula">1.1 Formulas (external package <code>saltboot-formula</code>)</h3>
+<p><code>saltboot-formula</code> (1.1.0 on the agent VM, Uyuni 2026.08 stack) installs
+metadata under <code>/usr/share/susemanager/formulas/metadata/{saltboot,saltboot-group}/</code>
+and states under <code>/usr/share/susemanager/formulas/states/{saltboot,saltboot-reactor}/</code>.
+Both formulas are <code>pillar_only: True</code>, formula group &ldquo;Saltboot&rdquo;. Neither form
+is in this repository (only a partial <code>saltboot</code> fixture:
+<code>susemanager-utils/susemanager-sls/test/data/formulas/metadata/saltboot/form.yml</code>).</p>
+<p><strong><code>saltboot-group</code></strong> — pillar category <code>formula-saltboot-group</code>, assigned to
+<em>branch</em> groups (<code>FormulaFactory.SALTBOOT_GROUP</code> / <code>SALTBOOT_PILLAR</code>,
+<code>com/redhat/rhn/domain/formula/FormulaFactory.java:75-76</code>). Form root
+<code>saltboot</code> (<code>hidden-group</code>):</p>
+<table>
+<thead>
+<tr>
+<th>key</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>download_server</code></td>
+<td>text, optional</td>
+<td>becomes <code>MASTER=</code> on the cobbler group profile</td>
+</tr>
+<tr>
+<td><code>containerized_proxy</code></td>
+<td>bool, default False</td>
+<td>gates visibility of all following fields</td>
+</tr>
+<tr>
+<td><code>default_boot_image</code></td>
+<td>text</td>
+<td></td>
+</tr>
+<tr>
+<td><code>default_boot_image_version</code></td>
+<td>text</td>
+<td></td>
+</tr>
+<tr>
+<td><code>default_kernel_parameters</code></td>
+<td>text</td>
+<td></td>
+</tr>
+<tr>
+<td><code>minion_id_naming</code></td>
+<td>select FQDN/Hostname/HWType/MAC, default Hostname</td>
+<td></td>
+</tr>
+<tr>
+<td><code>disable_id_prefix</code></td>
+<td>bool</td>
+<td></td>
+</tr>
+<tr>
+<td><code>disable_unique_suffix</code></td>
+<td>bool</td>
+<td>disabled when naming = HWType</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>saltboot</code></strong> — pillar category <code>formula-saltboot</code>, typically on <em>HWTYPE</em>
+groups, also possible per system. Form root <code>partitioning</code>: an <code>edit-group</code>
+(dictionary of dictionaries) of disks keyed by a symbolic ID (<code>disk1</code>,
+<code>md0</code>, …):</p>
+<ul>
+<li>disk: <code>type</code> (DISK|RAID), <code>device</code>, <code>level</code> / <code>devices</code> (RAID),
+  <code>disklabel</code> (gpt|msdos|none), <code>partitions</code>;</li>
+<li><code>partitions</code>: <code>edit-group</code> keyed by a symbolic partition ID with
+  <code>size_MiB</code>, <code>mountpoint</code>, <code>format</code> (btrfs/ext4/xfs/vfat/swap), <code>image</code>,
+  <code>image_version</code>, <code>luks_pass</code>, <code>flags</code> (swap/raid/bios_grub/esp/boot);</li>
+<li>for <code>disklabel: none</code> the same fields sit directly on the disk.</li>
+</ul>
+<p><strong>Pillar keys consumed by the external states</strong> (the execution engine — must
+stay key-compatible): <code>partitioning</code>, <code>images</code>, <code>boot_images</code>,
+<code>saltboot:kernel_action</code> (state default <code>kexec</code>),
+<code>terminal_kernel_parameters</code>. The branch <code>saltboot:*</code> keys are consumed by
+Java (cobbler group profile, §1.5). Step 3.2 must grep the installed states
+for further <code>saltboot:</code> keys before fixing the generator output.</p>
+<h3 id="12-how-formula-data-is-merged-today">1.2 How formula data is merged today</h3>
+<p><code>susemanager-utils/susemanager-sls/modules/pillar/suma_minion.py</code>:</p>
+<ul>
+<li><code>load_group_pillars</code> (L249) collects formula data <strong>into a dict keyed by
+  formula name</strong> — when several groups of a minion carry the same formula,
+  the last row read wins (row order undefined); there is no merge across
+  groups.</li>
+<li><code>load_formula_pillar</code> (L347) → <code>merge_formula_data</code> (L390): system data
+  over group data <strong>per form element</strong>. <code>group</code>/<code>hidden-group</code> elements merge
+  field by field; an <code>edit-group</code> (e.g. <code>partitioning</code>) is handled as a
+  primitive — the system value <strong>replaces</strong> the group value as a whole.
+  Form defaults are applied (<code>$default</code>/<code>$placeholder</code>), then
+  <code>adjust_empty_values</code> (L434).</li>
+<li>Non-formula categories (e.g. <code>tuning-saltboot</code>) are recurse-merged into the
+  pillar (<code>salt.utils.dictupdate.merge(strategy="recurse")</code>).</li>
+</ul>
+<p>Consequences for this design: the hierarchy deep merge (§2.3) is <strong>new
+semantics</strong>, the multi-group case becomes deterministic (§2.4), and the
+migration maps per-system partitioning to a self-contained config (§4.1).</p>
+<h3 id="13-storage">1.3 Storage</h3>
+<ul>
+<li><code>suseSaltPillar</code> (<code>schema/spacewalk/common/tables/suseSaltPillar.sql</code>):
+  <code>id, server_id | group_id | org_id, category, pillar JSONB</code>, exactly one
+  target, unique per target + category.</li>
+<li>Entity <code>com/redhat/rhn/domain/server/Pillar.java</code> maps the JSONB column with
+  <code>@JdbcTypeCode(SqlTypes.JSON)</code> + <code>columnDefinition = "jsonb"</code>
+  (<code>Pillar.java:73</code>) — the pattern to reuse for new JSONB columns.</li>
+<li><strong>No saltboot-specific tables, no saltboot XML-RPC API.</strong> The only saltboot
+  web route is <code>GET /saltboot/*</code> (<code>SaltbootController</code>, image download
+  redirect).</li>
+</ul>
+<h3 id="14-force-redeploy-force-repartition-flags">1.4 Force-redeploy / force-repartition flags</h3>
+<ul>
+<li>Stored in two places: minion pillar category <code>tuning-saltboot</code>
+  (<code>saltboot:force_redeploy</code>, <code>saltboot:force_repartition</code>) and org custom-info
+  keys <code>saltboot_force_redeploy</code> / <code>saltboot_force_repartition</code>.</li>
+<li>Both cleared by <code>SaltbootUtils.resetSaltbootRedeployFlags</code>
+  (<code>com/suse/manager/saltboot/SaltbootUtils.java:655</code>), which
+  <code>PXEEventMessageAction</code> calls unconditionally after every <code>pxe_update</code>
+  (<code>com/suse/manager/saltboot/PXEEventMessageAction.java:80</code>) — also after a
+  failed cobbler update.</li>
+<li>The states additionally set grains (<code>saltboot/force_redeploy.sls</code> →
+  <code>grains.present saltboot_force_redeploy</code>).</li>
+</ul>
+<h3 id="15-images-and-cobbler-entries">1.5 Images and cobbler entries</h3>
+<ul>
+<li><code>ImageInfo</code> (<code>suseImageInfo</code>, <code>pillar_id</code> FK) / <code>ImageFile</code>
+  (<code>suseImageFile</code>). <code>SaltStateGeneratorService.generateOSImagePillar</code>
+  (<code>com/suse/manager/webui/services/SaltStateGeneratorService.java:117</code>)
+  writes pillar <code>Image&lt;id&gt;</code> with <code>images</code> / <code>boot_images</code>; boot image name is
+  <code>name-version-revision</code>.</li>
+<li><code>SaltbootUtils</code> is the cobbler adapter:</li>
+<li>distro per image — <code>createSaltbootDistro</code> (L192/L214): breed <code>generic</code>,
+    options <code>panic=60 splash=silent</code> (L244-245);</li>
+<li>image profiles — private <code>nameVR</code>, <code>DEFAULT_IMAGE</code>, <code>name</code>,
+    <code>name-version</code>, re-pointed to the newest version (<code>SaltbootVersionCompare</code>);</li>
+<li>group profile per branch group — <code>createSaltbootProfile</code> (L460/L472/L489)
+    via <code>updateGroupProfile</code> (L369); options from <code>getKernelOptions(group)</code>
+    (L404): <code>MINION_ID_PREFIX=&lt;group name&gt;</code>, <code>MASTER=&lt;download_server&gt;</code>,
+    <code>DISABLE_ID_PREFIX=1</code>, <code>DISABLE_UNIQUE_SUFFIX=1</code>, <code>USE_FQDN_MINION_ID=1</code> |
+    <code>DISABLE_HOSTNAME_ID=1</code> | <code>USE_MAC_MINION_ID=1</code>, plus split
+    <code>default_kernel_parameters</code>; parent image profile from
+    <code>getGroupImageName</code> (L434, falls back to <code>DEFAULT_IMAGE</code>);</li>
+<li>system record per terminal — <code>createSaltbootSystem</code> (L568/L584): group
+    profile options + <code>root=</code>, <code>salt_device=</code>, <code>terminal_kernel_parameters</code>;
+    resolves cobbler MAC-duplicate conflicts;</li>
+<li>naming — <code>makeCobblerName(org, label)</code> (L105) =
+    <code>label&lt;sep&gt;S&lt;sep&gt;orgId&lt;sep&gt;orgName</code>.</li>
+</ul>
+<h3 id="16-triggers-and-writers">1.6 Triggers and writers</h3>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FormulaFactory.saveGroupFormulaData</code> (L214)</td>
+<td>saves the formula pillar; for <code>saltboot-group</code> calls <code>SaltbootUtils.createSaltbootProfile(group)</code> (warn on failure)</td>
+</tr>
+<tr>
+<td><code>FormulaFactory.saveServerFormulaData</code> (L255)</td>
+<td>saves the formula pillar; no saltboot hook</td>
+</tr>
+<tr>
+<td><code>FormulaFactory.saveGroupFormulas</code> (L430)</td>
+<td>on <code>saltboot-group</code> deselection <strong>deletes the cobbler group profile</strong> first (L442; <code>ValidatorException</code> if systems are attached), then removes the formula pillar</td>
+</tr>
+<tr>
+<td><code>FormulaManager.saveGroupFormulaData</code> (<code>com/redhat/rhn/manager/formula/FormulaManager.java:83</code>)</td>
+<td>web UI / XML-RPC entry; delegates to <code>FormulaFactory</code>, then <code>saltApi.refreshPillar</code></td>
+</tr>
+<tr>
+<td><code>ImageInspectAction</code> (<code>com/redhat/rhn/domain/action/salt/inspect/ImageInspectAction.java:286-289</code>)</td>
+<td><code>pxe</code> image → <code>generateOSImagePillar</code> + <code>createSaltbootDistro</code></td>
+</tr>
+<tr>
+<td><code>ImageInfoFactory.delete</code> (<code>com/redhat/rhn/domain/image/ImageInfoFactory.java:315-320</code>)</td>
+<td><code>deleteSaltbootDistro</code></td>
+</tr>
+<tr>
+<td><code>RegisterMinionEventMessageAction</code> (<code>com/suse/manager/reactor/messaging/RegisterMinionEventMessageAction.java:643, 721, 743, 799</code>)</td>
+<td>saltboot-initrd registration: branch group from grain <code>minion_id_prefix</code>, <code>TERMINALS</code>, <code>HWTYPE:&lt;manufacturer-productname&gt;</code> groups, then state <code>saltboot</code></td>
+</tr>
+<tr>
+<td><code>PXEEventMessageAction</code> (event <code>suse/manager/pxe_update</code>, <code>PXEEvent</code>, routed in <code>com/suse/manager/reactor/SaltReactor.java:152, 255</code>)</td>
+<td><code>createSaltbootSystem</code> (L66) → terminal boots from disk; failure → <code>PXEEventFailed</code> notification (L73); flag reset (L80)</td>
+</tr>
+<tr>
+<td><code>ProxyBackupEventAction.convertRBSToContainerized</code> (<code>com/suse/proxy/event/ProxyBackupEventAction.java:194-253</code>)</td>
+<td>assigns <code>saltboot-group</code> to the branch group and writes <code>{containerized_proxy: true, default_boot_image, default_boot_image_version: "", download_server: &lt;fqdn&gt;, minion_id_naming: Hostname}</code> via <code>FormulaFactory.saveGroupFormulaData</code> (L246); <code>convertSinglePxeEntry</code> (L284) creates terminal records</td>
+</tr>
+<tr>
+<td><code>UpgradeCommand</code> (<code>com/redhat/rhn/manager/satellite/UpgradeCommand.java:60, 63, 103, 191</code>)</td>
+<td>dispatches <code>rhnTaskQueue</code> tasks prefixed <code>upgrade_satellite_</code>; <code>MIGRATE_COBBLER</code> runs <code>SaltbootMigrationUtils.migrateSaltboot()</code> in a delayed thread (cobbler auth needs a started tomcat)</td>
+</tr>
+</tbody>
+</table>
+<p>Task rows are queued by SQL upgrade scripts, pattern
+<code>schema/spacewalk/upgrade/susemanager-schema-5.3.1-to-susemanager-schema-5.3.2/520-enable-all-systems-sync-all.sql</code>
+(idempotent <code>INSERT … WHERE NOT EXISTS</code>).</p>
+<h3 id="17-legacy-retail-branch-server-path-unsupported-decision-d1">1.7 Legacy retail branch server path (unsupported, decision D1)</h3>
+<p>The salt master reactor <code>/etc/salt/master.d/saltboot.conf</code> →
+<code>saltboot-reactor/pxe_update.sls</code> runs <code>pxe/terminal_entry</code> on branch servers
+targeted by <code>pxe:branch_id</code>. It is shipped by the external formula package,
+serves only non-containerized branch servers, and is <strong>not modeled</strong>. The
+remaining in-repo touchpoint is the RBS → containerized conversion in
+<code>ProxyBackupEventAction</code> (§1.6).</p>
+<h3 id="18-supporting-facts">1.8 Supporting facts</h3>
+<ul>
+<li>Proxy FQDN: <code>Server.findPrimaryFqdn()</code> (<code>com/redhat/rhn/domain/server/Server.java:1223</code>,
+  <code>rhnServerFQDN.is_primary</code>), already used for proxies by
+  <code>ProxyConfigUpdateAcquisitor</code> (<code>com/suse/proxy/update/ProxyConfigUpdateAcquisitor.java:65</code>)
+  and in <code>MinionGeneralPillarGenerator:82</code>. Proxy check: <code>Server.isProxy()</code>
+  (<code>Server.java:1705</code>).</li>
+<li>Pillar generators: <code>com/suse/manager/webui/services/pillar/MinionPillarGenerator</code>
+  (<code>generatePillarData(MinionServer)</code>, <code>getCategory()</code>, <code>removePillar(MinionServer)</code>),
+  registered in <code>MinionPillarManager</code>.</li>
+<li>Notifications: <code>com/redhat/rhn/domain/notification/types/NotificationType.java</code>
+  (<code>PXE_EVENT_FAILED</code> + <code>PXEEventFailed</code> is the pattern for new types).</li>
+</ul>
+<h3 id="19-found-on-the-way-recorded-not-fixed-here">1.9 Found on the way (recorded, not fixed here)</h3>
+<ul>
+<li><code>SaltbootUtils.deleteSaltbootDistro</code> re-points the <code>name-version</code> profile
+  with <code>makeCobblerFilterName</code> (L329) instead of <code>makeCobblerFilterNameV</code>
+  (L60) — the <code>nameV</code> profile can land on a distro of another version. Likely
+  bug; hand to 3.2.</li>
+<li>Redeploy flags are reset even after a failed <code>pxe_update</code> (L80) — confirm
+  intent in 3.5.</li>
+</ul>
+<hr />
+<h2 id="2-model">2. Model</h2>
+<h3 id="21-principles">2.1 Principles</h3>
+<ul>
+<li><strong>The Java domain becomes the source of truth.</strong> Pillar data turns into
+  generated output with the same key shape (<code>saltboot:*</code>, <code>partitioning</code>), so
+  <code>suma_minion.py</code> and the external states stay unchanged (guardrail 5).</li>
+<li>The model stores only raw user-typed parameter strings; kernel command-line
+  composition goes through the step-3.4 builder (guardrail 1).</li>
+<li>Schema is additive (guardrail 6); the model never references cobbler object
+  names (guardrail 4).</li>
+<li><strong>Containerized proxies only</strong> (D1): no <code>containerized_proxy</code> flag.</li>
+</ul>
+<h3 id="22-two-entity-families">2.2 Two entity families</h3>
+<p>Branch settings (on branch groups) and partitioning/image configs (on
+HWTYPE/rollout groups or systems) sit on <strong>unrelated</strong> groups of the same
+terminal. One hierarchical entity with &ldquo;most-derived wins&rdquo; would drop one of
+them, so the model keeps today&rsquo;s split between <code>saltboot-group</code> and <code>saltboot</code>:</p>
+<pre><code>suseSaltbootBranch   1 ── 1  rhnServerGroup (branch)   ──► proxy rhnServer
+suseSaltbootConfig   * ── 0..1 parent suseSaltbootConfig
+suseSaltbootConfigAssignment  config ──► rhnServerGroup | rhnServer
+suseSaltbootTerminal 1 ── 1  rhnServer (terminal)
+</code></pre>
+<p>Table names are indicative; step 3.2 finalizes the DDL following
+<code>schema/spacewalk/common/tables/*.sql</code> conventions (<code>created</code> / <code>modified</code>,
+index files under <code>schema/spacewalk/postgres/tables/</code>) plus an idempotent
+<code>schema/spacewalk/upgrade/next/</code> script. Deliberate deviations from the
+legacy conventions (PostgreSQL 18 target): surrogate keys are
+<code>BIGINT GENERATED ALWAYS AS IDENTITY</code> instead of <code>NUMERIC</code> + sequence, and
+flags use the native <code>BOOLEAN</code> type instead of <code>CHAR(1)</code> Y/N.</p>
+<h4 id="susesaltbootbranch-branch-level-settings-replaces-saltboot-group"><code>suseSaltbootBranch</code> — branch-level settings (replaces <code>saltboot-group</code>)</h4>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>BIGINT PK, autogenerated identity</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group_id</code></td>
+<td>FK <code>rhnServerGroup</code> ON DELETE CASCADE, <strong>UNIQUE</strong></td>
+<td>the branch group; its name is the <code>MINION_ID_PREFIX</code>. Org scoping goes through <code>rhnServerGroup.org_id</code> (no own <code>org_id</code> column)</td>
+</tr>
+<tr>
+<td><code>proxy_server_id</code></td>
+<td>FK <code>rhnServer</code> ON DELETE SET NULL, nullable</td>
+<td>replaces free-text <code>download_server</code> (D2). Must be a proxy (<code>Server.isProxy()</code>, Java validation). FQDN resolved at generation time via <code>findPrimaryFqdn()</code>.</td>
+</tr>
+<tr>
+<td><code>minion_id_naming</code></td>
+<td>VARCHAR + CHECK (<code>FQDN</code>,<code>Hostname</code>,<code>HWType</code>,<code>MAC</code>), default <code>Hostname</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>disable_id_prefix</code></td>
+<td>BOOLEAN NOT NULL DEFAULT FALSE</td>
+<td></td>
+</tr>
+<tr>
+<td><code>disable_unique_suffix</code></td>
+<td>BOOLEAN NOT NULL DEFAULT FALSE</td>
+<td>invalid with <code>HWType</code> (Java validation, as in the form)</td>
+</tr>
+<tr>
+<td><code>default_boot_image</code></td>
+<td>VARCHAR, nullable</td>
+<td>lax reference (D5): <code>name</code>, <code>name-version</code> or <code>name-version-revision</code>; replaces the formula&rsquo;s <code>default_boot_image</code> + <code>default_boot_image_version</code> pair</td>
+</tr>
+<tr>
+<td><code>default_kernel_parameters</code></td>
+<td>VARCHAR, nullable</td>
+<td>raw user string</td>
+</tr>
+<tr>
+<td><code>created</code>, <code>modified</code></td>
+<td>TIMESTAMPTZ</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>FQDN selection extension point.</strong> A parallel effort adds multi-FQDN proxies
+(internal/external) with selection flags that are not available yet. Until
+then the primary FQDN is used. When that work lands, the selection is added
+as one additive column (selector or FK to the proxy-FQDN entity of that work)
+and resolved in one place (the branch → FQDN resolver used by the pillar
+generator and the 3.4 builder).</p>
+<h4 id="susesaltbootconfig-hierarchical-partitioningimage-config-replaces-saltboot"><code>suseSaltbootConfig</code> — hierarchical partitioning/image config (replaces <code>saltboot</code>)</h4>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>BIGINT PK, autogenerated identity</td>
+<td></td>
+</tr>
+<tr>
+<td><code>org_id</code></td>
+<td>FK <code>web_customer</code> ON DELETE CASCADE</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>VARCHAR, UNIQUE (<code>org_id</code>, <code>name</code>)</td>
+<td></td>
+</tr>
+<tr>
+<td><code>parent_id</code></td>
+<td>self-FK, nullable, ON DELETE RESTRICT</td>
+<td>same-org and cycle checks in Java</td>
+</tr>
+<tr>
+<td><code>partitioning</code></td>
+<td>JSONB, nullable</td>
+<td>shape of the <code>saltboot</code> form&rsquo;s <code>partitioning</code> value, possibly partial (overrides only). JSON <code>null</code> on a disk/partition key is a tombstone. Validated in Java against the form shape (known keys, enums).</td>
+</tr>
+<tr>
+<td><code>kernel_action</code></td>
+<td>VARCHAR, nullable</td>
+<td>maps to <code>saltboot:kernel_action</code>; null = inherit</td>
+</tr>
+<tr>
+<td><code>created</code>, <code>modified</code></td>
+<td>TIMESTAMPTZ</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Image references (<code>image</code>, <code>image_version</code> inside partitions) stay lax strings
+(D5) — no FK to <code>suseImageInfo</code>, so rebuilt revisions roll forward without
+touching configs.</p>
+<h4 id="susesaltbootconfigassignment"><code>suseSaltbootConfigAssignment</code></h4>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>BIGINT PK, autogenerated identity</td>
+<td></td>
+</tr>
+<tr>
+<td><code>config_id</code></td>
+<td>FK <code>suseSaltbootConfig</code> ON DELETE CASCADE</td>
+<td></td>
+</tr>
+<tr>
+<td><code>group_id</code></td>
+<td>FK <code>rhnServerGroup</code> ON DELETE CASCADE, nullable, UNIQUE</td>
+<td></td>
+</tr>
+<tr>
+<td><code>server_id</code></td>
+<td>FK <code>rhnServer</code> ON DELETE CASCADE, nullable, UNIQUE</td>
+<td>CHECK exactly one of <code>group_id</code> / <code>server_id</code> (same idiom as <code>suseSaltPillar</code>)</td>
+</tr>
+<tr>
+<td><code>priority</code></td>
+<td>INTEGER NOT NULL DEFAULT 0</td>
+<td>tie-breaker for unrelated chains only (§2.4)</td>
+</tr>
+</tbody>
+</table>
+<p>At most one config per group and per system.</p>
+<h4 id="susesaltbootterminal-per-terminal-deployment-state"><code>suseSaltbootTerminal</code> — per-terminal deployment state</h4>
+<table>
+<thead>
+<tr>
+<th>column</th>
+<th>type</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>server_id</code></td>
+<td>PK, FK <code>rhnServer</code> ON DELETE CASCADE</td>
+<td></td>
+</tr>
+<tr>
+<td><code>boot_image</code></td>
+<td>VARCHAR, nullable</td>
+<td>last reported by <code>pxe_update</code></td>
+</tr>
+<tr>
+<td><code>root_device</code>, <code>salt_device</code></td>
+<td>VARCHAR, nullable</td>
+<td>from <code>pxe_update</code></td>
+</tr>
+<tr>
+<td><code>terminal_kernel_parameters</code></td>
+<td>VARCHAR, nullable</td>
+<td>from <code>pxe_update</code></td>
+</tr>
+<tr>
+<td><code>force_redeploy</code>, <code>force_repartition</code></td>
+<td>BOOLEAN NOT NULL DEFAULT FALSE</td>
+<td>replace the <code>tuning-saltboot</code> pillar + custom-info dual storage; the legacy locations are still read and cleared during the transition</td>
+</tr>
+<tr>
+<td><code>last_pxe_update</code></td>
+<td>TIMESTAMPTZ, nullable</td>
+<td></td>
+</tr>
+<tr>
+<td><code>last_result</code></td>
+<td>VARCHAR, nullable</td>
+<td>status/message of the last <code>pxe_update</code> handling, for the future UI</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-effective-config-chain-merge">2.3 Effective config: chain merge</h3>
+<p>The effective config of a config node is the merge of its ancestor chain from
+the root to the node itself:</p>
+<ul>
+<li>scalars (<code>kernel_action</code>): the nearest non-null value wins;</li>
+<li><code>partitioning</code>: recursive dict merge keyed by the symbolic disk/partition
+  IDs (D6) — a child sets only what it changes; a JSON <code>null</code> value removes
+  the inherited key (tombstone). Non-dict values (strings, numbers, RAID
+  <code>devices</code> lists) are replaced, not merged.</li>
+</ul>
+<p>Reference implementation (Java pseudo-code, DB-free):</p>
+<pre><code>merge(base, override):
+  result = copy(base)
+  for (key, value) in override:
+    if value == null:                       result.remove(key)      # tombstone
+    elif value is Map and result[key] is Map: result[key] = merge(result[key], value)
+    else:                                   result[key] = value
+  return result
+</code></pre>
+<p>Note: this differs from today&rsquo;s formula handling, where an <code>edit-group</code> is
+replaced as a whole (§1.2). It is new, explicitly chosen behavior.</p>
+<p><strong>A/B rollout example.</strong></p>
+<pre><code class="language-yaml"># HW-POS-4000 (root, assigned to group HWTYPE:ACME-POS4000)
+partitioning:
+  disk1:
+    type: DISK
+    device: /dev/sda
+    disklabel: gpt
+    partitions:
+      p1: {size_MiB: 500, format: vfat, mountpoint: /boot/efi, flags: esp}
+      p2: {size_MiB: 20000, format: ext4, mountpoint: /, image: POS_Image_JeOS7, image_version: &quot;7.1.0&quot;}
+      p3: {format: ext4, mountpoint: /data}
+
+# rollout-A (parent HW-POS-4000, assigned to group rollout-A): no partitioning → keeps 7.1.0
+
+# rollout-B (parent HW-POS-4000, assigned to group rollout-B)
+partitioning:
+  disk1:
+    partitions:
+      p2: {image_version: &quot;7.2.0&quot;}
+</code></pre>
+<p>A terminal in <code>HWTYPE:ACME-POS4000</code> and <code>rollout-B</code> resolves to <code>rollout-B</code>
+(most-derived, §2.4) and deploys <code>POS_Image_JeOS7</code> 7.2.0 with the HW-POS-4000
+layout. Moving terminals between the rollout groups switches the image
+without touching the layout.</p>
+<h3 id="24-resolution-which-config-applies-to-a-terminal-d7">2.4 Resolution: which config applies to a terminal (D7)</h3>
+<pre><code>resolve(minion):
+  1. if a system assignment exists for minion: winner = its config
+  2. else:
+       C = configs assigned to any group the minion is a member of
+       C = C minus every config that is an ancestor of another config in C
+       if |C| == 0: no config (nothing to generate)
+       if |C| == 1: winner = the one in C
+       else:
+         P = configs in C with the highest assignment priority
+         if |P| == 1: winner = the one in P
+         else: no effective config → notification (new NotificationType,
+               pattern PXEEventFailed), no saltboot partitioning pillar for
+               the minion → deployment blocked until resolved
+  3. effective = merge(chain(winner))      # §2.3
+</code></pre>
+<p>A system-level override of a group config is a child config with a system
+assignment. The resolver is pure logic (input: assignments + config graph),
+unit-testable without a DB.</p>
+<p>Branch settings resolve separately: a terminal&rsquo;s branch is the
+<code>suseSaltbootBranch</code> of its branch group (the group named by the
+<code>minion_id_prefix</code> grain at registration). More than one branch group per
+terminal is a configuration error, reported like the config tie.</p>
+<h3 id="25-java-domain">2.5 Java domain</h3>
+<p>Package proposal <code>com.suse.manager.autoinstallation.saltboot</code> (next to the G0
+builders), entities annotated like <code>Pillar</code>:</p>
+<ul>
+<li>entities <code>SaltbootBranch</code>, <code>SaltbootConfig</code>, <code>SaltbootConfigAssignment</code>,
+  <code>SaltbootTerminal</code>; <code>SaltbootFactory</code> (HibernateFactory pattern);</li>
+<li><code>SaltbootConfigResolver</code> — §2.3 + §2.4, DB-free;</li>
+<li><code>SaltbootPillarGenerator</code> — a <code>MinionPillarGenerator</code> emitting the branch
+  <code>saltboot:*</code> keys, effective <code>partitioning</code>, <code>saltboot:kernel_action</code>, and
+  the force flags;</li>
+<li><code>SaltbootUtils</code> stays the cobbler adapter but reads branch settings from the
+  domain instead of the <code>formula-saltboot-group</code> pillar (step 3.2/3.4).</li>
+</ul>
+<h3 id="26-pillar-generation-and-precedence">2.6 Pillar generation and precedence</h3>
+<ul>
+<li>While a saltboot formula still applies to a minion (a <code>formula-saltboot*</code>
+  pillar on the minion or any of its groups), the formula pillar stays
+  authoritative for Salt; dual-write (§4.2) keeps the domain equal to it.</li>
+<li>The domain generator emits <strong>only for minions where no saltboot formula
+  applies</strong> — no double merge of formula and domain data.</li>
+<li>Category: a new non-formula category (e.g. <code>saltboot</code>). Non-formula
+  categories are recurse-merged by <code>suma_minion.py</code> without form defaults, so
+  the generator emits complete values including the form defaults
+  (<code>minion_id_naming: Hostname</code>, booleans as <code>false</code>). <code>kernel_action</code> is
+  omitted when unset so the states keep their <code>kexec</code> default.</li>
+</ul>
+<h3 id="27-relation-to-the-future-unified-profile-entity-step-21">2.7 Relation to the future unified profile entity (step 2.1)</h3>
+<p>A saltboot config is a <strong>deployment kind</strong>, not an uploaded profile file, so
+it does not depend on the 2.1 entity. Forward hook: 2.1 may introduce a shared
+&ldquo;autoinstallation deployment&rdquo; base (type discriminator <code>saltboot</code>, …) that
+<code>suseSaltbootConfig</code> joins later through an additive FK. 3.2 must not add
+coupling to <code>rhnKSData</code>. For guardrail 3, configs and branches carry name,
+type, and target, enough for metadata-driven listing in the later UI.</p>
+<hr />
+<h2 id="3-decisions-user-planning-round-8-2026-10-19">3. Decisions (user, planning round 8, 2026-10-19)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Promoted to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D0</td>
+<td>Phase order: G3 backend (3.1, 3.2, 3.4, 3.5) proceeds before G1+G2; G3 UI (3.3) waits for the Phase 2 UI foundation (2.2).</td>
+<td><code>00-goals.md</code> §5.7 amendment</td>
+</tr>
+<tr>
+<td>D1</td>
+<td>Only containerized proxies are supported; no <code>containerized_proxy</code> flag; the legacy branch-server reactor path is not modeled.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>download_server</code> becomes an FK to the proxy system; its primary FQDN is used until the parallel multi-FQDN work provides selection flags (extension point §2.2).</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>Partitioning is stored as JSONB, validated in Java.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>Transition by dual-write: formula-save hooks also write the domain; users unassign the saltboot formulas manually when ready.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>Boot image references are lax strings (<code>name</code>, <code>name-version</code>, <code>name-version-revision</code>), never an FK.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>Config hierarchy with deep merge keyed by disk/partition IDs; JSON <code>null</code> tombstones remove inherited entries.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D7</td>
+<td>Resolution: system assignment &gt; most-derived config on one chain &gt; assignment priority &gt; notification + blocked deployment.</td>
+<td>§5.9</td>
+</tr>
+<tr>
+<td>D8</td>
+<td>Migration: upgrade-time Java migration via <code>UpgradeCommand</code>, followed by dual-write.</td>
+<td>§5.9</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-migration-and-transition">4. Migration and transition</h2>
+<h3 id="41-upgrade-time-migration-d8">4.1 Upgrade-time migration (D8)</h3>
+<ul>
+<li>New task constant <code>UpgradeCommand.MIGRATE_SALTBOOT_DOMAIN =
+  UPGRADE_TASK_NAME + "migrate_saltboot_domain"</code> with a <code>case</code> calling the
+  migration (e.g. <code>SaltbootDomainMigration.migrate()</code>). It needs no cobbler
+  access, so it can run synchronously inside <code>upgrade()</code>.</li>
+<li>Queued by an idempotent <code>INSERT … WHERE NOT EXISTS</code> script in
+  <code>schema/spacewalk/upgrade/next/</code> (pattern: <code>520-enable-all-systems-sync-all.sql</code>).
+  <code>upgrade/next/</code> scripts are re-applied on every server start until release
+  (<code>schema/spacewalk/upgrade/next/README.md</code>), so the task is re-queued after
+  each start — <strong>the migration itself must be idempotent</strong>: skip any group /
+  system that already has domain rows.</li>
+<li>Mapping:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>group pillar <code>formula-saltboot-group</code></td>
+<td><code>SaltbootBranch</code> for that group. <code>download_server</code> → proxy whose <code>rhnServerFQDN.name</code> matches case-insensitively and <code>isProxy()</code>; no match → <code>proxy_server_id = NULL</code>, warning log, notification to org admins (proxy must be picked). <code>default_boot_image</code> [+ <code>-</code> + <code>default_boot_image_version</code> if non-empty] → <code>default_boot_image</code>. <code>containerized_proxy</code> dropped.</td>
+</tr>
+<tr>
+<td>group pillar <code>formula-saltboot</code></td>
+<td>root <code>SaltbootConfig</code> (name = group name, <code>partitioning</code> = pillar value) + group assignment (priority 0)</td>
+</tr>
+<tr>
+<td>system pillar <code>formula-saltboot</code></td>
+<td><strong>root</strong> <code>SaltbootConfig</code> (name = minion id) holding the system&rsquo;s complete <code>partitioning</code> + system assignment. Root, not a child: today the system <code>edit-group</code> value replaces the group value as a whole (§1.2), so a deep-merged child would change the effective result.</td>
+</tr>
+<tr>
+<td>minion pillar <code>tuning-saltboot</code> / custom info <code>saltboot_force_*</code></td>
+<td><code>SaltbootTerminal</code> flags</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Formula assignments are <strong>not</strong> removed (D4).</li>
+<li>Multiple groups of one minion carrying <code>formula-saltboot</code> (today: last row
+  wins, §1.2) migrate to equal-priority assignments → tie (§2.4). The
+  migration logs every such minion; the tie only bites once the formulas are
+  unassigned, and the admin resolves it with priorities.</li>
+</ul>
+<h3 id="42-dual-write-d4">4.2 Dual-write (D4)</h3>
+<p>Implemented in <code>FormulaFactory</code> — the single funnel for the web UI, XML-RPC
+(<code>FormulaHandler</code> → <code>FormulaManager</code>), and <code>ProxyBackupEventAction</code>:</p>
+<ul>
+<li><code>saveGroupFormulaData(…, saltboot-group)</code>: upsert <code>SaltbootBranch</code> (same
+  mapping as §4.1), then the existing cobbler hook.</li>
+<li><code>saveGroupFormulaData(…, saltboot)</code> / <code>saveServerFormulaData(…, saltboot)</code>:
+  upsert the group/system config + assignment (same mapping).</li>
+<li>Formula unassignment (<code>saveGroupFormulas</code> L430 and the server equivalent):
+  <strong>keep the domain rows and do not delete the cobbler group profile</strong> when a
+  <code>SaltbootBranch</code> exists — today&rsquo;s hook (L442) deletes it and must change in
+  3.2. Unassignment is the user&rsquo;s &ldquo;migrate now&rdquo; signal; the domain generator
+  (§2.6) takes over.</li>
+<li>No reverse write (domain → formula). The new API refuses edits to a
+  branch/config while a saltboot formula still applies to its target, with an
+  error telling the user to unassign the formula first.</li>
+</ul>
+<hr />
+<h2 id="5-api-sketch-implemented-in-step-32">5. API sketch (implemented in step 3.2)</h2>
+<p>XML-RPC namespace <code>saltboot</code>, handler under
+<code>com.redhat.rhn.frontend.xmlrpc.saltboot</code>, following <code>FormulaHandler</code> /
+image handler conventions (<code>@apidoc</code> tags, <code>User loggedInUser</code> first, org
+scoping, <code>int</code> 1 on success):</p>
+<ul>
+<li>branches — <code>createBranch(groupId, proxyId, details)</code>, <code>getBranch</code>,
+  <code>updateBranch</code>, <code>deleteBranch</code>, <code>listBranches</code>;</li>
+<li>configs — <code>createConfig(name, parentId?, partitioning, kernelAction?)</code>,
+  <code>getConfig</code>, <code>getEffectiveConfig(configId)</code>, <code>updateConfig</code>,
+  <code>deleteConfig</code>, <code>listConfigs</code>;</li>
+<li>assignments — <code>assignConfigToGroup(configId, groupId, priority)</code>,
+  <code>assignConfigToSystem(configId, sid)</code>, <code>unassignConfigFromGroup</code>,
+  <code>unassignConfigFromSystem</code>;</li>
+<li>terminals — <code>getTerminalState(sid)</code>, <code>getEffectiveTerminalConfig(sid)</code>
+  (resolution diagnostics incl. tie reporting), <code>scheduleForceRedeploy(sid,
+  repartition)</code>.</li>
+</ul>
+<p>Permission model (org admin vs image admin) is decided in 3.2. No spacecmd
+work required (guardrail 5 covers existing behavior only).</p>
+<hr />
+<h2 id="6-hand-offs">6. Hand-offs</h2>
+<h3 id="61-step-32-domain-schema-api">6.1 Step 3.2 — domain, schema, API</h3>
+<p>Schema + entities + factory + resolver + pillar generator + API + upgrade
+migration + dual-write hooks; <code>SaltbootUtils.getKernelOptions</code> /
+<code>getGroupImageName</code> read the domain (formula pillar fallback while a formula
+applies); the two §1.9 findings. Tests: DB-free resolver/merge tests (A/B,
+tombstone, scalar inheritance, priority tie, ancestor elimination, cycle
+rejection), DB-backed factory/migration/dual-write tests.</p>
+<h3 id="62-step-34-kernel-options-via-builders">6.2 Step 3.4 — kernel options via builders</h3>
+<p><code>SaltbootKernelOptionsBuilder</code> composing distro (<code>panic=60 splash=silent</code>),
+branch (<code>MINION_ID_PREFIX</code>, <code>MASTER=&lt;proxy FQDN&gt;</code>, naming flags, default
+parameters), and terminal (<code>root=</code>, <code>salt_device=</code>, terminal parameters)
+option sets from the domain; breed stays <code>generic</code>. Saltboot has no
+<code>KickstartableTree</code> / install type, so the builder is obtained outside the
+install-type factory routing (or the factory gains a saltboot entry) —
+decided in 3.4.</p>
+<h3 id="63-step-35-trigger-orchestration">6.3 Step 3.5 — trigger / orchestration</h3>
+<p>Deployment triggered from the autoinstallation flow on config/branch save and
+assignment; formula hooks shrink to dual-write and go away when the formulas
+are retired; the <code>pxe_update</code> → <code>PXEEventMessageAction</code> loop is preserved and
+additionally updates <code>SaltbootTerminal</code>; force flags move to the domain.</p>
+<h3 id="64-step-33-react-ui">6.4 Step 3.3 — React UI</h3>
+<p>Blocked on step 2.2 (D0).</p>
+<h3 id="65-follow-ups">6.5 Follow-ups</h3>
+<ul>
+<li>Remove the RBS conversion path (<code>ProxyBackupEventAction</code>) once no old
+  branch servers remain (D1).</li>
+<li>Multi-FQDN selector once the parallel work lands (D2).</li>
+</ul>
+<hr />
+<h2 id="7-risks-and-open-items">7. Risks and open items</h2>
+<ul>
+<li><strong>External formula drift</strong> — form and state keys live in <code>saltboot-formula</code>
+  outside the repository; 3.2 pins the expected key set in fixture-based
+  tests.</li>
+<li><strong>Legacy multi-group ambiguity</strong> — §4.1 tie handling; logged during
+  migration.</li>
+<li><strong>Proxy FQDN mismatch</strong> during migration — branch without proxy +
+  notification; the cobbler group profile keeps working from the formula
+  pillar until the formula is unassigned.</li>
+<li><strong><code>upgrade/next/</code> re-application</strong> — covered by migration idempotency.</li>
+<li><strong>Tombstone semantics</strong> are new — must be documented in the API docs.</li>
+<li><strong>Deep merge vs today&rsquo;s replace semantics</strong> — intentional (D6); the
+  migration preserves today&rsquo;s effective results (§4.1).</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-19 — planning round 8: design written; decisions D0–D8 locked by
+  the user; current-state facts verified against tree <code>583440e9b18</code> and the
+  agent VM (<code>saltboot-formula</code> 1.1.0). Correction during verification: today&rsquo;s
+  formula merge replaces <code>edit-group</code> values and does not merge across groups
+  (§1.2) — migration mapping adjusted accordingly.</li>
+<li>2026-10-19 — review: surrogate PKs are <code>BIGINT</code> identity columns; flags use
+  native <code>BOOLEAN</code> instead of <code>CHAR(1)</code> Y/N; <code>suseSaltbootBranch.org_id</code>
+  dropped (org reached through the branch group).</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>90-step-3.1-saltboot-model.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

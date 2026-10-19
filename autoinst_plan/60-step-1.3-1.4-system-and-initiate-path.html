@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>60-step-1.3-1.4-system-and-initiate-path — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">60-step-1.3-1.4-system-and-initiate-path</p>
+<a class="h2" href="#1-research-findings-verified-against-the-code-2026-10-09">1. Research findings (verified against the code, 2026-10-09)</a>
+<a class="h3" href="#11-legacy-system-path-cobblersystemcreatecommandprocesskerneloptions">1.1 Legacy system path — CobblerSystemCreateCommand#processKernelOptions</a>
+<a class="h3" href="#12-what-mediapath-is-the-per-session-tinyurl-session-tracking">1.2 What mediaPath is: the per-session tinyurl (session tracking)</a>
+<a class="h3" href="#13-proxy-interplay-containersproxy-tftpd-imagetftp_wrapperpy">1.3 Proxy interplay (containers/proxy-tftpd-image/tftp_wrapper.py)</a>
+<a class="h3" href="#14-mediapath-null-ksdata-null">1.4 mediaPath != null ⟹ ksData != null</a>
+<a class="h3" href="#15-sle16-defects-in-the-legacy-system-path">1.5 SLE16 defects in the legacy system path</a>
+<a class="h3" href="#16-legacy-initiate-path-kickstartinitiateactionbuildkerneloptions">1.6 Legacy initiate path — KickstartInitiateAction#buildKernelOptions</a>
+<a class="h3" href="#17-agama-installation-source-override-instinstall_url">1.7 Agama installation-source override — inst.install_url</a>
+<a class="h3" href="#18-rhel-systemoptions-instks-is-the-committed-correct-form">1.8 RHEL systemOptions — inst.ks= is the committed, correct form</a>
+<a class="h3" href="#19-test-infra">1.9 Test infra</a>
+<a class="h2" href="#2-decisions-locked-in-this-round-planning-round-5">2. Decisions locked in this round (planning round 5)</a>
+<a class="h2" href="#3-code-design">3. Code design</a>
+<a class="h3" href="#31-kerneloptionsbuilder-new-contract-method">3.1 KernelOptionsBuilder — new contract method</a>
+<a class="h3" href="#32-builder-implementations-one-line-each-setoptionifnotpresent">3.2 Builder implementations (one line each, setOptionIfNotPresent)</a>
+<a class="h3" href="#33-kerneloptionshelper-new-comsusemanagerautoinstallationbuilder">3.3 KernelOptionsHelper (new, com.suse.manager.autoinstallation.builder)</a>
+<a class="h3" href="#34-system-path-cobblersystemcreatecommandprocesskerneloptions">3.4 System path — CobblerSystemCreateCommand#processKernelOptions</a>
+<a class="h3" href="#35-initiate-path-kickstartinitiateaction">3.5 Initiate path — KickstartInitiateAction</a>
+<a class="h2" href="#4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</a>
+<a class="h2" href="#5-test-plan">5. Test plan</a>
+<a class="h3" href="#51-db-free-run-locally-in-the-sandbox">5.1 DB-free (run locally in the sandbox)</a>
+<a class="h3" href="#52-db-backed-agent-vm-ci">5.2 DB-backed (agent VM / CI)</a>
+<a class="h3" href="#53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</a>
+<a class="h2" href="#6-verification-on-the-agent-vm">6. Verification on the agent VM</a>
+<a class="h2" href="#7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</a>
+<a class="h2" href="#8-out-of-scope">8. Out of scope</a>
+<a class="h2" href="#9-implementation-notes-2026-10-09">9. Implementation notes (2026-10-09)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-13-14-design-system-path-initiate-path">Step 1.3 + 1.4 Design — System Path &amp; Initiate Path</h1>
+<blockquote>
+<p>Implementation design for roadmap steps 1.3 and 1.4 (<code>10-roadmap.md</code>
+Phase 1), planned together in one session (planning round 5 decision). The
+behavioural specification remains <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>;
+this document fixes the call-site wiring design, records the research into
+the per-session media URL and the locked decisions for both steps.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-09</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-09)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1/§5.8, <code>10-roadmap.md</code> steps 1.3/1.4, <code>20-kernel-options.md</code> §2/§5.2/§5.3, <code>30-step-1.1-builders.md</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-research-findings-verified-against-the-code-2026-10-09">1. Research findings (verified against the code, 2026-10-09)</h2>
+<h3 id="11-legacy-system-path-cobblersystemcreatecommandprocesskerneloptions">1.1 Legacy system path — <code>CobblerSystemCreateCommand#processKernelOptions</code></h3>
+<p><code>java/core/src/main/java/com/redhat/rhn/manager/kickstart/cobbler/CobblerSystemCreateCommand.java:381</code>.
+Fires only for <strong>suse breed</strong> profiles and only when <code>kernelOptions</code>,
+<code>kickstartHost</code> and <code>mediaPath</code> are all non-null:</p>
+<ol>
+<li><code>install=http://&lt;kickstartHost&gt;&lt;mediaPath&gt;</code> is appended when the user
+   options string lacks the substring <code>install=</code>.</li>
+<li><code>self_update=&lt;installer-updates URL | 0&gt;</code> is appended unless the profile&rsquo;s
+   <strong>resolved</strong> options contain <code>self_update=0</code>, or the string already
+   contains the substring <code>self_update=</code> (which also matches
+   <code>inst.self_update=</code>), or <code>ksData == null</code>. The installer-updates child
+   lookup is <strong>user-scoped</strong> (<code>getAccessibleChildrenFor(user)</code> — the schedule
+   user).</li>
+<li>The mutated string lands on the system record via
+   <code>processOptionalProperties</code> (<code>rec.setKernelOptions</code>), <code>kernelOptionsPost</code>
+   passes through raw. Callers: <code>KickstartScheduleCommand</code> (schedule + cobbler
+   -only branches), <code>SSMCreateRecordCommand</code>, <code>SystemHandler:6924</code>,
+   <code>ScheduleKickstartWizardAction</code>, <code>CobblerVirtualSystemCommand</code>,
+   <code>CobblerUnregisteredSystemCreateCommand</code>. Only the schedule flow ever sets
+   a <code>mediaPath</code>; every other caller leaves it null and is a no-op today.</li>
+</ol>
+<h3 id="12-what-mediapath-is-the-per-session-tinyurl-session-tracking">1.2 What <code>mediaPath</code> is: the per-session tinyurl (session tracking)</h3>
+<p><code>KickstartScheduleCommand</code> passes
+<code>KickstartUrlHelper#getKickstartMediaPath(kickstartSession, scheduleDate)</code>
+(<code>KickstartScheduleCommand.java:601-604</code>) — a <code>/ty/&lt;8-char-token&gt;</code> path
+(<code>KickstartUrlHelper.java:298</code>, <code>TinyUrl#computeTinyPath</code>) created with
+<code>expires = scheduleDate + java.server.satellite.tiny_url_timeout</code> (default
+4 h, <code>CommonFactory.java:117</code>). Expiry is <strong>not enforced</strong> on lookup
+(<code>TinyUrlAction</code>, <code>DownloadFile</code>) — metadata only.</p>
+<p>Purpose: <strong>kickstart session progress tracking</strong>, not proxy handling.</p>
+<ul>
+<li>Apache rewrites <code>/ty/*</code> → <code>DownloadFile</code>
+  (<code>spacewalk/config/etc/httpd/conf.d/zz-spacewalk-www.conf:84</code>); the token
+  resolves to <code>/ks/dist/session/&lt;SessionSwap-encoded-sessionId&gt;/&lt;treeLabel&gt;</code>.</li>
+<li><code>DownloadFile</code> serves tree media from disk and advances the
+  <code>KickstartSession</code> on every fetch: state <code>STARTED</code>/<code>IN_PROGRESS</code>,
+  <code>packageFetchCount++</code>, <code>lastFileRequest</code> (<code>DownloadFile.java:659</code>,
+  <code>updateKickstartSession</code>). This drives the kickstart progress reporting.</li>
+<li>Only the option carried on the <strong>system record</strong> routes the installer&rsquo;s
+  package fetches through the tracking URL (system &gt; profile &gt; distro
+  precedence in tftpgen). Profiles that pin their own repository URLs bypass
+  the tinyurl — consistent with the observed &ldquo;tracked session does not
+  advance&rdquo; reports for AutoYaST profiles with static distro URLs.
+  RHEL installs fetched via the static distro URL were never tracked.</li>
+</ul>
+<h3 id="13-proxy-interplay-containersproxy-tftpd-imagetftp_wrapperpy">1.3 Proxy interplay (<code>containers/proxy-tftpd-image/tftp_wrapper.py</code>)</h3>
+<ul>
+<li>The wrapper fetches cobbler-rendered <code>pxelinux.cfg/*</code> and <code>grub/*</code> menus
+  from the server over HTTP and rewrites <strong>FQDN tokens only</strong> (word-boundary
+  <code>server_fqdn</code> → <code>proxy_fqdn</code>, plus the configured <code>replace_fqdns</code> list);
+  saltboot entries (<code>MASTER=</code> + <code>MINION_ID_PREFIX</code>) are filtered instead of
+  rewritten.</li>
+<li>The <code>/ty/&lt;token&gt;</code> path contains no FQDN and passes through untouched — and
+  the system record&rsquo;s media URL is already written with the <strong>proxy FQDN</strong> at
+  schedule time (<code>KickstartScheduleCommand.java:568-571</code> swaps
+  <code>getProxyHost()</code> into <code>kickstartHost</code>). The wrapper rewrite is a no-op for
+  this option; it covers the distro-record URLs (<code>install=</code>/<code>self_update=</code>/
+  <code>root=live:</code>/<code>inst.self_update=</code>, step-1.2 output, server FQDN).</li>
+<li>Conclusion: the per-session tinyurl and the proxy FQDN rewrite are
+  orthogonal mechanisms that compose cleanly. The media override stays.</li>
+</ul>
+<h3 id="14-mediapath-null-ksdata-null">1.4 <code>mediaPath != null</code> ⟹ <code>ksData != null</code></h3>
+<p>Only the <code>(user, server, ksData, mediaPath, activationKeys)</code> constructor sets
+<code>mediaPath</code>, and it NPEs on a null <code>ksData</code>
+(<code>CobblerSystemCreateCommand.java:129-139</code>); all other constructors (incl. the
+<code>CobblerVirtualSystemCommand</code> delegates) leave it null. The legacy
+<code>ksData == null</code> skip is therefore unreachable in the media branch — routing
+by <code>ksData.getInstallType()</code> is safe.</p>
+<h3 id="15-sle16-defects-in-the-legacy-system-path">1.5 SLE16 defects in the legacy system path</h3>
+<ul>
+<li>It always emits the YaST-form <code>self_update=</code> (breed gate); Agama consumes
+  <code>inst.self_update=</code>.</li>
+<li>The resolved opt-out check misses <code>inst.self_update=0</code> — an Agama-form
+  opt-out on the tree/profile still results in a computed
+  <code>self_update=&lt;url&gt;</code> on the system record.</li>
+</ul>
+<h3 id="16-legacy-initiate-path-kickstartinitiateactionbuildkerneloptions">1.6 Legacy initiate path — <code>KickstartInitiateAction#buildKernelOptions</code></h3>
+<p><code>java/core/src/main/java/com/redhat/rhn/domain/action/kickstart/KickstartInitiateAction.java:109</code>.
+Works off <code>sys.getResolvedKernelOptions()</code> (distro + profile + system
+options merged by cobbler) — the SUSE <code>text</code>→<code>textmode</code> transform, drops
+<code>initrd</code>, appends the installer-selection option per breed/os_version
+(<code>inst.ks.sendmac ks=</code> for redhat incl. a rhel6 <code>kssendmac</code> variant,
+<code>autoyast=</code> for suse, <code>inst.auto=</code> for <code>opensuse16*</code>, a dead debian/ubuntu
+branch) and the <code>info=</code> nopxe URL. The pillar feeds the
+<code>bootloader.autoinstall</code> salt state (<code>SaltParameters.KICKSTART_INITIATE</code>);
+the grub templates render <code>pillar.get('kopts')</code> into the <code>uyuni-reinstall</code>
+boot entry. <code>prepareCobblerBoot</code> already resolves the <code>KickstartableTree</code>
+from the distro name <code>&lt;treeLabel&gt;:&lt;orgId&gt;</code> (lines 90-95) — the install-type
+routing key is available at the call site.</p>
+<h3 id="17-agama-installation-source-override-instinstall_url">1.7 Agama installation-source override — <code>inst.install_url</code></h3>
+<p>Per the <a href="https://agama-project.github.io/docs/user/reference/boot_options">Agama boot options
+reference</a>:</p>
+<ul>
+<li><code>inst.install_url</code> <strong>overrides the product&rsquo;s default <code>installation_url</code></strong>
+  (products.d) — i.e. the installation repository Agama installs packages
+  from. It is <em>not</em> the boot-media location (that is <code>root=live:</code>), and
+  <code>inst.repo</code> is not an Agama option.</li>
+<li>Comma-separated URL lists are accepted; the setting &ldquo;impacts all
+  products&rdquo;.</li>
+</ul>
+<p>So the session-tracking media override for Agama is
+<code>inst.install_url=http://&lt;kickstartHost&gt;&lt;mediaPath&gt;</code> — semantically the
+SLE16 equivalent of the AutoYaST <code>install=</code> override (package source through
+the session-tracked URL), with the product-default-override caveat.</p>
+<h3 id="18-rhel-systemoptions-instks-is-the-committed-correct-form">1.8 RHEL <code>systemOptions</code> — <code>inst.ks=</code> is the committed, correct form</h3>
+<p><code>RhelKernelOptionsBuilder#systemOptions</code> emits <code>inst.ks.sendmac inst.ks=&lt;url&gt;</code>
+(RhelKernelOptionsBuilder.java:73-78; its test asserts exactly that). The
+user locked this: <code>inst.ks</code> is what RHEL 7+ consumes. The spec
+(<code>20-kernel-options.md</code> §2/§5.3) and the roadmap step-1.2 changelog still say
+<code>ks=</code> — the docs are stale, the code is right. Consequence for the initiate
+path: RHEL boot lines composed by Uyuni become
+<code>inst.ks.sendmac inst.ks=&lt;url&gt;</code> (documented delta vs the legacy <code>ks=</code>).</p>
+<h3 id="19-test-infra">1.9 Test infra</h3>
+<p><code>CobblerCommandTestBase</code> runs DB-backed against the <strong>mocked</strong> cobbler
+connection; <code>MockConnection</code> implements <code>get_item_resolved_value</code>
+(<code>MockConnection.java:258</code>), so resolved-options behaviour is exercisable
+without a live cobbler.</p>
+<h2 id="2-decisions-locked-in-this-round-planning-round-5">2. Decisions locked in this round (planning round 5)</h2>
+<ol>
+<li><strong>Steps 1.3 and 1.4 are implemented in one session</strong> (user decision):
+   both consume the same builder wiring, and the shared helpers land here.</li>
+<li><strong>Session tracking for every OS.</strong> The install-source override moves into
+   the builders via a new contract method <code>mediaOptions(String mediaUrl)</code>
+   with per-OS-class keys — <code>install=</code> (AutoYaST), <code>inst.repo=</code> (RHEL /
+   fedora / generic — new: enables RHEL session tracking), <code>inst.install_url=</code>
+   (Agama, product-default-override semantics per §1.7). No breed gate.</li>
+<li><strong><code>self_update</code> stays on the system record</strong> via
+   <code>builder.selfUpdateOption(tree)</code> with the <strong>schedule user</strong>: schedule-time
+   re-evaluation is required because custom installer-updates child channels
+   are org/user-tied, while a vendor/global lookup would only see channels
+   available to everyone. The resolved opt-out is honored in <strong>both</strong>
+   <code>self_update=0</code> and <code>inst.self_update=0</code> forms; user-typed keys win.</li>
+<li><strong>Generic gating:</strong> the suse-breed check is dropped; dispatch is by
+   install type through the factory. <code>ksData == null</code> guards the whole block
+   (finding 1.4 — the guard state is unreachable otherwise, documented).</li>
+<li><strong>Helpers live in one standalone class</strong> <code>KernelOptionsHelper</code> next to the
+   builders (<code>com.suse.manager.autoinstallation.builder</code>): the SUSE
+   <code>text</code>→<code>textmode</code> transform and <code>cobblerSystemNopxeUrl</code>. The existing URL
+   helpers stay in <code>AbstractKernelOptionsBuilder</code> (no step-1.1 churn).</li>
+<li><strong>RHEL <code>systemOptions</code> keeps <code>inst.ks.sendmac inst.ks=</code></strong> (user decision,
+   finding 1.8); the spec and roadmap changelog are corrected, no code change.</li>
+<li><strong>Initiate-path cleanup per locked step-1.1 decisions:</strong> the debian/ubuntu
+   branch and the rhel6 <code>kssendmac</code> variant are dropped; routing failures
+   (<code>KernelOptionsBuilderException</code>) propagate.</li>
+<li><strong>Cobbler records stay free of installer-selection options</strong>
+   (<code>profileOptions</code> empty until G6; <code>systemOptions</code> only for boot lines
+   Uyuni composes itself) — unchanged G6 flip-switch stance.</li>
+</ol>
+<h2 id="3-code-design">3. Code design</h2>
+<h3 id="31-kerneloptionsbuilder-new-contract-method">3.1 <code>KernelOptionsBuilder</code> — new contract method</h3>
+<pre><code class="language-java">/**
+ * Installation-source override pointing at the session-tracked media
+ * URL built by the caller as http://&lt;kickstartHost&gt;&lt;mediaPath&gt;.
+ * The option key is OS-class specific: install= (AutoYaST),
+ * inst.repo= (RHEL-like), inst.install_url= (Agama product-default
+ * override). Idempotent add-if-absent; a user-typed option on the
+ * schedule form wins.
+ */
+KernelOptionsList mediaOptions(String mediaUrl);
+</code></pre>
+<h3 id="32-builder-implementations-one-line-each-setoptionifnotpresent">3.2 Builder implementations (one line each, <code>setOptionIfNotPresent</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Builder</th>
+<th>Key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AutoYastKernelOptionsBuilder</code></td>
+<td><code>install</code></td>
+</tr>
+<tr>
+<td><code>RhelKernelOptionsBuilder</code></td>
+<td><code>inst.repo</code></td>
+</tr>
+<tr>
+<td><code>AgamaKernelOptionsBuilder</code></td>
+<td><code>inst.install_url</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-kerneloptionshelper-new-comsusemanagerautoinstallationbuilder">3.3 <code>KernelOptionsHelper</code> (new, <code>com.suse.manager.autoinstallation.builder</code>)</h3>
+<pre><code class="language-java">public final class KernelOptionsHelper {
+    private KernelOptionsHelper() { }
+
+    /** SUSE boot lines use textmode; plain text is not a SUSE option. */
+    public static void applySuseTextmode(KernelOptionsList options) {
+        if (options.hasOption(&quot;textmode&quot;)) {
+            options.removeOption(&quot;text&quot;);
+        }
+        else if (options.hasOption(&quot;text&quot;)) {
+            options.removeOption(&quot;text&quot;);
+            options.setOption(&quot;textmode&quot;, &quot;1&quot;, true);
+        }
+    }
+
+    /** http://&lt;fqdn&gt;/cblr/svc/op/nopxe/system/&lt;systemName&gt; */
+    public static String cobblerSystemNopxeUrl(String serverFqdn, SystemRecord system) {
+        // null system -&gt; KernelOptionsBuilderException, as in the builders
+    }
+}
+</code></pre>
+<h3 id="34-system-path-cobblersystemcreatecommandprocesskerneloptions">3.4 System path — <code>CobblerSystemCreateCommand#processKernelOptions</code></h3>
+<pre><code class="language-java">private void processKernelOptions(Profile recProfile) {
+    if (recProfile == null || kernelOptions == null || kickstartHost == null ||
+            mediaPath == null || ksData == null) {
+        return;
+    }
+    KernelOptionsList options = new KernelOptionsList(kernelOptions);
+    KernelOptionsBuilder builder = KernelOptionsBuilderFactory
+            .getBuilder(ksData.getInstallType(), kickstartHost, user);
+    options.addMissingOptions(builder.mediaOptions(&quot;http://&quot; + kickstartHost + mediaPath));
+    KernelOptionsList resolved = new KernelOptionsList(recProfile.getResolvedKernelOptions());
+    if (!(resolved.hasOption(&quot;self_update&quot;, &quot;0&quot;) || resolved.hasOption(&quot;inst.self_update&quot;, &quot;0&quot;))) {
+        options.addMissingOptions(builder.selfUpdateOption(ksData.getTree()));
+    }
+    kernelOptions = options.toString();
+}
+</code></pre>
+<ul>
+<li>Parsed-key checks replace the substring <code>contains()</code> guards.</li>
+<li><code>processOptionalProperties</code> unchanged (<code>kernelOptions</code> + raw
+  <code>kernelOptionsPost</code> onto the record); no caller signature changes.</li>
+<li>Routing failures propagate (decision 7 stance), unreachable for existing
+  <code>rhnKSInstallType</code> labels.</li>
+</ul>
+<h3 id="35-initiate-path-kickstartinitiateaction">3.5 Initiate path — <code>KickstartInitiateAction</code></h3>
+<p><code>prepareCobblerBoot</code> passes the already-resolved tree down;
+<code>buildKernelOptions(SystemRecord, KickstartableTree, String host, boolean autoinstall)</code>
+becomes:</p>
+<pre><code class="language-java">KernelOptionsList kopts = new KernelOptionsList(sys.getResolvedKernelOptions());
+if (sys.getProfile().getDistro().getBreed().equals(&quot;suse&quot;)) {
+    KernelOptionsHelper.applySuseTextmode(kopts);
+}
+kopts.removeOption(&quot;initrd&quot;);
+KernelOptionsBuilder builder =
+        KernelOptionsBuilderFactory.getBuilder(tree.getInstallType(), host);
+kopts.addMissingOptions(builder.systemOptions(sys));
+if (autoinstall) {
+    kopts.addOption(&quot;info&quot;, KernelOptionsHelper.cobblerSystemNopxeUrl(host, sys));
+}
+return kopts.toString();
+</code></pre>
+<ul>
+<li>The breed check remains <strong>only</strong> for the textmode transform (spec §5.3:
+  applied for suse breed) — a distro fact, not a routing decision; routing is
+  install-type-only.</li>
+<li>The upgrade-detection in <code>getSaltCalls</code>
+  (<code>kOpts.contains("autoupgrade=1") || kOpts.contains("uyuni_keep_saltkey=1")</code>)
+  keeps working on the serialized string.</li>
+<li>The hand-rolled map serializer (<code>convertOptionsMap</code>) and the debian/ubuntu</li>
+<li>rhel6 branches are removed.</li>
+</ul>
+<p>No schema, UI/JSP, Struts or XML-RPC API changes.</p>
+<h2 id="4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</h2>
+<table>
+<thead>
+<tr>
+<th>Delta</th>
+<th>Reason / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SLE16 system records get <code>inst.self_update=</code> instead of <code>self_update=</code></td>
+<td>Bug fix (finding 1.5); Agama consumes the <code>inst.</code> form.</td>
+</tr>
+<tr>
+<td>Resolved opt-out also honored as <code>inst.self_update=0</code></td>
+<td>Finding 1.5; the YaST-form-only check missed Agama-form opt-outs.</td>
+</tr>
+<tr>
+<td>RHEL/fedora/generic system records get <code>inst.repo=&lt;tinyurl&gt;</code></td>
+<td>New: session tracking for RHEL-family installs (decision 2; user request). Legacy added nothing.</td>
+</tr>
+<tr>
+<td>Agama system records get <code>inst.install_url=&lt;tinyurl&gt;</code> instead of an inert <code>install=</code></td>
+<td>Decision 2 + finding 1.7. Note: overrides the product default <code>installation_url</code> for all products.</td>
+</tr>
+<tr>
+<td>Parsed-key checks replace substring <code>contains()</code></td>
+<td>No false suppression (e.g. <code>inst.self_update=</code> no longer suppresses <code>self_update=</code> adds and vice versa).</td>
+</tr>
+<tr>
+<td><code>ksData == null</code> skips the whole block incl. the media override</td>
+<td>Unreachable state (finding 1.4); simplifies the gate.</td>
+</tr>
+<tr>
+<td>Initiate RHEL: <code>inst.ks.sendmac inst.ks=&lt;url&gt;</code> (was <code>... ks=&lt;url&gt;</code>)</td>
+<td>Locked user decision (finding 1.8); rhel6 <code>kssendmac</code> variant dropped (locked step-1.1 decision).</td>
+</tr>
+<tr>
+<td>Initiate: no duplicate installer-selection option when the user typed one in profile options</td>
+<td><code>systemOptions</code> is add-if-absent; legacy appended a second (duplicate-key) occurrence.</td>
+</tr>
+<tr>
+<td>Initiate: whitespace normalization of the serialized options</td>
+<td><code>KernelOptionsList</code> serializer replaces the hand-rolled one (legacy trailing-space quirk removed).</td>
+</tr>
+<tr>
+<td>Scheduling flows without <code>mediaPath</code> (SSM create, wizard create, reactivation) remain no-ops</td>
+<td>Parity preserved (finding 1.1.3).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-test-plan">5. Test plan</h2>
+<h3 id="51-db-free-run-locally-in-the-sandbox">5.1 DB-free (run locally in the sandbox)</h3>
+<ul>
+<li>Builder <code>mediaOptions</code> tests: AutoYaST → <code>install=</code>, RHEL → <code>inst.repo=</code>,
+  Agama → <code>inst.install_url=</code>; add-if-absent idempotency; composed with
+  <code>selfUpdateOption</code> where applicable.</li>
+<li><code>KernelOptionsHelperTest</code>: <code>applySuseTextmode</code> (textmode present → <code>text</code>
+  dropped; <code>text</code> present → <code>textmode=1</code>; neither → untouched),
+  <code>cobblerSystemNopxeUrl</code> (URL form, null system → exception).</li>
+<li>Existing builder/factory/list suites stay green (RHEL <code>systemOptions</code> test
+  already asserts <code>inst.ks=</code>).</li>
+</ul>
+<h3 id="52-db-backed-agent-vm-ci">5.2 DB-backed (agent VM / CI)</h3>
+<p><code>CobblerCommandTest</code> / <code>CobblerSystemCreateCommandTest</code> additions (mocked
+cobbler, PostgreSQL per the established fixture):</p>
+<ul>
+<li><strong>SLES15:</strong> mediaPath set → record carries
+  <code>install=http://&lt;host&gt;&lt;mediaPath&gt;</code> plus <code>self_update=&lt;child URL | 0&gt;</code>;
+  <code>ksdevice=</code> + user options preserved; user-typed <code>install=</code>/<code>self_update=</code>
+  wins over the computed ones.</li>
+<li><strong>SLE16:</strong> record carries <code>inst.self_update=</code> (not <code>self_update=</code>);
+  opt-out respected via resolved <code>inst.self_update=0</code> and via user-typed key.</li>
+<li><strong>RHEL:</strong> record carries <code>inst.repo=http://&lt;host&gt;&lt;mediaPath&gt;</code>.</li>
+<li><strong>No mediaPath → no-op</strong>; <strong>post options verbatim</strong>; <strong>store-twice
+  idempotency</strong>.</li>
+<li><code>KickstartInitiateAction</code> kopts test: composed string for sles15
+  (<code>autoyast=</code>, textmode transform), sle16 (<code>inst.auto=</code>), rhel
+  (<code>inst.ks.sendmac inst.ks=</code>) over mock cobbler records with a resolved
+  options map (<code>text</code>, <code>initrd</code> handling). Exact mechanics (direct call vs
+  <code>getSaltCalls</code>) settled while implementing.</li>
+</ul>
+<h3 id="53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</h3>
+<pre><code>mvn -f java compile checkstyle:checkstyle
+</code></pre>
+<h2 id="6-verification-on-the-agent-vm">6. Verification on the agent VM</h2>
+<p>Same protocol as steps 1.2/1.5 — single shared VM, record the usage window
+and deployed package versions in
+<code>agents-workbench/autoinstallation/session-log.md</code>.</p>
+<ol>
+<li>Check <code>podman ps</code> and <code>podman exec uyuni-server rpm -q spacewalk-java</code>
+   before/after; when the running Uyuni is not needed: <code>mgradm stop</code> (frees
+   port 5432).</li>
+<li>Test DB per <code>java/Makefile.docker</code> flow (<code>uyuni-master-pgsql-4eclipse</code>
+   container, worktree mounted at <code>/manager</code>, branch schema incl.
+   <code>opensuse16.1</code>).</li>
+<li>Run: <code>mvn -f java/core test -DskipTests=false
+   -Dtest='CobblerCommandTest,CobblerSystemCreateCommandTest,KernelOptions*Test,*KernelOptionsBuilder*Test,KickstartInitiate*Test'</code>
+   with <code>JAVA_HOME</code> at JDK 17.</li>
+<li>Afterwards: remove the test container, <code>mgradm start</code>, record results.</li>
+</ol>
+<p>Full PXE/UI E2E regression stays with step 1.7 (mind the cobbler PR #177
+caveat, <code>00-goals.md</code> §5.1).</p>
+<h2 id="7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</h2>
+<ul>
+<li><code>10-roadmap.md</code>: steps 1.3/1.4 → DONE + changelog entry (incl. the
+  step-1.2 changelog correction from §1.8).</li>
+<li><code>20-kernel-options.md</code>: §2 — add <code>mediaOptions</code> to the contract table, fix
+  the RHEL <code>systemOptions</code> description to <code>inst.ks.sendmac</code> + <code>inst.ks=</code>;
+  §5.2 — rewrite for the generic system path; §5.3 — rewrite for the builder
+  -composed initiate path (normalizations, helper class, <code>info=</code> helper).</li>
+<li><code>40-step-1.2-distro-path.md</code>: changelog note superseding the §9 <code>ks=</code>
+  repair claim (the <code>inst.ks=</code> form is the locked correct one).</li>
+<li>Regenerate the presentation HTMLs: <code>.venv/bin/python autoinst_plan/build_html.py</code>.</li>
+<li>Session log entry in <code>agents-workbench/autoinstallation/session-log.md</code>.</li>
+</ul>
+<h2 id="8-out-of-scope">8. Out of scope</h2>
+<ul>
+<li><code>KickstartScheduleCommand#getExtraOptions</code> user-part resolution — step 2.6
+  (the <code>ksdevice=</code> + custom options prepend is preserved verbatim).</li>
+<li>Wizard/SSM option resolution — dies with the wizard (step 2.6).</li>
+<li>Saltboot PXE option maps — step 3.4.</li>
+<li><code>CobblerDistroSyncCommand#backsyncKernelOptions</code> — Phase 1 deferral stands.</li>
+<li>Enabling <code>profileOptions</code> — G6 flip-switch (decision 8).</li>
+<li>Proxy <code>tftp_wrapper.py</code> changes — step 5.3 contract; the wrapper works
+  as-is with the formats produced here (finding 1.3).</li>
+<li>RHEL media tracking for profiles that pin their own repo URLs — profile
+  content, not addressable in the builders.</li>
+</ul>
+<h2 id="9-implementation-notes-2026-10-09">9. Implementation notes (2026-10-09)</h2>
+<ul>
+<li>Implementation followed §3. <code>mediaOptions</code> added to the contract and the
+  three builders (<code>install=</code> / <code>inst.repo=</code> / <code>inst.install_url=</code>),
+  <code>KernelOptionsHelper</code> created with <code>applySuseTextmode</code> +
+  <code>cobblerSystemNopxeUrl</code>, <code>CobblerSystemCreateCommand#processKernelOptions</code>
+  rewritten generically (no breed gate), <code>KickstartInitiateAction</code> composes
+  via the factory-routed builders.</li>
+<li><strong><code>KernelOptionsList#getValue(String)</code> added</strong> — the step-1.1 starting
+  -point description (spec §1) listed <code>getValue</code> but it never existed; added
+  as the first-value accessor (used by the new tests).</li>
+<li><strong><code>MockConnection#get_item_resolved_value</code> repaired</strong> — the previous
+  implementation could never match (it searched by the attribute key as if
+  it were a uid and returned <code>dataMapResolved.get("uuid")</code>), i.e. resolved
+  getters always returned <code>null</code> under the mock. It now resolves the
+  requested attribute with a proper inheritance merge
+  (system → profile → distro, lower objects win, string values parsed like
+  cobbler parses options strings) and a visited-set guard. The guard proved
+  necessary immediately: the saltboot fixtures create a <strong>profile named
+  exactly like its distro</strong> (<code>SaltbootUtils.makeCobblerName(org,
+  BOOT_IMAGE)</code> for both), and the mock&rsquo;s cross-collection <code>findByName</code>
+  made that profile its own parent → <code>StackOverflowError</code>.</li>
+<li><strong><code>SystemHandlerProvisioningTest#testProvisionSystem</code> expectation updated:</strong>
+  the provisioned RHEL-family system record now carries
+  <code>console=tty0 inst.repo=http://localhost/ty/&lt;token&gt;</code> (session-tracked
+  media override — the intended behavior change of this step) instead of the
+  legacy raw user options; the leading-space artifact is gone
+  (normalization). Post options still verbatim.</li>
+<li>Test mechanics: the mock stores kernel options strings raw (established
+  behavior the step-1.5 assertions rely on), so the new tests bridge with
+  <code>String.valueOf(rec.getKernelOptions().get())</code> / <code>KernelOptionsList</code>
+  parsing instead of <code>.get()</code> typing. The initiate-path assertions compare
+  <strong>sorted option tokens</strong> — the resolved map is a <code>HashMap</code>, so both the
+  legacy serializer and <code>KernelOptionsList(Map)</code> have no stable order.</li>
+<li>Checkstyle: <code>mvn -f java compile checkstyle:checkstyle</code> clean (no ant).</li>
+<li>Verification: local sandbox — 49 DB-free tests green (builders incl. the
+  new <code>mediaOptions</code> cases, <code>KernelOptionsHelperTest</code>, list, factory) +
+  compile/checkstyle clean. Agent VM window 10:20–11:00 CEST 2026-10-09:
+  <code>mgradm stop</code>, <code>uyuni-test-pgsql</code> container (worktree mounted at
+  <code>/manager:Z</code> — SELinux is enforcing on the VM, the plain mount is not
+  readable from containers; branch schema incl. <code>opensuse16.1</code> verified),
+  JDK 17. Results: <strong>126 tests green</strong> — 16 <code>CobblerSystemCreateCommandTest</code>
+  (incl. 10 new system-path cases: SLES15 with/without installer-updates
+  child, SLE16 <code>inst.self_update=</code>, both resolved opt-out forms, user-typed
+  wins, RHEL <code>inst.repo=</code>, no-mediaPath no-op, post verbatim, store-twice
+  idempotency), 16 <code>CobblerCommandTest</code> (regression), 4
+  <code>KickstartInitiateActionTest</code> (SLES15/SLE16/RHEL kopts, no-info variant),
+  11 tree-op, 28 builder/factory/list, and the mock-using regression suites
+  (<code>SystemHandlerProvisioningTest</code> 3, <code>PXEEventTest</code> 15, <code>SaltbootUtilsTest</code>
+  11, <code>SaltbootMigrationUtilsTest</code> 7, distro/profile/network/image, task/
+  action suites) — plus a second window batch: 109 regression tests green.
+  Test container removed, <code>mgradm start</code> — deployed stack healthy,
+  <code>spacewalk-java-5.3.1-260400.1.2.uyuni6.noarch</code> (unchanged, no
+  deployment). E2E PXE/UI matrix stays with step 1.7 (mind the cobbler
+  PR #177 caveat for SLE16 PXE).</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-09 — created from planning round 5: steps 1.3 + 1.4 combined;
+  per-OS <code>mediaOptions</code> contract method (<code>install=</code> / <code>inst.repo=</code> /
+  <code>inst.install_url=</code>) enabling session tracking for every OS; <code>self_update</code>
+  retained on the system record with schedule-user re-evaluation; generic
+  (install-type) gating replacing the suse-breed check; standalone
+  <code>KernelOptionsHelper</code> (textmode transform + nopxe URL); RHEL <code>inst.ks=</code>
+  docs correction; parity register and test plan.</li>
+<li>2026-10-09 — implemented and verified: 126 + 109 tests green on the agent
+  VM, checkstyle clean. Mock <code>get_item_resolved_value</code> repaired (was dead),
+  <code>KernelOptionsList#getValue</code> added, one legacy-expectation test updated
+  (<code>SystemHandlerProvisioningTest</code>). Status → DONE.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>60-step-1.3-1.4-system-and-initiate-path.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

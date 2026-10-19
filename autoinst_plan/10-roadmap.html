@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10-roadmap — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">10-roadmap</p>
+<a class="h2" href="#phase-1-unified-kernel-options-g0">Phase 1 — Unified kernel options (G0)</a>
+<a class="h3" href="#step-11-port-builder-hierarchy-status-done-2026-10-08">Step 1.1 — Port builder hierarchy (status: DONE 2026-10-08)</a>
+<a class="h3" href="#step-12-distro-path-status-done-2026-10-08">Step 1.2 — Distro path (status: DONE 2026-10-08)</a>
+<a class="h3" href="#step-13-system-path-status-done-2026-10-09">Step 1.3 — System path (status: DONE 2026-10-09)</a>
+<a class="h3" href="#step-14-initiate-path-status-done-2026-10-09">Step 1.4 — Initiate path (status: DONE 2026-10-09)</a>
+<a class="h3" href="#step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</a>
+<a class="h3" href="#step-16-tests-status-done-2026-10-09">Step 1.6 — Tests (status: DONE 2026-10-09)</a>
+<a class="h3" href="#step-17-cleanup-verification-status-done-2026-10-12">Step 1.7 — Cleanup &amp; verification (status: DONE 2026-10-12)</a>
+<a class="h3" href="#phase-1-explicit-deferrals-documented-per-guardrail">Phase 1 explicit deferrals (documented per guardrail)</a>
+<a class="h2" href="#phase-2-kickstart-modernization-react-ui-g1-g2">Phase 2 — Kickstart modernization + React UI (G1 + G2)</a>
+<a class="h3" href="#step-20-feature-tiering-decisions-status-not-started">Step 2.0 — Feature tiering decisions (status: NOT STARTED)</a>
+<a class="h3" href="#step-21-unified-profile-entity-design-status-not-started">Step 2.1 — Unified profile entity design (status: NOT STARTED)</a>
+<a class="h3" href="#step-22-react-profile-pages-status-not-started">Step 2.2 — React profile pages (status: NOT STARTED)</a>
+<a class="h3" href="#step-23-react-distributions-pages-status-not-started">Step 2.3 — React distributions pages (status: NOT STARTED)</a>
+<a class="h3" href="#step-24-wizard-removal-status-not-started">Step 2.4 — Wizard removal (status: NOT STARTED)</a>
+<a class="h3" href="#step-25-support-pages-per-tier-decisions-status-not-started">Step 2.5 — Support pages per tier decisions (status: NOT STARTED)</a>
+<a class="h3" href="#step-26-resolve-deferred-kernel-option-consumers-status-not-started">Step 2.6 — Resolve deferred kernel-option consumers (status: NOT STARTED)</a>
+<a class="h2" href="#phase-3-saltboot-integration-g3">Phase 3 — Saltboot integration (G3)</a>
+<a class="h3" href="#step-31-saltboot-deployment-model-design-status-done-2026-10-19">Step 3.1 — Saltboot deployment model design (status: DONE 2026-10-19)</a>
+<a class="h3" href="#step-32-java-domain-schema-api-status-not-started">Step 3.2 — Java domain, schema, API (status: NOT STARTED)</a>
+<a class="h3" href="#step-33-react-ui-status-not-started-blocked-on-step-22">Step 3.3 — React UI (status: NOT STARTED — blocked on step 2.2)</a>
+<a class="h3" href="#step-34-pxekernel-options-via-builders-status-not-started">Step 3.4 — PXE/kernel options via builders (status: NOT STARTED)</a>
+<a class="h3" href="#step-35-triggerorchestration-model-status-not-started">Step 3.5 — Trigger/orchestration model (status: NOT STARTED)</a>
+<a class="h2" href="#phase-4-generic-mechanisms-image-integration-g4-g5">Phase 4 — Generic mechanisms + image integration (G4 + G5)</a>
+<a class="h3" href="#step-41-profile-types-for-cloud-init-ignition-combustion-status-not-started">Step 4.1 — Profile types for cloud-init / ignition / combustion (status: NOT STARTED)</a>
+<a class="h3" href="#step-42-serving-boot-integration-status-not-started">Step 4.2 — Serving + boot integration (status: NOT STARTED)</a>
+<a class="h3" href="#step-43-image-build-auto-registration-status-not-started">Step 4.3 — Image-build auto-registration (status: NOT STARTED)</a>
+<a class="h3" href="#step-44-builders-for-new-mechanisms-status-not-started">Step 4.4 — Builders for new mechanisms (status: NOT STARTED)</a>
+<a class="h2" href="#phase-5-cobbler-exit-preparation-design-only-g6">Phase 5 — Cobbler exit preparation, design only (G6)</a>
+<a class="h3" href="#step-51-installserverbootserver-seam-status-not-started">Step 5.1 — InstallServer/BootServer seam (status: NOT STARTED)</a>
+<a class="h3" href="#step-52-cobbler-exit-design-document-status-not-started">Step 5.2 — Cobbler-exit design document (status: NOT STARTED)</a>
+<a class="h3" href="#step-53-proxy-compatibility-design-status-not-started">Step 5.3 — Proxy compatibility design (status: NOT STARTED)</a>
+<a class="h2" href="#dependency-map">Dependency map</a>
+<a class="h2" href="#suggested-session-split">Suggested session split</a>
+<a class="h2" href="#5-open-questions-register">§5 Open questions register</a>
+<a class="h3" href="#feature-tiering-decided-in-step-20-initial-proposals-here">Feature tiering (decided in step 2.0; initial proposals here)</a>
+<a class="h3" href="#technical-questions-resolved-2026-10-07-promoted-to-00-goalsmd-58">Technical questions — resolved 2026-10-07 (promoted to 00-goals.md §5.8)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="autoinstallation-overhaul-implementation-roadmap">Autoinstallation Overhaul — Implementation Roadmap</h1>
+<blockquote>
+<p>Working breakdown of the goals in <a href="00-goals.md"><code>00-goals.md</code></a> into
+implementable steps. Each session: pick one step, write its plan detail
+(inline section or a linked step doc), implement, verify, update status.
+Guardrails and locked decisions in <code>00-goals.md</code> §4/§5 always apply.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-07</td>
+</tr>
+<tr>
+<td>Status legend</td>
+<td><code>NOT STARTED</code> / <code>IN PROGRESS</code> / <code>DONE</code> / <code>DEFERRED</code> (with reason)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="phase-1-unified-kernel-options-g0">Phase 1 — Unified kernel options (G0)</h2>
+<p>Builder hierarchy, factory routing, and the catalogue of legacy strings to
+reproduce live in <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a> — read it
+before starting any step here.</p>
+<h3 id="step-11-port-builder-hierarchy-status-done-2026-10-08">Step 1.1 — Port builder hierarchy (status: DONE 2026-10-08)</h3>
+<ul>
+<li>Implemented per <code>20-kernel-options.md</code> §2–§4 and the step design in
+  <a href="30-step-1.1-builders.md"><code>30-step-1.1-builders.md</code></a>: interface, abstract
+  base (configurable <code>serverFqdn</code>, optional <code>User</code> context), factory, builders
+  <code>Rhel</code> / <code>AutoYast</code> / <code>Agama</code> under
+  <code>com.suse.manager.autoinstallation.{builder,installer}</code>; no Debian builder
+  (no debian/ubuntu install type exists — unroutable dead code, decision
+  recorded in the step design §1.3).</li>
+<li>SLE16 baseline (<code>00-goals.md</code> §5.1): <code>opensuse16.1</code> install type, cobbler
+  breed <code>suse</code>, <code>http://</code> URLs; factory routes <code>isSLES16OrGreater()</code> → Agama
+  <strong>before</strong> the SUSE branch; routing is install-type-only — unknown types
+  throw <code>KernelOptionsBuilderException</code>, no breed-based fallback.</li>
+<li><code>distroOptions</code> idempotent (<code>setOptionIfNotPresent</code>) — results are persisted
+  and recomputed on tree create/edit.</li>
+<li><code>profileOptions</code> stays in the contract but is empty until the Cobbler exit
+  (G6): cobbler&rsquo;s tftpgen owns the installer-selection option on PXE entries
+  (step design §1.4).</li>
+<li>34 DB-free unit tests; compile + checkstyle clean.</li>
+</ul>
+<h3 id="step-12-distro-path-status-done-2026-10-08">Step 1.2 — Distro path (status: DONE 2026-10-08)</h3>
+<ul>
+<li>Implemented per <a href="40-step-1.2-distro-path.md"><code>40-step-1.2-distro-path.md</code></a>:
+  <code>BaseTreeEditOperation#applyDistroKernelOptions()</code> merges
+  <code>KernelOptionsBuilder.distroOptions</code> into the tree&rsquo;s options (user-typed
+  options win) and runs on <strong>create and edit</strong> via <code>BaseTreeEditOperation#store</code>
+  — fixing the XML-RPC <code>kickstart.tree.update</code> option-wipe; blank <code>serverName</code>
+  falls back to <code>ConfigDefaults.getJavaHostname()</code>.
+  <code>TreeCreateOperation</code> keeps only the duplicate-label check.</li>
+<li>Preserve: persistence into <code>KickstartableTree.kernelOptions(_post)</code>
+  (<code>kernelOptionsPost</code> untouched); user-scoped installer-updates channel
+  lookup (§5.5); the <code>useonlinerepo</code> flag survives round-trips (decision
+  <code>00-goals.md</code> §5.8).</li>
+<li>On the way: test fixture gap fixed (<code>TreeOperationTestBase</code> now also
+  creates the SUSE loader kernel/initrd layout — SUSE-type <code>store()</code> used to
+  fail validation). (The originally recorded &ldquo;RHEL <code>systemOptions</code> <code>inst.ks=</code>
+  → <code>ks=</code> repair&rdquo; did not stick: <code>inst.ks=</code> is the committed, user-locked
+  form — RHEL 7+ consumes <code>inst.ks</code>; the spec wording was stale and is
+  corrected in the step-1.3/1.4 round, see
+  <code>60-step-1.3-1.4-system-and-initiate-path.md</code> §1.8.)</li>
+<li>Verified on the agent VM (dedicated pgsql-4eclipse container after
+  <code>mgradm stop</code>; branch schema incl. <code>opensuse16.1</code>): 57 tests green,
+  full-core checkstyle audit clean. PXE E2E matrix stays with step 1.7.</li>
+</ul>
+<h3 id="step-13-system-path-status-done-2026-10-09">Step 1.3 — System path (status: DONE 2026-10-09)</h3>
+<ul>
+<li>Implemented per <code>20-kernel-options.md</code> §5.2 and the design in
+  <a href="60-step-1.3-1.4-system-and-initiate-path.md"><code>60-step-1.3-1.4-system-and-initiate-path.md</code></a>:
+  <code>CobblerSystemCreateCommand#processKernelOptions</code> is generic (no breed
+  gate, install-type routing via the factory) — session-tracked media
+  override (<code>mediaOptions</code>: <code>install=</code> / <code>inst.repo=</code> / <code>inst.install_url=</code>)
+  plus <code>self_update</code> re-evaluated at schedule time with the schedule user
+  (custom installer-updates children are org/user-tied); resolved opt-out
+  honored in both <code>self_update=0</code> and <code>inst.self_update=0</code> forms;
+  <code>kernelOptionsPost</code> still raw. SLE16 records now get the Agama form
+  <code>inst.self_update=</code> (bug fix); RHEL-family records get <code>inst.repo=</code> (new
+  session tracking for every OS, locked user decision).</li>
+<li><code>KickstartScheduleCommand#getExtraOptions</code> continues to produce the user
+  part (<code>ksdevice=</code> + custom options) for now (full resolution in step 2.6).</li>
+<li>On the way: <code>MockConnection#get_item_resolved_value</code> repaired (it could
+  never match — resolved getters always returned null under the mock; now a
+  proper inheritance merge with a cycle guard — the saltboot fixtures name a
+  profile like its distro); <code>KernelOptionsList#getValue</code> added (was in the
+  spec&rsquo;s starting-point description but never implemented);
+  <code>SystemHandlerProvisioningTest</code> expectation updated to the intended
+  <code>inst.repo=</code> override.</li>
+</ul>
+<h3 id="step-14-initiate-path-status-done-2026-10-09">Step 1.4 — Initiate path (status: DONE 2026-10-09)</h3>
+<ul>
+<li>Implemented per <code>20-kernel-options.md</code> §5.3 and the step design:
+  <code>KickstartInitiateAction#buildKernelOptions</code> composes
+  <code>KernelOptionsList(resolved cobbler options)</code> → <code>KernelOptionsHelper
+  .applySuseTextmode</code> (shared SUSE helper, first caller, breed-gated) →
+  <code>removeOption(initrd)</code> → factory-routed <code>systemOptions</code> (<code>autoyast=</code> /
+  <code>inst.auto=</code> / <code>inst.ks.sendmac</code> + <code>inst.ks=</code>) → <code>info=</code> via
+  <code>cobblerSystemNopxeUrl</code>; the hand-rolled map serializer is gone; the
+  debian/ubuntu and rhel6 branches are dropped (locked); routing by install
+  type (tree resolved from the cobbler distro name in <code>prepareCobblerBoot</code>).</li>
+<li>The salt state (<code>bootloader.autoinstall</code>) kopts now include the resolved
+  system options — among them the session-tracked media URL — plus the
+  builder&rsquo;s system options, per the planning-round-5 requirement.</li>
+<li>Design + decisions (planning round 5, combined with 1.3):
+  <a href="60-step-1.3-1.4-system-and-initiate-path.md"><code>60-step-1.3-1.4-system-and-initiate-path.md</code></a>.</li>
+<li>Verified together with 1.3: 126 + 109 tests green on the agent VM
+  (<code>mgradm stop</code> → pgsql-4eclipse container via <code>:Z</code> mount — SELinux
+  enforcing; branch schema incl. <code>opensuse16.1</code>), <code>mvn -f java compile
+  checkstyle:checkstyle</code> clean (no ant). PXE E2E matrix stays with 1.7.</li>
+</ul>
+<h3 id="step-15-profile-path-status-done-2026-10-08">Step 1.5 — Profile path (status: DONE 2026-10-08)</h3>
+<ul>
+<li>Implemented per <a href="50-step-1.5-profile-path.md"><code>50-step-1.5-profile-path.md</code></a>:
+  wire <code>profileOptions</code> handling into profile create/edit at the
+  <code>CobblerProfileCommand#updateCobblerFields</code> convergence point
+  (spec: <code>20-kernel-options.md</code> §5.4). Kernel options edited in the profile
+  details UI flow through <code>KernelOptionsList</code> instead of raw strings;
+  <code>KickstartDetailsEditAction</code> itself needs no change.</li>
+<li>Narrowed by the step 1.1 decision: no <code>inst.auto</code>/<code>inst.auto_insecure</code>
+  merge — <code>profileOptions</code> is empty until the Cobbler exit (G6), cobbler owns
+  the installer-selection option on PXE entries
+  (<code>30-step-1.1-builders.md</code> §1.4).</li>
+<li>Decisions (planning round 4): <code>postKernelOptions</code> stays raw;
+  routing failures (<code>KernelOptionsBuilderException</code>) propagate; the step-1.2
+  FQDN resolution moved into a shared <code>KickstartHostHelper</code> (used by
+  <code>BaseTreeEditOperation</code> + the profile path).</li>
+<li>Verified: 67 tests green on the agent VM (16 <code>CobblerCommandTest</code> incl. 7
+  new profile-options cases: normalization, quoting, <code>&lt;&lt;inherit&gt;&gt;</code>/empty
+  round-trip, idempotency, post-options raw, null-options skip; 41
+  builder/factory/list; 10 tree-op after the FQDN-helper refactor),
+  <code>mvn -f java compile checkstyle:checkstyle</code> clean (ant toolchain dropped).</li>
+</ul>
+<h3 id="step-16-tests-status-done-2026-10-09">Step 1.6 — Tests (status: DONE 2026-10-09)</h3>
+<ul>
+<li>Per <code>20-kernel-options.md</code> §7: pure-logic builder/factory tests, entity
+  tests for install-type routing, call-site parity tests (legacy string
+  equality modulo documented whitespace normalization), idempotency tests.
+  DB/Cobbler-free where possible (CI runs the rest).</li>
+<li>Design in <a href="70-step-1.6-tests.md"><code>70-step-1.6-tests.md</code></a>: remaining §7
+  gaps closed (abstract-builder org-global branch, <code>KickstartHostHelper</code>,
+  predicate truth table + breed/os-version identity, RHEL merge +
+  Agama mixed-children, <code>KernelOptionsList</code> API holes, exact-string SLE16/
+  RHEL system parity, schedule-user negative scoping, tree-edit recompute,
+  initiate idempotency + RHEL text survival).</li>
+<li>Opt-in <strong>real-cobbler test mode</strong> (<code>-Duse.real.cobbler=true</code> +
+  availability assumption): the phase-1 DB-backed suites run against the
+  cobbler shipped in the pgsql-4eclipse test container (accept-all auth
+  shim for the <code>authentication.spacewalk</code> callback protocol + container
+  setup script under <code>java/buildconf/test/cobbler/</code>), with mandatory
+  per-test cobbler cleanup. Mock-vs-real audit findings in the step doc
+  §8.1; the five SLE16 fixtures skip against a cobbler without the PR #177
+  signature (documented caveat). Verified: 161 mock + 50/55 real-mode
+  tests green on the agent VM, checkstyle clean.</li>
+</ul>
+<h3 id="step-17-cleanup-verification-status-done-2026-10-12">Step 1.7 — Cleanup &amp; verification (status: DONE 2026-10-12)</h3>
+<ul>
+<li>Remove dead string-building code after all sites migrated; checkstyle; E2E
+  regression matrix per <code>20-kernel-options.md</code> §8 on the agent VM (mind the
+  cobbler PR #177 caveat for SLE16 PXE).</li>
+<li>Implemented per
+  <a href="80-step-1.7-cleanup-verification.md"><code>80-step-1.7-cleanup-verification.md</code></a>
+  (scope A+B+C: 7 verified-dead members removed incl. the test-only ones,
+  <code>getValue</code> stays). The legacy string-building code itself was already
+  deleted during steps 1.2–1.4.</li>
+<li>Verified on the agent VM: checkstyle clean; 180 mock-mode tests + 50/55
+  real-mode tests (SLE16 skips, PR #177) green. E2E matrix executed with
+  fake content through the real flow: SLES15 tree/profile/schedule +
+  cobbler records (<code>install=</code>/<code>self_update=0</code>, media tinyurl override on the
+  system record), RHEL7 (<code>inst.repo=</code>), salt initiate pillar showing the
+  full composed boot line (<code>autoyast=</code> + media override + <code>info=</code>), SLE16
+  documented PR #177 caveat (cobbler rejection recorded). First backend
+  deploy of the branch on the VM (deploy quirks recorded in
+  <code>AGENTS_CUSTOM.md</code> §3); stack restored.</li>
+</ul>
+<h3 id="phase-1-explicit-deferrals-documented-per-guardrail">Phase 1 explicit deferrals (documented per guardrail)</h3>
+<ul>
+<li><code>ScheduleKickstartWizardAction#parseKernelOptions</code> / <code>SSMScheduleCommand</code>
+  option resolution — wizard UI dies in Phase 2 (step 2.6).</li>
+<li>Saltboot PXE option maps (<code>SaltbootUtils</code>, <code>PXEEventMessageAction</code>) —
+  Phase 3, step 3.4.</li>
+<li><code>CobblerDistroSyncCommand#backsyncKernelOptions</code> reverse-sync — keep
+  behavior; revisit under the G6 seam (step 5.1).</li>
+</ul>
+<hr />
+<h2 id="phase-2-kickstart-modernization-react-ui-g1-g2">Phase 2 — Kickstart modernization + React UI (G1 + G2)</h2>
+<blockquote>
+<p>Deferred by user decision 2026-10-19: G3 backend proceeds first
+(<code>00-goals.md</code> §5.7 amendment). Step statuses unchanged; step 2.2 remains
+the prerequisite for the saltboot UI (step 3.3).</p>
+</blockquote>
+<h3 id="step-20-feature-tiering-decisions-status-not-started">Step 2.0 — Feature tiering decisions (status: NOT STARTED)</h3>
+<ul>
+<li>Research + decide feature-by-feature (rule: <code>00-goals.md</code> §5.3) for the
+  register in §5 below; record outcomes as new locked decisions in
+  <code>00-goals.md</code> §5.3. Output of this step unblocks 2.1–2.5 scope.</li>
+</ul>
+<h3 id="step-21-unified-profile-entity-design-status-not-started">Step 2.1 — Unified profile entity design (status: NOT STARTED)</h3>
+<ul>
+<li>Design (schema + Java domain + API surface) of the type-based
+  autoinstallation profile entity (<code>00-goals.md</code> G4): types kickstart /
+  autoyast / agama / (reserved: cloud-init, ignition, combustion), serving URL
+  scheme, org scoping, migration path from the legacy kickstart data model
+  (additive, no cutover in this phase).</li>
+<li>Constraint (decision <code>00-goals.md</code> §5.8): raw profile content stays on disk
+  until G6 — the entity design must accommodate that without rework.</li>
+</ul>
+<h3 id="step-22-react-profile-pages-status-not-started">Step 2.2 — React profile pages (status: NOT STARTED)</h3>
+<ul>
+<li>Profile list, create (channel/distro/virt + file upload or paste),
+  details/edit (raw content + download), delete/clone. Spark controllers +
+  jade + <code>web/html/src/manager/autoinstallation/</code> following the images
+  feature pattern; metadata-driven fields per profile type (guardrail 3).</li>
+</ul>
+<h3 id="step-23-react-distributions-pages-status-not-started">Step 2.3 — React distributions pages (status: NOT STARTED)</h3>
+<ul>
+<li>KickstartableTree list/create/edit/delete + variables; kernel options field
+  uses G0 builder output for defaults; keep XML-RPC <code>KickstartTreeHandler</code>
+  compatible.</li>
+</ul>
+<h3 id="step-24-wizard-removal-status-not-started">Step 2.4 — Wizard removal (status: NOT STARTED)</h3>
+<ul>
+<li>Remove Struts wizard routes/actions/JSPs (creation wizard, wizard-mode
+  editing tabs, schedule wizard), nav XMLs, the wizard-mode template
+  generation path (<code>KickstartFormatter</code> + file-sync task) and the wizard
+  branch of the profile builder.</li>
+<li>Careful sequencing: registration still depends on Cobbler snippets
+  (<code>redhat_register_using_salt</code> et al.) — those keep working for raw profiles
+  until G6 (decision <code>00-goals.md</code> §5.8); raw scheduling flow
+  (<code>KickstartScheduleCommand</code>, <code>KickstartInitiateAction</code>) must keep working
+  after wizard removal.</li>
+<li>Update API docs/deprecation notes for removed wizard-only API methods.</li>
+</ul>
+<h3 id="step-25-support-pages-per-tier-decisions-status-not-started">Step 2.5 — Support pages per tier decisions (status: NOT STARTED)</h3>
+<ul>
+<li>Migrate (or drop, per step 2.0 outcomes): snippets, crypto keys, file
+  preservation, IP ranges, sessions, scripts/variables if kept.</li>
+</ul>
+<h3 id="step-26-resolve-deferred-kernel-option-consumers-status-not-started">Step 2.6 — Resolve deferred kernel-option consumers (status: NOT STARTED)</h3>
+<ul>
+<li>With the schedule wizard gone: settle <code>KickstartScheduleCommand</code>
+  user-option handling (<code>getExtraOptions</code>) and SSM scheduling path fully onto
+  builders; close Phase 1 deferrals that Phase 2 unblocks.</li>
+</ul>
+<hr />
+<h2 id="phase-3-saltboot-integration-g3">Phase 3 — Saltboot integration (G3)</h2>
+<h3 id="step-31-saltboot-deployment-model-design-status-done-2026-10-19">Step 3.1 — Saltboot deployment model design (status: DONE 2026-10-19)</h3>
+<ul>
+<li>Design in <a href="90-step-3.1-saltboot-model.md"><code>90-step-3.1-saltboot-model.md</code></a>;
+  decisions promoted to <code>00-goals.md</code> §5.9.</li>
+<li>Two entity families: <code>suseSaltbootBranch</code> (branch settings per branch group,
+  proxy FK resolved to the primary FQDN, naming, default boot image/kernel
+  parameters; replaces <code>saltboot-group</code>) and hierarchical <code>suseSaltbootConfig</code>
+  (JSONB partitioning with parent chain, assigned to groups/systems; replaces
+  <code>saltboot</code>), plus <code>suseSaltbootTerminal</code> (per-terminal state + force flags).</li>
+<li>Effective config = deep merge by disk/partition IDs along the chain (JSON
+  <code>null</code> tombstones); resolution system &gt; most-derived &gt; priority &gt;
+  notification (A/B rollouts that only switch the image).</li>
+<li>Transition: idempotent upgrade-time migration (<code>UpgradeCommand</code>) + dual-write
+  from the formula-save hooks; users unassign formulas when ready.
+  Containerized proxies only; boot image refs are lax strings.</li>
+<li>Verification correction: today&rsquo;s formula merge replaces <code>edit-group</code> values
+  and keeps only one group&rsquo;s data per formula (step doc §1.2) — migration maps
+  per-system partitioning to root configs.</li>
+</ul>
+<h3 id="step-32-java-domain-schema-api-status-not-started">Step 3.2 — Java domain, schema, API (status: NOT STARTED)</h3>
+<ul>
+<li>Implement the model + XML-RPC/REST API; keep <code>SaltbootUtils</code> Cobbler entry
+  generation working, routed through the new domain.</li>
+<li>Design: <code>90-step-3.1-saltboot-model.md</code> §2–§5 — entities, resolver/merge,
+  pillar generator, <code>saltboot</code> XML-RPC namespace, upgrade migration
+  (<code>UpgradeCommand</code> task + idempotent <code>upgrade/next/</code> queue script), and
+  dual-write in <code>FormulaFactory</code> (formula unassignment must no longer delete
+  the cobbler group profile when a branch exists). Hand-off list in §6.1.</li>
+</ul>
+<h3 id="step-33-react-ui-status-not-started-blocked-on-step-22">Step 3.3 — React UI (status: NOT STARTED — blocked on step 2.2)</h3>
+<ul>
+<li>Saltboot area inside the new autoinstallation UI: deployment profiles,
+  group/terminal targeting, image selection, status; formula form replaced.</li>
+</ul>
+<h3 id="step-34-pxekernel-options-via-builders-status-not-started">Step 3.4 — PXE/kernel options via builders (status: NOT STARTED)</h3>
+<ul>
+<li>Route <code>SaltbootUtils</code>/<code>PXEEventMessageAction</code> option construction
+  (<code>panic=60 splash=silent</code>, per-terminal params, master/minion prefixes)
+  through the G0 builder hierarchy (new saltboot builder or extension),
+  closing the Phase 1 deferral. Saltboot&rsquo;s <code>generic</code>-breed &ldquo;own the whole
+  command line&rdquo; pattern is the reference for post-Cobbler option ownership
+  (<code>20-kernel-options.md</code> §6).</li>
+<li>Option sources move to domain fields (branch, terminal state) — see
+  <code>90-step-3.1-saltboot-model.md</code> §6.2.</li>
+</ul>
+<h3 id="step-35-triggerorchestration-model-status-not-started">Step 3.5 — Trigger/orchestration model (status: NOT STARTED)</h3>
+<ul>
+<li>Deployment triggering via the autoinstallation action/schedule flow instead
+  of formula-save hooks; preserve the proven <code>suse/manager/pxe_update</code> event
+  loop (<code>PXEEventMessageAction</code>) and force-redeploy/repartition flag semantics.</li>
+<li>Formula-save hooks reduce to dual-write (removed once the formulas are
+  retired); the legacy branch-server reactor path is not preserved
+  (containerized proxies only, <code>00-goals.md</code> §5.9).</li>
+</ul>
+<hr />
+<h2 id="phase-4-generic-mechanisms-image-integration-g4-g5">Phase 4 — Generic mechanisms + image integration (G4 + G5)</h2>
+<h3 id="step-41-profile-types-for-cloud-init-ignition-combustion-status-not-started">Step 4.1 — Profile types for cloud-init / ignition / combustion (status: NOT STARTED)</h3>
+<ul>
+<li>Implement the reserved types on the unified entity (step 2.1): upload/
+  storage/download/serving; validation per type (e.g. ignition JSON schema);
+  type metadata for the UI.</li>
+</ul>
+<h3 id="step-42-serving-boot-integration-status-not-started">Step 4.2 — Serving + boot integration (status: NOT STARTED)</h3>
+<ul>
+<li>Serving endpoints following <code>/ks/cfg</code>-style conventions; builders for each
+  mechanism&rsquo;s boot parameters (e.g. ignition config URL, combustion delivery)
+  — no new call-site string logic (guardrail 1).</li>
+</ul>
+<h3 id="step-43-image-build-auto-registration-status-not-started">Step 4.3 — Image-build auto-registration (status: NOT STARTED)</h3>
+<ul>
+<li>Hook the build-result pipeline (<code>ImageBuildAction</code> → <code>ImageInfo</code>/<code>ImageFile</code>
+  → OS-image pillar): supported artifacts (Kiwi OS image with saltboot
+  payload, EIB <code>combustion.iso</code> artifacts, later ignition-carrying images)
+  auto-register as autoinstallation options appearing in the Phase 2/3 UI.</li>
+</ul>
+<h3 id="step-44-builders-for-new-mechanisms-status-not-started">Step 4.4 — Builders for new mechanisms (status: NOT STARTED)</h3>
+<ul>
+<li>Extend the G0 hierarchy with mechanism-specific option sets; keep
+  per-OS-class × mechanism composition explicit and testable.</li>
+</ul>
+<hr />
+<h2 id="phase-5-cobbler-exit-preparation-design-only-g6">Phase 5 — Cobbler exit preparation, design only (G6)</h2>
+<h3 id="step-51-installserverbootserver-seam-status-not-started">Step 5.1 — InstallServer/BootServer seam (status: NOT STARTED)</h3>
+<ul>
+<li>Define the abstraction interface over <code>org.cobbler</code> + cobbler command
+  classes (profile/distro/system CRUD, sync, boot-entry generation, nopxe
+  signaling) and migrate Java callers to it. Behavior unchanged; Cobbler stays
+  the only implementation.</li>
+</ul>
+<h3 id="step-52-cobbler-exit-design-document-status-not-started">Step 5.2 — Cobbler-exit design document (status: NOT STARTED)</h3>
+<ul>
+<li>Design (not implement): Java-side grub entry generation into tftpboot,
+  profile serving without Cobbler/Cheetah (raw-only makes this feasible),
+  kernel/initrd/grub artifact lifecycle, re-pointing of the 5-min sync task,
+  grub-only (pxelinux dropped) with UKI extensibility, and the replacement
+  activation-key delivery mechanism (G6 discovery item, <code>00-goals.md</code> §5.8).</li>
+</ul>
+<h3 id="step-53-proxy-compatibility-design-status-not-started">Step 5.3 — Proxy compatibility design (status: NOT STARTED)</h3>
+<ul>
+<li>Analyze <code>containers/proxy-tftpd-image/tftp_wrapper.py</code> (HTTP-fetched PXE
+  entries, saltboot filtering by <code>MASTER=</code>, FQDN rewriting) against the
+  Java-generated entry format. Contract (<code>00-goals.md</code> §5.8): an older proxy
+  container must keep working against a newer server — adjustments to the
+  wrapper are allowed, breaking changes to served formats are not.</li>
+</ul>
+<hr />
+<h2 id="dependency-map">Dependency map</h2>
+<pre><code>Phase 1 (kernel options) ──► Phase 2 (raw-only + UI)
+      │                            │
+      ├──► Phase 3 backend         └──► 3.3 saltboot UI (needs 2.2)
+      │    (3.1/3.2/3.4/3.5) ─────────► Phase 4
+      │
+      └── builders reused in 3.4/4.2/4.4
+                                   Phase 2.1 (unified entity) ──► Phase 4.1
+                                   Phase 5 (seam) can start after Phase 1;
+                                   5.2/5.3 design benefits from Phase 2.4
+                                   (wizard-mode generation gone) being decided.
+</code></pre>
+<ul>
+<li>1.1 → 1.2 → 1.3/1.4/1.5 (parallelizable), 1.6/1.7 last.</li>
+<li>Phase 1 status: <strong>1.1–1.7 all DONE — Phase 1 (G0) complete</strong>; 1.8
+  (post-Phase-1 UI-guard addendum, 2026-10-15) also DONE.</li>
+<li>2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.</li>
+<li>3.1/3.2/3.4/3.5 depend on Phase 1 only (amendment 2026-10-19,
+  <code>00-goals.md</code> §5.7); 3.3 depends on 2.2. Phase 3 status: 3.1 DONE.</li>
+<li>4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).</li>
+<li>5.1 is independent after Phase 1; 5.2/5.3 are docs, best after 2.4.</li>
+</ul>
+<h2 id="suggested-session-split">Suggested session split</h2>
+<ol>
+<li>Session: step 1.1 (+1.2 start).</li>
+<li>Session: steps 1.2–1.5.</li>
+<li>Session: steps 1.6–1.7 (incl. agent-VM E2E matrix).</li>
+<li>Session: step 2.0 + 2.1 design.</li>
+<li>Session: step 2.2 (+2.3 start).</li>
+<li>Session: steps 2.3–2.4.</li>
+<li>Session: steps 2.5–2.6.</li>
+<li>Session: step 3.1 design, then 3.2/3.3 across two sessions.</li>
+<li>Session: steps 3.4–3.5.</li>
+<li>Sessions: Phase 4 steps; Phase 5 interleaved when design capacity allows.</li>
+</ol>
+<p>E2E validation on the agent VM follows the protocol in <code>00-goals.md</code> §1
+(single VM, manually recycled — coordinate across parallel agents).</p>
+<hr />
+<h2 id="5-open-questions-register">§5 Open questions register</h2>
+<h3 id="feature-tiering-decided-in-step-20-initial-proposals-here">Feature tiering (decided in step 2.0; initial proposals here)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Initial proposal</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Crypto keys (GPG/SSL)</td>
+<td>must-keep (registration needs it)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Kickstart sessions (status/cancel)</td>
+<td>must-keep</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SSM bulk scheduling</td>
+<td>must-keep</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Scripts (pre/post) as entities</td>
+<td>under review (raw files embed scripts; entities only matter for wizard templating)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Variables</td>
+<td>under review</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cobbler snippets</td>
+<td>under review (registration snippets stay; user snippet UI?)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>File preservation lists</td>
+<td>under review</td>
+<td>—</td>
+</tr>
+<tr>
+<td>IP ranges (bare metal)</td>
+<td>under review</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="technical-questions-resolved-2026-10-07-promoted-to-00-goalsmd-58">Technical questions — resolved 2026-10-07 (promoted to <code>00-goals.md</code> §5.8)</h3>
+<ul>
+<li>Kernel options vs cobbler <code>tftpgen</code> → builders centralize per-distro/breed
+  enhancement; saltboot&rsquo;s generic-breed pattern is the reference.</li>
+<li>Agama URL scheme → <code>http://</code> for now; configurability deferred to
+  post-Cobbler.</li>
+<li>Raw profile storage → on disk until G6.</li>
+<li><code>useonlinerepo</code> → preserved (SLE15 + synced channels).</li>
+<li>Registration snippets → unchanged until G6.</li>
+<li>Proxy contract → older proxy container must keep working with newer server.</li>
+<li>Ubuntu/Debian → non-existent today; from-scratch work in the future.</li>
+<li>Cobbler-exit activation-key delivery → G6 discovery item (step 5.2).</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-07 — planning round 1: goals locked (<code>00-goals.md</code>), phases/steps
+  defined.</li>
+<li>2026-10-07 — planning round 1 feedback: E2E protocol added (single shared
+  agent VM); cobbler PR #177 requirement for Agama documented; SLE16 baseline
+  finalized (<code>opensuse16.1</code> + <code>suse</code> breed + <code>http://</code>); technical open
+  questions answered and promoted to decisions; Phase 1 behavioural reference
+  extracted to <code>20-kernel-options.md</code>.</li>
+<li>2026-10-08 — planning round 2 (step 1.1 design): routing is install-type-only
+  (no breed fallback, unknown types throw), Debian builder dropped,
+  <code>profileOptions</code> empty until G6, rhel6 compat dropped; step 1.5 narrowed
+  accordingly. Design: <code>30-step-1.1-builders.md</code>.</li>
+<li>2026-10-08 — step 1.1 implemented and verified (34 DB-free tests,
+  checkstyle clean).</li>
+<li>2026-10-08 — planning round 3 (step 1.2 design): edit-path merge decided —
+  the merge runs on create and edit via <code>BaseTreeEditOperation#store</code> (fixes
+  the XML-RPC update option-wipe; documented behavior change: deleted
+  computed options re-appear on the next edit), serverFqdn fallback via
+  <code>ConfigDefaults.getJavaHostname()</code>, DB-backed tests to run on the agent VM
+  (<code>mgradm stop</code> frees port 5432; deployed <code>uyuni-db</code> lacks <code>opensuse16.1</code>).
+  Design: <code>40-step-1.2-distro-path.md</code>.</li>
+<li>2026-10-08 — step 1.2 implemented and verified: edit-path merge live
+  (create + edit + XML-RPC update/rename), <code>ks=</code> defect fix in the RHEL
+  builder, SUSE tree-file fixture fix, 57 tests green on the agent VM
+  (dedicated pgsql-4eclipse container after <code>mgradm stop</code>), full-core
+  checkstyle clean. Status → DONE.</li>
+<li>2026-10-08 — planning round 4 (step 1.5 design): profile-options wiring at
+  the <code>updateCobblerFields</code> convergence point (single writer: the profile
+  details UI; automated callers set no options); <code>postKernelOptions</code> stays
+  raw; routing failures propagate (no catch); shared <code>KickstartHostHelper</code>
+  extracted from the step-1.2 FQDN logic. Design:
+  <code>50-step-1.5-profile-path.md</code>.</li>
+<li>2026-10-08 — step 1.5 implemented and verified: <code>KickstartHostHelper</code> added
+  (and <code>BaseTreeEditOperation#getServerFqdn</code> delegating to it, behavior
+  unchanged), <code>updateCobblerFields</code> routes the user-typed profile kernel
+  options through <code>KernelOptionsList</code> + empty-until-G6 <code>profileOptions</code> merge.
+  67 tests green on the agent VM (<code>mgradm stop</code> → pgsql-4eclipse container,
+  branch schema), <code>mvn -f java compile checkstyle:checkstyle</code> clean
+  (checkstyle now runs via Maven; ant no longer used). Status → DONE.</li>
+<li>2026-10-08 — step 1.5 follow-up (review): <code>KickstartHostHelper</code> reduced to
+  a single <code>getServerFqdn(String)</code> — provided FQDN is canonicalized,
+  null/empty falls back to the configured Java hostname unchanged (protects
+  against container-internal resolution); blank-<code>serverName</code> tree path now
+  uses the configured hostname as-is (parity delta in the step doc §4).
+  Re-verified: 44 DB-free tests local, 67 DB-backed on the agent VM.</li>
+<li>2026-10-09 — planning round 5 (steps 1.3 + 1.4 design, combined in one
+  session): per-OS <code>mediaOptions</code> contract method — <code>install=</code> (AutoYaST),
+  <code>inst.repo=</code> (RHEL, new session tracking), <code>inst.install_url=</code> (Agama
+  product-default override) — so the per-session tinyurl media tracking works
+  for every OS; <code>self_update</code> stays on the system record with schedule-user
+  re-evaluation (custom installer-updates children are org/user-tied);
+  suse-breed gate dropped for install-type routing; standalone
+  <code>KernelOptionsHelper</code> (text→textmode transform, nopxe URL); RHEL
+  <code>systemOptions</code> stays <code>inst.ks.sendmac inst.ks=</code> (user-locked — the
+  step-1.2 &ldquo;repaired to ks=&rdquo; note was wrong and is corrected above).
+  Research findings: tinyurl = <code>DownloadFile</code> kickstart session progress
+  tracking (<code>packageFetchCount</code>/state), orthogonal to the proxy FQDN rewrite
+  in <code>tftp_wrapper.py</code>; <code>mediaPath != null</code> ⟹ <code>ksData != null</code>.
+  Design: <code>60-step-1.3-1.4-system-and-initiate-path.md</code>.</li>
+<li>2026-10-09 — steps 1.3 + 1.4 implemented and verified: generic system path
+  (media override + schedule-time self_update re-evaluation, SLE16
+  <code>inst.self_update=</code> fix, RHEL <code>inst.repo=</code> session tracking), initiate path
+  composed via <code>systemOptions</code> + <code>KernelOptionsHelper</code> (textmode + nopxe
+  URL), dead branches removed. Supporting fixes: mock
+  <code>get_item_resolved_value</code> repaired (with cycle guard for the saltboot
+  name-collision fixtures), <code>KernelOptionsList#getValue</code> added,
+  <code>SystemHandlerProvisioningTest</code> expectation updated to the intended
+  <code>inst.repo=</code> override. Agent VM window 10:20–11:00 CEST (mount via <code>:Z</code> —
+  SELinux enforcing on the VM): 126 + 109 tests green, checkstyle clean, no
+  server   deployment. Statuses → DONE.</li>
+<li>2026-10-09 — retrospective amendments after steps 1.3/1.4: session-protocol
+  rule added (<code>00-goals.md</code> §1.2 — verify doc/changelog claims against
+  code/git before designing on them; both the step-1.2 &ldquo;ks= repair&rdquo; note and
+  the spec&rsquo;s <code>KernelOptionsList.getValue</code> entry had drifted);
+  <code>20-kernel-options.md</code> gained §9 test-infrastructure notes (cobbler mock
+  semantics incl. the repaired resolved-value merge, fixture cookbook,
+  system-path regression map); <code>AGENTS_CUSTOM.md</code> §3 gained the VM quirks
+  (SELinux enforcing → <code>:Z</code> mounts, JDK 17 path, rsync-only worktree) —
+  outside the plan docs.</li>
+<li>2026-10-09 — planning round 6 (step 1.6 design): remaining §7 gaps
+  enumerated against the steps-1.1–1.5 coverage; opt-in real-cobbler test
+  mode designed and dry-run-validated on the agent VM (cobbler 3.3.3 in the
+  pgsql-4eclipse image, apache <code>/cobbler_api</code> proxy, accept-all auth shim for
+  the <code>authentication.spacewalk</code> callback protocol, <code>settings.d/*.settings</code>
+  glob, host fixture-dir bind mounts). Decisions: <code>-Duse.real.cobbler=true</code> +
+  availability assumption (CI unchanged), phase-1 suites only, per-test
+  cobbler cleanup mandatory (fixed test MAC), scripts under
+  <code>java/buildconf/test/cobbler/</code>, protected <code>listAllChildren</code> seam for the
+  DB-free org-global branch test, mock-vs-real deltas are findings not
+  relaxations. Design: <code>70-step-1.6-tests.md</code>. Status → IN PROGRESS.</li>
+<li>2026-10-09 — step 1.6 implemented and verified: all §7 gap tests added;
+  real-cobbler mode live (<code>use.real.cobbler</code> property, shim auth, container
+  setup script, per-test cleanup, SLE16 capability probe). Real-mode audit
+  surfaced and resolved: unordered option maps (sorted-token assertions),
+  blank values round-trip as <code>~</code>, template/kernel path validation at
+  modify/save, two container-only cobbler 3.3.3 patches (copyfile samefile
+  on missing dst; sync-race on the per-distro copy). Agent VM window
+  13:10–17:05 CEST: 161 mock tests + 50/55 real-mode tests green
+  (5 SLE16 skips, PR #177 caveat), checkstyle clean, deployed stack
+  restored. Status → DONE — Phase 1 has only 1.7 (cleanup + E2E matrix)
+  left.</li>
+<li>2026-10-12 — planning round 7 + step 1.7 (cleanup &amp; verification):
+  dead-code inventory verified against the tree (the legacy string building
+  was already deleted in steps 1.2–1.4; 7 unused members remained — scope
+  A+B+C locked incl. the test-only ones, <code>getValue</code> stays); E2E matrix run
+  for real with fake content through the real flow (custom channels + dummy
+  kernel/initrd layouts): SLES15 tree/profile/schedule + cobbler records,
+  RHEL7 <code>inst.repo=</code>, salt-initiate pillar with the full composed boot
+  line, SLE16 attempt-and-record (deployed cobbler lacks PR #177 — PRs
+  merged, release syncs with the code release). First backend deploy of the
+  branch on the agent VM; deployment quirks documented in <code>AGENTS_CUSTOM.md</code>
+  §3 (<code>--health-on-failure=stop</code> container cycling wipes deploy writes;
+  deploy.sh <code>-r</code> restart path triggers it; direct systemctl restarts are
+  safe; a version-matched stack still needs the branch&rsquo;s
+  <code>upgrade/next</code> + access-data SQL). Agent VM window ~09:40–11:05 CEST:
+  180 mock + 50/55 real-mode tests green, checkstyle clean, stack restored
+  (spacewalk-java-5.3.1-260400.1.2.uyuni6, cobbler 3.3.3-…uyuni6). Design
+  and results: <code>80-step-1.7-cleanup-verification.md</code>. Status → DONE —
+  <strong>Phase 1 (G0) complete</strong>; next: step 2.0 (feature tiering decisions).</li>
+<li>2026-10-15 — step 1.8 addendum (post-Phase-1 live-test finding): web-UI
+  distro create/edit NPEd when the posted <code>installtype</code> did not resolve
+  (unguarded null install type, pre-existing legacy code; XML-RPC path was
+  already guarded). Fix: <code>BaseTreeAction#processCommandSetters</code> returns a
+  <code>ValidatorError</code> (<code>kickstart.tree.invalidinstalltype</code>, new key en_US/de)
+  instead of setting null — action-level only, no domain hardening (user
+  decision). Closed the step-1.7 UI-E2E gap: web-UI create/edit matrix run
+  on the agent VM against the branch-deployed backend (SLES15/RHEL7 create
+  green incl. DB+cobbler kopts; SLE16 = documented cobbler PR #177 caveat;
+  negative rows clean; edit-path add-missing recompute verified). New
+  <code>BaseTreeActionTest</code> (first Struts-action-level test, jMock pattern);
+  16 tree/action tests green on the VM; compile + checkstyle clean.
+  Deployed-code fingerprint check added to <code>AGENTS_CUSTOM.md</code> §3. Design
+  and results: <code>85-step-1.8-ui-installtype-guard.md</code>. Status → DONE.</li>
+<li>2026-10-19 — planning round 8 (phase order): user decision to skip Phase 2
+  for now and start Phase 3. <code>00-goals.md</code> §5.7 amended — G3 backend steps
+  (3.1, 3.2, 3.4, 3.5) may precede G1+G2; step 3.3 (React UI) stays blocked
+  on step 2.2. Dependency map updated.</li>
+<li>2026-10-19 — step 3.1 (saltboot deployment model design) done: two entity
+  families (<code>suseSaltbootBranch</code> with proxy FK → primary FQDN, hierarchical
+  <code>suseSaltbootConfig</code> with JSONB partitioning + group/system assignments with
+  priority) plus <code>suseSaltbootTerminal</code>; deep merge by disk/partition IDs with
+  null tombstones; resolution system &gt; most-derived &gt; priority &gt; notification;
+  lax boot image refs; containerized proxies only; idempotent <code>UpgradeCommand</code>
+  migration + formula-hook dual-write. Decisions promoted to <code>00-goals.md</code>
+  §5.9. Verification correction recorded: today&rsquo;s formula merge replaces
+  <code>edit-group</code> values and keeps one group&rsquo;s data per formula. Design:
+  <code>90-step-3.1-saltboot-model.md</code>. Status → DONE (design only, no code).</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

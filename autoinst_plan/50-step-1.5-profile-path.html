@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>50-step-1.5-profile-path — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">50-step-1.5-profile-path</p>
+<a class="h2" href="#1-research-findings-verified-against-the-code-2026-10-08">1. Research findings (verified against the code, 2026-10-08)</a>
+<a class="h2" href="#2-decisions-locked-in-this-round-planning-round-4">2. Decisions locked in this round (planning round 4)</a>
+<a class="h2" href="#3-code-design">3. Code design</a>
+<a class="h3" href="#31-kickstarthosthelper-new-comredhatrhnmanagerkickstart">3.1 KickstartHostHelper (new, com.redhat.rhn.manager.kickstart)</a>
+<a class="h3" href="#32-basetreeeditoperation-refactor-behavior-unchanged">3.2 BaseTreeEditOperation (refactor, behavior unchanged)</a>
+<a class="h3" href="#33-cobblerprofilecommandupdatecobblerfields-the-wiring">3.3 CobblerProfileCommand#updateCobblerFields (the wiring)</a>
+<a class="h2" href="#4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</a>
+<a class="h2" href="#5-test-plan">5. Test plan</a>
+<a class="h3" href="#51-db-backed-cobblercommandtest-runs-on-the-agent-vm-ci">5.1 DB-backed (CobblerCommandTest, runs on the agent VM / CI)</a>
+<a class="h3" href="#52-db-free">5.2 DB-free</a>
+<a class="h3" href="#53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</a>
+<a class="h2" href="#6-verification-on-the-agent-vm">6. Verification on the agent VM</a>
+<a class="h2" href="#7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</a>
+<a class="h2" href="#8-out-of-scope">8. Out of scope</a>
+<a class="h2" href="#9-implementation-notes-2026-10-08">9. Implementation notes (2026-10-08)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-15-design-profile-path-cobblerprofilecommandupdatecobblerfields">Step 1.5 Design — Profile Path (CobblerProfileCommand#updateCobblerFields)</h1>
+<blockquote>
+<p>Implementation design for roadmap step 1.5 (<code>10-roadmap.md</code> Phase 1). The
+behavioural specification remains <a href="20-kernel-options.md"><code>20-kernel-options.md</code></a>;
+this document fixes the call-site wiring design and records the
+planning-round-4 decisions taken for this step.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-08</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (2026-10-08)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§5.1, <code>10-roadmap.md</code> step 1.5, <code>20-kernel-options.md</code> §5.4, <code>30-step-1.1-builders.md</code> §1.4 (decision 4)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-research-findings-verified-against-the-code-2026-10-08">1. Research findings (verified against the code, 2026-10-08)</h2>
+<ol>
+<li><strong>Profile-level kernel options have exactly one writer.</strong>
+   <code>KickstartDetailsEditAction#processCobblerFormValues</code>
+   (<code>java/core/src/main/java/com/redhat/rhn/frontend/action/kickstart/KickstartDetailsEditAction.java:366</code>)
+   sets both <code>kernelOptions</code> and <code>postKernelOptions</code> from the profile details
+   form onto a <code>CobblerProfileEditCommand</code> and calls <code>store()</code>. No other code
+   path sets kernel options on a <code>CobblerProfileCommand</code>.</li>
+<li><strong>The convergence point is <code>CobblerProfileCommand#updateCobblerFields</code></strong>
+   (<code>java/core/src/main/java/com/redhat/rhn/manager/kickstart/cobbler/CobblerProfileCommand.java:77</code>):
+   <code>if (kernelOptions != null) profile.setKernelOptions(Optional.of(kernelOptions));</code>
+   — the raw string is pushed to the cobbler profile verbatim. Both
+   <code>CobblerProfileEditCommand#store</code> and <code>CobblerProfileCreateCommand#store</code>
+   route through it, so create and edit share one site.</li>
+<li><strong>Every other <code>updateCobblerFields</code> caller leaves <code>kernelOptions</code> null</strong> and
+   therefore skips the block entirely: taskomatic <code>KickstartFileSyncTask</code> /
+   <code>CobblerSyncTask</code>, <code>CobblerProfileSyncCommand#createProfile</code>,
+   <code>CobblerDistroCreateCommand</code>, <code>KickstartWizardHelper</code> (profile create),
+   <code>BaseKickstartCommand#store</code>, XML-RPC <code>ProfileHandler#setKickstartTree</code>,
+   <code>KickstartSoftwareEditAction</code>. Wiring inside the <code>if</code> block cannot affect
+   them. (The <code>setKernelOptions</code> hits in <code>KickstartScheduleCommand</code>,
+   <code>SSMScheduleCommand</code>, <code>SystemHandler</code>, <code>ScheduleKickstartWizardAction</code> are
+   on the <em>system</em> path — steps 1.3 / 2.6 — not on profile commands.)</li>
+<li><strong>Round-trip semantics.</strong> Cobbler stores kernel options as a dict; a string
+   setter value is parsed cobbler-side (shlex-like). The UI form round-trip
+   renders the cobbler dict via <code>CobblerObject.convertOptionsMap</code> into the
+   text field, showing <code>CobblerObject.INHERIT_KEY</code> (<code>&lt;&lt;inherit&gt;&gt;</code>) when the
+   profile has no options. <code>KernelOptionsList</code> parsing keeps quote characters
+   inside tokens, so <code>key="a b"</code> survives parse→serialize unchanged;
+   <code>&lt;&lt;inherit&gt;&gt;</code> and the empty string round-trip identically.</li>
+<li><strong>Routing key exists:</strong> <code>KickstartData#getInstallType()</code>
+   (<code>java/core/src/main/java/com/redhat/rhn/domain/kickstart/KickstartData.java:823</code>)
+   resolves tree → install type, null-safe. <code>CobblerProfileCommand</code> carries an
+   optional <code>user</code> (null for the taskomatic constructor) — matching the §5.5
+   user-context semantics of the installer-updates lookup.</li>
+<li><strong>Test infra:</strong> <code>CobblerCommandTestBase</code> defaults to a <em>mocked</em> cobbler
+   connection (the connection class is resolved from config; the test
+   <code>rhn.conf</code> maps it to the mock), so <code>CobblerCommandTest</code> profile tests run
+   DB-backed without a live cobbler — the same way step 1.2&rsquo;s tree-operation
+   tests ran on the agent VM.</li>
+<li><strong>No kickstart-host concept exists on the profile path</strong> (no request
+   context, no operation <code>serverName</code>). <code>profileOptions</code> is empty today so the
+   FQDN is unused — but the factory validates it non-empty, and G6 will need a
+   real value.</li>
+</ol>
+<h2 id="2-decisions-locked-in-this-round-planning-round-4">2. Decisions locked in this round (planning round 4)</h2>
+<ol>
+<li><strong><code>postKernelOptions</code> stays untouched.</strong> Spec §5.4 only mandates the kernel
+   options field; step-1.2 precedent (<code>kernelOptionsPost</code> untouched). Post
+   options keep flowing as raw strings.</li>
+<li><strong>Routing failures propagate.</strong> A <code>KernelOptionsBuilderException</code> (blank
+   <code>java.hostname</code>, missing tree/install type, unknown install type) is not
+   caught — consistent with the locked step-1.1/1.2 &ldquo;unknown install type
+   throws&rdquo; stance. Unreachable in practice: only the UI details-edit path sets
+   <code>kernelOptions</code>, and that path requires a valid profile with a tree; all
+   automated callers leave it null (finding 3). Accepted new failure mode for
+   degenerate data, mirroring the distro path&rsquo;s hard hostname dependency.</li>
+<li><strong>Shared FQDN helper extracted</strong> — no duplicate helpers: the
+   <code>ConfigDefaults</code>-based canonical-hostname resolution moves into a small
+   static helper used by both <code>BaseTreeEditOperation</code> (delegating) and
+   <code>CobblerProfileCommand</code>. No behavior change for the tree path.</li>
+<li><strong>Wiring at the convergence point only.</strong> <code>KickstartDetailsEditAction</code>
+   needs no change — the roadmap&rsquo;s <code>KickstartDetailsEditAction →
+   CobblerProfileCommand#updateCobblerFields</code> arrow already exists in code,
+   and the command layer covers create + edit + any future caller.</li>
+<li><strong><code>profileOptions</code> remains empty</strong> (step-1.1 decision 4): this step wires
+   the seam so the G6 flip is a one-line builder override, not a call-site
+   sweep. Cobbler&rsquo;s <code>tftpgen</code> keeps owning the installer-selection option on
+   PXE entries.</li>
+</ol>
+<h2 id="3-code-design">3. Code design</h2>
+<p>All changes under <code>java/core/src/main/java/com/redhat/rhn/</code>.</p>
+<h3 id="31-kickstarthosthelper-new-comredhatrhnmanagerkickstart">3.1 <code>KickstartHostHelper</code> (new, <code>com.redhat.rhn.manager.kickstart</code>)</h3>
+<p>Placed next to <code>KickstartUrlHelper</code> — both consumers live in the
+<code>manager.kickstart.*</code> namespace. One function (revised after the plan
+acknowledgment, see §9): a provided server FQDN is canonicalized; null/empty
+falls back to the configured Java hostname <strong>unchanged</strong> — canonicalizing it
+could resolve to a container-internal name instead of the external FQDN that
+has to be used:</p>
+<pre><code class="language-java">public class KickstartHostHelper {
+    private KickstartHostHelper() { }
+
+    public static String getServerFqdn(String serverFqdn) {
+        if (serverFqdn == null || serverFqdn.isEmpty()) {
+            return ConfigDefaults.get().getJavaHostname();
+        }
+        try {
+            return InetAddress.getByName(serverFqdn).getCanonicalHostName();
+        }
+        catch (UnknownHostException e) {
+            return serverFqdn;
+        }
+    }
+}
+</code></pre>
+<h3 id="32-basetreeeditoperation-refactor-behavior-unchanged">3.2 <code>BaseTreeEditOperation</code> (refactor, behavior unchanged)</h3>
+<p><code>java/core/src/main/java/com/redhat/rhn/manager/kickstart/tree/BaseTreeEditOperation.java</code>
+loses its inline FQDN resolution entirely — no wrapper method is kept;
+<code>applyDistroKernelOptions()</code> calls the helper directly (the <code>InetAddress</code>/
+<code>UnknownHostException</code>/<code>ConfigDefaults</code> imports are dropped):</p>
+<pre><code class="language-java">protected void applyDistroKernelOptions() {
+    KernelOptionsList options = new KernelOptionsList(this.tree.getKernelOptions());
+    options.addMissingOptions(KernelOptionsBuilderFactory
+            .getBuilder(this.tree.getInstallType(),
+                    KickstartHostHelper.getServerFqdn(this.serverName), this.user)
+            .distroOptions(this.tree));
+    this.tree.setKernelOptions(options.toString());
+}
+</code></pre>
+<p>One documented delta vs. the pre-refactor code: when the operation&rsquo;s
+<code>serverName</code> is blank, the configured Java hostname is now used <strong>as-is</strong>
+instead of being canonicalized (see §4) — a provided <code>serverName</code> is still
+canonicalized, so the UI path (<code>request.getLocalName()</code>) is unaffected and
+the DB-free merge tests (which canonicalize a provided name) pass unchanged.</p>
+<p>The step-1.2 tests (<code>TreeCreateOperationTest</code>, the DB-free merge test) keep
+passing.</p>
+<h3 id="33-cobblerprofilecommandupdatecobblerfields-the-wiring">3.3 <code>CobblerProfileCommand#updateCobblerFields</code> (the wiring)</h3>
+<p>Replace the raw push:</p>
+<pre><code class="language-java">if (kernelOptions != null) {
+    KernelOptionsList options = new KernelOptionsList(kernelOptions);
+    options.addMissingOptions(KernelOptionsBuilderFactory
+            .getBuilder(ksData.getInstallType(), KickstartHostHelper.getServerFqdn(null), user)
+            .profileOptions(profile));
+    profile.setKernelOptions(Optional.of(options.toString()));
+}
+</code></pre>
+<ul>
+<li><code>ksData.getInstallType()</code> — routing key (finding 5); the factory throws on
+  null/unknown per decision 2.</li>
+<li><code>user</code> passed through — user-scoped installer-updates lookup once
+  <code>profileOptions</code> becomes non-empty; null (taskomatic) → org-global, per
+  <code>20-kernel-options.md</code> §5.5.</li>
+<li><code>profileOptions(profile)</code> receives the cobbler profile being written —
+  empty today (decision 5), so the merge is a no-op and the saved string is
+  the parsed/normalized user input.</li>
+<li><code>postKernelOptions</code> block stays byte-identical (decision 1).</li>
+<li>New imports: <code>KernelOptionsList</code>, <code>KernelOptionsBuilderFactory</code>,
+  <code>KickstartHostHelper</code>.</li>
+</ul>
+<p>No schema, UI/JSP, Struts or XML-RPC API changes.</p>
+<h2 id="4-behavior-deltas-parity-register">4. Behavior deltas (parity register)</h2>
+<table>
+<thead>
+<tr>
+<th>Delta</th>
+<th>Reason / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Whitespace normalization of saved profile kernel options (multiple spaces collapse, leading/trailing trim)</td>
+<td><code>KernelOptionsList</code> parse→serialize; same documented normalization class as step 1.2 (spec §5.1.1).</td>
+</tr>
+<tr>
+<td><code>&lt;&lt;inherit&gt;&gt;</code>, empty string, quoted values round-trip unchanged</td>
+<td>Verified against <code>KernelOptionsList</code> parsing (quotes stay in tokens) and cobbler <code>INHERIT_KEY</code> handling — legacy parity.</td>
+</tr>
+<tr>
+<td><code>profileOptions</code> merge is a no-op today</td>
+<td>Empty until G6 (decision 5); idempotent under repeated store.</td>
+</tr>
+<tr>
+<td>Routing failure → <code>KernelOptionsBuilderException</code> propagates</td>
+<td>Decision 2. New failure mode, unreachable for existing <code>rhnKSInstallType</code> labels; automated paths never set <code>kernelOptions</code>.</td>
+</tr>
+<tr>
+<td>Blank <code>serverName</code> on the tree path → configured Java hostname used as-is (no canonicalization); a provided name is still canonicalized</td>
+<td>Helper revision (§9): protective against container-internal resolution — the configured hostname is the external FQDN; legacy canonicalized both cases.</td>
+</tr>
+<tr>
+<td><code>postKernelOptions</code> still pushed raw</td>
+<td>Decision 1.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-test-plan">5. Test plan</h2>
+<h3 id="51-db-backed-cobblercommandtest-runs-on-the-agent-vm-ci">5.1 DB-backed (<code>CobblerCommandTest</code>, runs on the agent VM / CI)</h3>
+<p>Fixture: <code>CobblerCommandTestBase</code> (PostgreSQL + mocked cobbler connection).
+Assertions read the stored options back via <code>Profile.lookupById(...)</code> +
+<code>convertOptionsMap(prof.getKernelOptions().get())</code> — the same rendering the
+details UI uses (exact mechanics settled while implementing).</p>
+<ul>
+<li><strong>Normalization</strong> — <code>setKernelOptions("  opt1=val1   opt2  ")</code> → store →
+  profile options equal <code>opt1=val1 opt2</code>.</li>
+<li><strong>Quoting</strong> — <code>key="value with spaces"</code> round-trips with quotes preserved.</li>
+<li><strong>Legacy parity</strong> — <code>&lt;&lt;inherit&gt;&gt;</code> → <code>&lt;&lt;inherit&gt;&gt;</code>; <code>""</code> → <code>""</code>.</li>
+<li><strong>Idempotency</strong> — store twice (create, then edit round-trip) yields an
+  identical options string.</li>
+<li><strong>Post options untouched</strong> — <code>post_kernel_options</code> string stored verbatim
+  (incl. unnormalized spacing).</li>
+</ul>
+<p>The fixture&rsquo;s tree install type does not change the assertions
+(<code>profileOptions</code> is empty); routing is exercised implicitly — <code>store()</code> must
+not throw.</p>
+<h3 id="52-db-free">5.2 DB-free</h3>
+<p>None new: <code>KernelOptionsList</code> parse/serialize and factory routing are already
+covered by the step-1.1 suites. <code>KickstartHostHelper</code>&rsquo;s
+<code>UnknownHostException</code> fallback needs <code>rhn.conf</code>/<code>ConfigDefaults</code> on the
+classpath — covered by the DB-backed suite only (same note as step-1.2 §5.2).
+A tiny pure test for <code>canonicalize</code> may be added if it stays trivial;
+otherwise skip (no dead weight).</p>
+<h3 id="53-style-gates-local-sandbox">5.3 Style gates (local sandbox)</h3>
+<pre><code>mvn -f java compile checkstyle:checkstyle
+</code></pre>
+<p>Ant is no longer used for checkstyle (user decision 2026-10-08): the Maven
+checkstyle goal replaces the previous <code>ant manager-build.xml checkstyle</code> chain
+and the step-1.2 CLI audit workaround.</p>
+<h2 id="6-verification-on-the-agent-vm">6. Verification on the agent VM</h2>
+<p>Same protocol as step 1.2 §6 — single shared VM, record the usage window and
+deployed package versions in <code>agents-workbench/autoinstallation/session-log.md</code>.</p>
+<ol>
+<li>Coordinate the VM window; check <code>podman ps</code> state and
+   <code>podman exec uyuni-server rpm -q spacewalk-java</code> before/after.</li>
+<li>When the running Uyuni is not needed: <code>mgradm stop</code> (frees port 5432).</li>
+<li>Test DB per <code>java/Makefile.docker</code> flow: <code>uyuni-master-pgsql-4eclipse</code>
+   container with the worktree mounted at <code>/manager</code>; verify the branch
+   schema is loaded (incl. <code>opensuse16.1</code>).</li>
+<li>Run: <code>mvn -f java/core test -DskipTests=false
+   -Dtest='CobblerCommandTest,KernelOptions*Test,*KernelOptionsBuilder*Test'</code>
+   with <code>JAVA_HOME</code> at JDK 17.</li>
+<li>Afterwards: stop/remove the test container, <code>mgradm start</code>, record results
+   and versions in the session log.</li>
+</ol>
+<p>Full PXE/UI E2E regression stays with step 1.7 (mind the cobbler PR #177
+caveat, <code>00-goals.md</code> §5.1).</p>
+<h2 id="7-documentation-updates-implementation-session">7. Documentation updates (implementation session)</h2>
+<ul>
+<li><code>10-roadmap.md</code>: step 1.5 → DONE + changelog entry.</li>
+<li><code>20-kernel-options.md</code> §5.4: mark the profile path wired; note the
+  normalizations, the propagate-on-routing-failure semantics and the
+  post-options decision.</li>
+<li>Regenerate the presentation HTMLs: <code>.venv/bin/python autoinst_plan/build_html.py</code>.</li>
+<li>Session log entry in <code>agents-workbench/autoinstallation/session-log.md</code>.</li>
+</ul>
+<h2 id="8-out-of-scope">8. Out of scope</h2>
+<ul>
+<li>System path (<code>CobblerSystemCreateCommand#processKernelOptions</code>) — step 1.3.</li>
+<li>Initiate path (<code>KickstartInitiateAction#buildKernelOptions</code>) — step 1.4.</li>
+<li><code>KickstartCloneCommand</code> option copying (inventory item 12) — untouched.</li>
+<li><code>CobblerDistroSyncCommand#backsyncKernelOptions</code> reverse sync (item 9;
+  Phase 1 deferral stands).</li>
+<li>Wizard/SSM option resolution — dies with the wizard (step 2.6).</li>
+<li>Enabling <code>profileOptions</code> — G6 flip-switch (decision 5).</li>
+<li>Any UI/JSP or API change.</li>
+</ul>
+<h2 id="9-implementation-notes-2026-10-08">9. Implementation notes (2026-10-08)</h2>
+<ul>
+<li>Implementation followed §3: <code>KickstartHostHelper</code> added under
+  <code>com.redhat.rhn.manager.kickstart</code>, <code>BaseTreeEditOperation#getServerFqdn</code>
+  delegates to it, <code>CobblerProfileCommand#updateCobblerFields</code> routes the
+  user string through <code>KernelOptionsList</code> + the factory-routed (empty)
+  <code>profileOptions</code> merge.</li>
+<li><strong>Helper revision after the plan acknowledgment:</strong> the initial two-function
+  design (<code>canonicalize</code> + <code>localServerFqdn</code>) was replaced by a single
+  <code>getServerFqdn(String serverFqdn)</code> — a provided FQDN is canonicalized,
+  null/empty falls back to the configured Java hostname unchanged. Rationale:
+  &ldquo;local&rdquo; naming and canonicalizing the configured value could resolve to a
+  container-internal name instead of the external FQDN that has to be used.
+  Parity delta registered in §4. On review, the temporary
+  <code>BaseTreeEditOperation#getServerFqdn()</code> wrapper was dropped —
+  <code>applyDistroKernelOptions()</code> calls the helper directly.</li>
+<li>Test mechanics: the cobbler mock (<code>MockConnection</code>) stores string setter
+  values raw and interprets the literal <code>&lt;&lt;inherit&gt;&gt;</code> as inherit on read-back
+  and <code>""</code> as an empty dict — mirroring cobbler itself, so the parity
+  assertions of §5.1 are meaningful. String round-trips are asserted via
+  <code>assertEquals(expected, prof.getKernelOptions().get())</code> (the established
+  pattern, cf. <code>SystemHandlerProvisioningTest</code>). A dedicated
+  null-options test (<code>testProfileEditWithoutKernelOptions</code>) guards the
+  <code>if (kernelOptions != null)</code> skip used by all automated callers.</li>
+<li>The fixture tree (<code>CobblerCommandTestBase</code> → <code>KickstartableTreeTest</code>) carries
+  a real <code>rhnKSInstallType</code> row, so the factory routing in
+  <code>updateCobblerFields</code> never sees an unknown type — <code>ksData.getInstallType()</code>
+  is always non-null on the paths that set kernel options.</li>
+<li>Checkstyle: <code>mvn -f java compile checkstyle:checkstyle</code> clean (ant
+  toolchain dropped per user decision).</li>
+<li>Verification: local — 44 DB-free tests green (builder/factory/list +
+  step-1.2 merge) after the helper revision, checkstyle clean. Agent VM
+  (two windows: initial implementation ~20:30–20:40 CEST, helper revision
+  ~22:55–23:05 CEST): <code>mgradm stop</code> → dedicated <code>uyuni-test-pgsql</code> container
+  (worktree mounted at <code>/manager</code>, branch schema with <code>opensuse16.1</code> loaded)
+  → 67 tests green each time (<code>CobblerCommandTest</code> 16 incl. the 7 new
+  profile-options cases, 41 builder/factory/list, 10 tree-op) → container
+  removed, <code>mgradm start</code>, deployed stack healthy
+  (<code>spacewalk-java-5.3.1-260400.1.2.uyuni6.noarch</code>, unchanged). E2E PXE/UI
+  matrix stays with step 1.7.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-08 — created from planning round 4: wiring at the
+  <code>updateCobblerFields</code> convergence point; <code>postKernelOptions</code> untouched;
+  routing failures propagate; shared <code>KickstartHostHelper</code> extracted;
+  DB-backed test plan on the mocked-cobbler fixture.</li>
+<li>2026-10-08 — plan acknowledged with amendments: checkstyle runs via
+  <code>mvn -f java compile checkstyle:checkstyle</code> (ant toolchain dropped).</li>
+<li>2026-10-08 — implemented and verified: 67 tests green on the agent VM,
+  checkstyle clean. Status → DONE.</li>
+<li>2026-10-08 — helper revised per review: single
+  <code>KickstartHostHelper.getServerFqdn(String)</code> (provided → canonicalize,
+  null/empty → configured Java hostname unchanged); parity delta for the
+  blank-<code>serverName</code> tree path registered; re-verified (44 DB-free local,
+  67 DB-backed on the agent VM).</li>
+<li>2026-10-08 — indirection removed on review: no
+  <code>BaseTreeEditOperation#getServerFqdn()</code> wrapper; <code>applyDistroKernelOptions()</code>
+  calls the helper directly. Behavior identical; compile + checkstyle + 44
+  DB-free tests green locally (DB-backed coverage unchanged from the
+  same-day VM windows).</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>50-step-1.5-profile-path.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>
