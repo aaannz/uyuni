@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>95-step-3.2-saltboot-implementation — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">95-step-3.2-saltboot-implementation</p>
+<a class="h2" href="#1-verification-results-2026-10-19">1. Verification results (2026-10-19)</a>
+<a class="h2" href="#2-decisions-taken-in-this-step">2. Decisions taken in this step</a>
+<a class="h2" href="#3-work-cut">3. Work cut</a>
+<a class="h2" href="#4-verification-plan">4. Verification plan</a>
+<a class="h2" href="#5-results-2026-10-19">5. Results (2026-10-19)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-32-saltboot-java-domain-schema-api">Step 3.2 — Saltboot Java Domain, Schema, API</h1>
+<blockquote>
+<p>Implementation plan for roadmap step 3.2. Model, merge/resolution rules and
+migration mapping are fixed in <a href="90-step-3.1-saltboot-model.md"><code>90-step-3.1-saltboot-model.md</code></a>
+(§2–§5); this document records what verification added or changed and how
+the work is cut.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-19</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>DONE (E2E partial)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>90-step-3.1-saltboot-model.md</code>, <code>00-goals.md</code> §5.9</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-verification-results-2026-10-19">1. Verification results (2026-10-19)</h2>
+<p>Checked against the tree (<code>583440e9b18</code>) and <code>saltboot-formula</code> 1.1.0 on the
+agent VM (read-only). They refine the step 3.1 design:</p>
+<ul>
+<li><strong>More pillar keys are consumed than §1.1 listed.</strong> The execution engine
+  (<code>_states/saltboot.py</code>, <code>states/saltboot/init.sls</code>) reads: <code>partitioning</code>,
+  <code>images</code>, <code>boot_images</code>, <code>terminal_kernel_parameters</code>,
+  <code>saltboot:kernel_action</code> (<code>kexec</code>|<code>reboot</code>|<code>fail</code>), <code>saltboot:freeze_image</code>,
+  <code>saltboot:force_redeploy</code>, <code>saltboot:force_repartition</code>,
+  <code>saltboot:download_server</code> (image URL mangling, <code>_mangle_url</code>), plus
+  <code>custom_info:saltboot_*</code>. <code>pillar.get('saltboot') is not None</code> is also used
+  as a &ldquo;managed by the saltboot formula&rdquo; switch (skips the bundle-sync check),
+  so the generator <strong>always emits a <code>saltboot</code> dict</strong> for a resolved terminal.</li>
+<li>The <code>saltboot</code> formula form (<code>form.yml</code>) carries three values the design did
+  not model: top-level <code>terminal_kernel_parameters</code>, and under <code>saltboot:</code>
+  <code>kernel_action</code> and <code>freeze_image</code>. A lossless migration needs them →
+  <strong><code>suseSaltbootConfig</code> gains <code>terminal_kernel_parameters VARCHAR</code> and
+  <code>freeze_image BOOLEAN</code></strong>, both nullable (null = inherit, same rule as
+  <code>kernel_action</code>). Additive refinement of §2.2, no new decision.</li>
+<li>Partition enums from the form: <code>format</code> ∈ {btrfs, ext4, xfs, vfat, swap}
+  (blank allowed), <code>flags</code> ∈ {swap, raid, bios_grub, esp, boot} (blank
+  allowed), <code>disklabel</code> ∈ {gpt, msdos, none}, <code>type</code> ∈ {DISK, RAID}, RAID
+  <code>level</code> 1 only. Disk keys: <code>type device level devices disklabel partitions</code>
+  and, for <code>disklabel: none</code>, the partition fields directly on the disk.</li>
+<li><code>SaltbootUtils.deleteSaltbootDistro</code> §1.9 bug confirmed in code: the
+  <code>nameV</code> profile is re-pointed with <code>makeCobblerFilterName</code> instead of
+  <code>makeCobblerFilterNameV</code>.</li>
+<li><code>RegisterMinionEventMessageAction#prepareRetailMinionForSaltboot</code> already
+  calls the full <code>MinionPillarManager.generatePillar(minion)</code> after the group
+  assignment, so a generator in the full path covers registration.</li>
+<li>XML-RPC (redstone) has no <code>nil</code>, so tombstones (JSON <code>null</code>) cannot cross
+  the XML-RPC boundary: the API maps the string <code>$delete</code> to/from <code>null</code>.
+  Hibernate JSONB keeps real <code>null</code>s.</li>
+</ul>
+<h2 id="2-decisions-taken-in-this-step">2. Decisions taken in this step</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1</td>
+<td>While a saltboot formula applies, <code>SaltbootUtils</code> keeps reading the formula pillar; the domain is read when no formula pillar exists.</td>
+<td>Dual-write keeps both equal, but <code>download_server</code> (free text) vs proxy FK (may be unresolved) differ — formula-first preserves today&rsquo;s <code>MASTER=</code> exactly. Domain takes over on formula unassignment, as §4.2 intends.</td>
+</tr>
+<tr>
+<td>S2</td>
+<td>Permissions: config CRUD/list/get/assignments → <strong>Org Admin</strong> (partitioning may carry <code>luks_pass</code>); branch ops, terminal ops → permission on the target group/system (<code>FormulaUtil</code> checks, as formulas today).</td>
+<td>Closest to the formula permission model; configs are org-wide objects.</td>
+</tr>
+<tr>
+<td>S3</td>
+<td>API edits of a branch/config/assignment/terminal flag whose target still has a saltboot formula are refused with an explanatory fault (§4.2).</td>
+<td>Avoids silent no-ops: the domain generator is suppressed while a formula applies.</td>
+</tr>
+<tr>
+<td>S4</td>
+<td><code>saltboot</code> pillar category is stored as a <strong>minion pillar row</strong> written by <code>SaltbootPillarGenerator</code> (like the other generators) and added to the full path of <code>MinionPillarManager</code>.</td>
+<td><code>suma_minion.py</code> merges non-formula categories recursively; no Python change.</td>
+</tr>
+<tr>
+<td>S5</td>
+<td><code>resetSaltbootRedeployFlags</code> additionally clears the domain flags and regenerates the saltboot pillar.</td>
+<td>Flags moved to <code>SaltbootTerminal</code>; otherwise they would stay set forever.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-work-cut">3. Work cut</h2>
+<ol>
+<li><strong>Schema</strong> — four tables under <code>schema/spacewalk/common/tables/</code>,
+   <code>tables.deps</code>, idempotent <code>upgrade/next/</code> script (tables, migration task).</li>
+<li><strong>Domain</strong> — <code>com.suse.manager.autoinstallation.saltboot</code>: entities,
+   <code>SaltbootFactory</code>, DB-free <code>SaltbootConfigResolver</code> (merge, chain,
+   resolution), <code>SaltbootPartitioning</code> validation, <code>AnnotationRegistry</code>.</li>
+<li><strong>Pillar</strong> — <code>SaltbootPillarGenerator</code> + <code>MinionPillarManager</code> wiring.</li>
+<li><strong>Formula bridge</strong> — <code>SaltbootFormulaMapper</code> (formula data → domain),
+   <code>FormulaFactory</code> dual-write + unassign behavior, <code>SaltbootDomainMigration</code>
+   + <code>UpgradeCommand</code> task.</li>
+<li><strong>Cobbler adapter</strong> — <code>SaltbootUtils</code> reads branch settings from the
+   domain (S1); §1.9 fix; flag reset (S5).</li>
+<li><strong>API</strong> — <code>saltboot</code> XML-RPC namespace (<code>SaltbootHandler</code>), serializers
+   if needed, <code>HandlerFactory</code> registration.</li>
+<li><strong>Tests</strong> — DB-free resolver/merge/validation tests; DB-backed factory,
+   migration, dual-write, pillar-generator, handler tests (VM).</li>
+<li>Changelog fragment, status updates.</li>
+</ol>
+<h2 id="4-verification-plan">4. Verification plan</h2>
+<p>Local: <code>mvn -f java/core compile checkstyle:checkstyle</code>, DB-free unit tests.
+Agent VM (single shared, <code>AGENTS_CUSTOM.md</code> §3): DB-backed suites against the
+branch schema; record the deployed versions with the results.</p>
+<h2 id="5-results-2026-10-19">5. Results (2026-10-19)</h2>
+<ul>
+<li>Unit/integration: 155 tests (saltboot domain, pillar, manager, handler,
+  mapper, migration, utils) + 216 neighbouring (formula, notifications,
+  register-minion, SystemHandler, RBAC, upgrade) green against the branch
+  schema in the pgsql-4eclipse container; <code>upgrade/next</code> scripts re-applied
+  twice without error. Checkstyle: <code>mvn -o checkstyle:check
+  -Dcheckstyle.config.location=../buildconf/checkstyle.xml
+  -Dcheckstyle.suppressions.location=../buildconf/checkstyle-suppressions.xml
+  -Dcheckstyle.includeTestSourceDirectory=true</code> in <code>java/core</code> — 0 violations.</li>
+<li>Real server (spacewalk-java-5.3.1-260400.1.2.uyuni6 + overlaid branch
+  classes, <code>tasklist/validation/vm-deploy-core-overlay.sh</code>):
+  <code>tasklist/validation/saltboot_api_e2e.py</code> — config API incl. tombstone
+  marker, booleans, validation faults: 11/11 green. It then stops at
+  <code>systemgroup.create</code>: the VM DB has every default access group twice
+  (ids 7–12 from a manual data load on 2026-10-12), so
+  <code>AccessGroupFactory.lookupDefault</code> throws NonUniqueResult — unrelated to
+  this step. <strong>Open:</strong> dedupe those rows (<code>vm-dedupe-accessgroups.sh</code>, not
+  run — needs the user&rsquo;s go-ahead), rerun the script for branches, formula
+  dual-write, permissions and terminals.</li>
+<li>The stack currently runs the overlaid jar; restore with the stock jar in
+  <code>/root/overlay/rhn.stock.jar</code> on the VM (or recreate the container).</li>
+<li>Doc drift: <code>AGENTS_CUSTOM.md</code> §4 points to <code>AGENTS_XMLRPC.md</code>, which does
+  not exist in this checkout.</li>
+<li>Known limitations: dual-write overwrites a config shared with other
+  groups/children if the same group is later saved through the formula; the
+  migration only raises force flags; pillar generation adds ~2 queries per
+  group of a minion on every full pillar regeneration.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-19 — implemented and verified (results §5).</li>
+<li>2026-10-19 — plan written after verification; refinements S1–S5 and the two
+  extra config columns recorded.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>95-step-3.2-saltboot-implementation.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

@@ -22,8 +22,8 @@ multi-value kernel option container with string parsing (quoted values),
 `Map<String,Object>` ingestion (values may be `String` or `List<String>` —
 shaped for `CobblerObject#getResolvedKernelOptions()`), `setOption(key, value,
 replace)` plus `setOptionIfNotPresent` / `setFlagIfNotPresent` /
-`setOptionOrReplace`, `addOption(s)`, `addMissingOptions(other)`,
-`applyOverrides(other)`, `removeOption`, `hasOption(key[, value])`, `getValue`
+`addOption(s)`, `addMissingOptions(other)`,
+`removeOption`, `hasOption(key[, value])`, `getValue`
 and a `toString()` rendering `key` / `key=value` space-separated. Everything
 else in this document is to be built.
 

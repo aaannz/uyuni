@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>96-step-3.4a-saltboot-image-tree — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">96-step-3.4a-saltboot-image-tree</p>
+<a class="h2" href="#1-current-state-verified-2026-10-19-tree-3484a7e3ee9">1. Current state (verified 2026-10-19, tree 3484a7e3ee9)</a>
+<a class="h3" href="#11-table-and-entity">1.1 Table and entity</a>
+<a class="h3" href="#12-who-sees-trees-classification-of-every-lookup">1.2 Who sees trees — classification of every lookup</a>
+<a class="h3" href="#13-install-type">1.3 Install type</a>
+<a class="h3" href="#14-image-side">1.4 Image side</a>
+<a class="h2" href="#2-decisions">2. Decisions</a>
+<a class="h2" href="#3-design">3. Design</a>
+<a class="h3" href="#31-schema-additive-schemaspacewalkupgradenext-source-files">3.1 Schema (additive, schema/spacewalk/upgrade/next/ + source files)</a>
+<a class="h3" href="#32-domain">3.2 Domain</a>
+<a class="h3" href="#33-lifecycle">3.3 Lifecycle</a>
+<a class="h3" href="#34-xml-rpc-image-trees-t7">3.4 XML-RPC: image trees (T7)</a>
+<a class="h3" href="#35-not-in-this-step">3.5 Not in this step</a>
+<a class="h2" href="#4-tests">4. Tests</a>
+<a class="h2" href="#5-sessions">5. Sessions</a>
+<a class="h2" href="#5a-session-34a-1-implementation-plan">5a. Session 3.4a-1 — implementation plan</a>
+<a class="h3" href="#5a1-facts-checked-for-this-session">5a.1 Facts checked for this session</a>
+<a class="h3" href="#5a2-open-items-decided-user-2026-10-19-o1-a-o2-a">5a.2 Open items — decided (user, 2026-10-19): O1 (a), O2 (a)</a>
+<a class="h3" href="#5a3-work-items">5a.3 Work items</a>
+<a class="h3" href="#5a4-tests-and-verification">5a.4 Tests and verification</a>
+<a class="h2" href="#6-risks">6. Risks</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-34a-saltboot-distro-as-image-based-tree">Step 3.4a — Saltboot Distro as Image-Based Tree</h1>
+<blockquote>
+<p>Design for roadmap step 3.4a (<code>10-roadmap.md</code> Phase 3): every saltboot boot
+image gets a Java-side distro record — a <code>KickstartableTree</code> backed by an
+<code>ImageInfo</code> instead of a channel — with a dedicated <code>saltboot</code> install type.
+Prerequisite for step 3.4b (saltboot builder routed by install type,
+<a href="97-step-3.4b-saltboot-kernel-options.md"><code>97-step-3.4b-saltboot-kernel-options.md</code></a>)
+and a building block for the Cobbler exit (G6: Java-side record of
+kernel/initrd per bootable distro).</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-19</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>IN PROGRESS — session 3.4a-1 DONE 2026-10-20, 3.4a-2 open</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G3/§G5/§G6, §4 guardrails 4–6; <code>90-step-3.1-saltboot-model.md</code>; <code>20-kernel-options.md</code> §3</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-current-state-verified-2026-10-19-tree-3484a7e3ee9">1. Current state (verified 2026-10-19, tree <code>3484a7e3ee9</code>)</h2>
+<p>Java paths relative to <code>java/core/src/main/java/</code>.</p>
+<h3 id="11-table-and-entity">1.1 Table and entity</h3>
+<ul>
+<li><code>rhnKickstartableTree</code> (<code>schema/spacewalk/common/tables/rhnKickstartableTree.sql</code>):
+  <code>channel_id NUMERIC NOT NULL</code> (FK <code>rhnChannel</code> ON DELETE CASCADE),
+  <code>base_path NOT NULL</code>, <code>kstree_type NOT NULL</code> (<code>rhn-managed</code> |
+  <code>externally-managed</code>), <code>install_type NOT NULL</code>, <code>org_id</code> nullable (null =
+  vendor tree), <code>cobbler_id</code>, <code>kernel_options(_post)</code>; unique index
+  <code>rhn_kstree_oid_label_uq (org_id, label)</code>; trigger
+  <code>rhn_kstree_mod_trig</code> (timestamps only — unaffected).</li>
+<li>Dependent tables reference the tree only from kickstart objects:
+  <code>rhnKickstartDefaults.kstree_id</code>, <code>rhnKickstartSession.kstree_id</code>,
+  <code>rhnKSTreeFile.kstree_id</code>.</li>
+<li><code>com/redhat/rhn/domain/kickstart/KickstartableTree.java</code> (annotations):
+  <code>getDefaultKernelPaths()</code> / <code>getDefaultInitrdPaths()</code> / <code>getKernelXenPath()</code>
+  derive layout paths from <code>getChannel().getChannelArch()</code>;
+  <code>getKernelPath()</code> / <code>getInitrdPath()</code> probe them on disk.</li>
+</ul>
+<h3 id="12-who-sees-trees-classification-of-every-lookup">1.2 Who sees trees — classification of every lookup</h3>
+<table>
+<thead>
+<tr>
+<th>Lookup (<code>KickstartFactory</code>)</th>
+<th>Callers</th>
+<th>Image trees?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lookupKickstartTrees</code>, <code>listUnsyncedKickstartTrees</code></td>
+<td><code>CobblerDistroSyncCommand</code></td>
+<td><strong>excluded already</strong> (join on channel)</td>
+</tr>
+<tr>
+<td><code>lookupKickstartTreesByChannel*</code>, <code>lookupKickstartableTrees</code>, <code>getNewestTree</code>, <code>verifyTreeAssignment</code></td>
+<td>profile wizards, <code>CobblerSyncTask</code>, <code>KickstartTreeHandler.list</code></td>
+<td><strong>excluded already</strong> (by channel)</td>
+</tr>
+<tr>
+<td><code>lookupKickstartTreeByLabel(label[, org])</code></td>
+<td><code>DownloadFile</code>, <code>KickstartInitiateAction</code>, <code>BaseTreeAction</code>, tree ops, <code>KickstartHandler</code> ×4, <code>ProfileHandler</code>, <code>KickstartTreeHandler.getDetails</code></td>
+<td><strong>leaks</strong></td>
+</tr>
+<tr>
+<td><code>lookupKickstartTreeByIdAndOrg</code>, <code>findTreeById</code></td>
+<td>ACL handler, tree edit/delete ops, software edit, wizard helper, <code>KickstartEditCommand</code></td>
+<td><strong>leaks</strong></td>
+</tr>
+<tr>
+<td><code>listTreesByOrg</code>, <code>lookupAccessibleTreesByOrg</code></td>
+<td><code>ViewTreesAction</code> (distribution list), <code>KickstartLister</code>, <code>KickstartWizardHelper</code></td>
+<td><strong>leaks</strong></td>
+</tr>
+<tr>
+<td><code>lookupKickstartTreeByCobblerIdOrXenId</code></td>
+<td><code>CobblerProfileSyncCommand</code></td>
+<td>leaks only if <code>cobbler_id</code> is set (§3.4)</td>
+</tr>
+<tr>
+<td><code>listCandidatesForBacksync</code></td>
+<td><code>CobblerDistroSyncCommand</code></td>
+<td>leaks only if <code>cobbler_id</code> is set</td>
+</tr>
+<tr>
+<td><code>lookupKickstartInstallTypes</code></td>
+<td><code>BaseTreeAction</code> dropdown, <code>kickstart.tree.listInstallTypes</code></td>
+<td>would list <code>saltboot</code></td>
+</tr>
+<tr>
+<td><code>lookupKickstartInstallTypeByLabel</code></td>
+<td>tree create/edit (UI, XML-RPC)</td>
+<td>would accept <code>saltboot</code></td>
+</tr>
+</tbody>
+</table>
+<p>Outside the factory: <code>ChannelFactory</code> (by channel, safe), datasource modes in
+<code>General_queries.xml</code> (all join <code>rhnChannel</code> or <code>rhnKickstartDefaults</code>, safe).
+Python (<code>reposync.py</code>, ISS <code>iss.py</code>/<code>dumper.py</code>/<code>exportLib.py</code>/importlib,
+<code>contentRemove.py</code>, <code>rhnChannel.py</code>): every query is by <code>channel_id</code> → safe.
+<code>reposync.py</code> inserts org-owned trees under the <code>(org_id, label)</code> uniqueness
+that image trees share (T5) — a colliding label fails the insert (risk §6).</p>
+<h3 id="13-install-type">1.3 Install type</h3>
+<p><code>KickstartInstallType.getCobblerBreed()</code> returns <code>redhat</code> for any label that
+is neither <code>generic_rpm</code> nor SUSE; <code>getCobblerOsVersion()</code> falls back to
+<code>virtio26</code> for non-redhat/suse breeds. <code>isGeneric()</code> = label starts with
+<code>generic</code> (so <code>generic_rpm</code> routes to the RHEL builder and cannot be reused).
+<code>isRhel6OrGreater()</code>/<code>isRhel7OrGreater()</code> are true for any unknown label
+(only reachable from kickstart paths).</p>
+<h3 id="14-image-side">1.4 Image side</h3>
+<ul>
+<li>Saltboot distros are created when a Kiwi <code>pxe</code> image with a boot image and
+  no bundles is inspected (<code>ImageInspectAction:286-289</code> →
+  <code>SaltbootUtils.createSaltbootDistro(imageInfo)</code>) and by the cobbler
+  migration task (<code>SaltbootMigrationUtils.migrateSaltboot</code> →
+  <code>createSaltbootDistro(imageInfo, distros, con)</code>).</li>
+<li>Kernel/initrd are <code>ImageFile</code> rows (<code>type</code> = <code>kernel</code> / <code>initrd</code>), path =
+  <code>OSImageStoreUtils.getOSImageStorePathForImage(image)</code> + <code>ImageFile.file</code>;
+  arch = <code>ImageInfo.getImageArch()</code>.</li>
+<li>Deletion: <code>ImageInfoFactory.delete</code> → <code>SaltbootUtils.deleteSaltbootDistro</code>
+  → removes files → removes the <code>ImageInfo</code>.</li>
+</ul>
+<h2 id="2-decisions">2. Decisions</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>Same entity: <code>KickstartableTree</code> gets nullable <code>channel</code> and new nullable <code>image</code>; <strong>exactly one</strong> is set (CHECK).</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>New install type label <strong><code>saltboot</code></strong> (&ldquo;Saltboot image&rdquo;), cobbler breed <code>generic</code>; <code>generic_rpm</code> is not reused (it routes to the RHEL builder).</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T3</td>
+<td><code>base_path</code> = directory holding the image&rsquo;s kernel/initrd; kernel/initrd resolved from the <code>ImageFile</code> rows.</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T4</td>
+<td>Kickstart-facing lookups <strong>exclude image trees in the factory queries</strong> (<code>k.image IS NULL</code>); image trees get their own lookups. No change at the ~30 <code>getChannel()</code> call sites. Duplicate-label checks keep seeing <strong>all</strong> trees (one label space).</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>Tree labels stay unique per org across <strong>all</strong> trees (existing <code>rhn_kstree_oid_label_uq</code> unchanged). The generated tree of an image is labeled <code>name-version-revision</code> (unique per org for images). <strong>Several trees per image are allowed</strong> (generated + user-created).</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T6</td>
+<td><code>cobbler_id</code> stays <strong>NULL</strong> for image trees in this step: cobbler objects keep being found by the saltboot <code>:S:</code> names in <code>SaltbootUtils</code>; no cobbler sync/backsync path ever sees image trees (guardrail 4).</td>
+<td>user, round 9</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>Users may create <strong>their own image-based trees</strong>: install type <code>saltboot</code> + image id instead of channel + tree path. The legacy JSP distribution UI hides/rejects <code>saltboot</code> until the React UI (Phase 2 / 3.3) lands; existing XML-RPC <code>kickstart.tree.create/update</code> reject <code>saltboot</code> (<code>listInstallTypes</code> output unchanged — guardrail 5); <strong>new XML-RPC calls</strong> manage image trees with an image id parameter (§3.4).</td>
+<td>user, round 9</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-design">3. Design</h2>
+<h3 id="31-schema-additive-schemaspacewalkupgradenext-source-files">3.1 Schema (additive, <code>schema/spacewalk/upgrade/next/</code> + source files)</h3>
+<pre><code class="language-sql">ALTER TABLE rhnKickstartableTree ALTER COLUMN channel_id DROP NOT NULL;
+ALTER TABLE rhnKickstartableTree ADD COLUMN IF NOT EXISTS image_id NUMERIC
+    CONSTRAINT rhn_kstree_iid_fk REFERENCES suseImageInfo (id) ON DELETE CASCADE;
+ALTER TABLE rhnKickstartableTree ADD CONSTRAINT rhn_kstree_source_ck
+    CHECK (num_nonnulls(channel_id, image_id) = 1);          -- guarded for re-runs
+CREATE INDEX IF NOT EXISTS rhn_kstree_iid_idx ON rhnKickstartableTree (image_id);
+-- rhn_kstree_oid_label_uq (org_id, label) stays as is (T5)
+INSERT INTO rhnKSInstallType (id, label, name)
+    SELECT sequence_nextval('rhn_ksinstalltype_id_seq'), 'saltboot', 'Saltboot image'
+    WHERE NOT EXISTS (SELECT 1 FROM rhnKSInstallType WHERE label = 'saltboot');
+</code></pre>
+<ul>
+<li>Source updates: <code>tables/rhnKickstartableTree.sql</code> (column, check, indexes),
+  <code>tables.deps</code> (<code>rhnKickstartableTree</code> now depends on <code>suseImageInfo</code> —
+  verify no dependency cycle in blend ordering), <code>data/rhnKSInstallType.sql</code>.</li>
+<li>Every statement idempotent (<code>upgrade/next</code> re-applies on each start until
+  release, <code>90-…</code> §4.1); the CHECK is added via a <code>DO</code> block checking
+  <code>pg_constraint</code>.</li>
+<li><code>suseImageInfo.id</code> FK target type: verify (<code>NUMERIC</code> vs <code>BIGINT</code>) and match.</li>
+<li>No reportdb impact (no tree table in <code>schema/reportdb</code>) — verify.</li>
+</ul>
+<h3 id="32-domain">3.2 Domain</h3>
+<ul>
+<li><code>KickstartInstallType</code>: <code>SALTBOOT = "saltboot"</code>, <code>isSaltboot()</code>;
+  <code>getCobblerBreed()</code> → <code>generic</code> for saltboot (explicit branch next to
+  <code>generic_rpm</code>). RHEL predicates left as they are (§1.3, unreachable).</li>
+<li><code>KickstartableTree</code>: <code>@ManyToOne(fetch = LAZY) @JoinColumn(name =
+  "image_id") ImageInfo image</code> + getter/setter; <code>isImageTree()</code>.
+  For image trees: <code>getKernelPath()</code> / <code>getInitrdPath()</code> return
+  <code>getAbsolutePath()</code>-based paths of the <code>kernel</code>/<code>initrd</code> <code>ImageFile</code>
+  (no layout probing, no channel access); <code>getDefaultKernelPaths()</code> /
+  <code>getDefaultInitrdPaths()</code> return those single paths; <code>getKernelXenPath()</code>
+  / <code>getInitrdXenPath()</code> return null. Arch helper <code>getArchLabel()</code>-style
+  accessors are <strong>not</strong> added unless a 3.4a caller needs them (scope rule).</li>
+<li><code>KickstartFactory</code>:</li>
+<li>add <code>AND k.image IS NULL</code> to <code>lookupKickstartTreeByLabel</code> (both),
+    <code>lookupKickstartTreeByIdAndOrg</code>, <code>findTreeById</code>, <code>listTreesByOrg</code>,
+    <code>lookupAccessibleTreesByOrg</code>, <code>lookupKickstartTreeByCobblerIdOrXenId</code>,
+    <code>listCandidatesForBacksync</code> (the last two defensive, T6);</li>
+<li><code>lookupKickstartInstallTypes()</code> excludes <code>saltboot</code> (T7);</li>
+<li>image-tree lookups: <code>lookupImageTreeByLabel(label, org)</code>,
+    <code>listImageTrees(ImageInfo)</code>, <code>listImageTreesByOrg(org)</code>;</li>
+<li>unfiltered <code>treeLabelExists(label, org)</code> used by every duplicate-label
+    check (<code>TreeCreateOperation</code>, the UI/XML-RPC rename paths, the new image
+    tree calls) — one label space (T4/T5); exact call sites listed at
+    implementation start.</li>
+<li>T7 rejection: <code>BaseTreeAction#processCommandSetters</code> (step-1.8 guard
+  already returns <code>kickstart.tree.invalidinstalltype</code> for unresolved types —
+  extend to <code>isSaltboot()</code>), XML-RPC <code>KickstartTreeHandler.create/update</code>
+  (same <code>InvalidKickstartTreeException</code>-style fault as an unknown type).</li>
+<li><code>KernelOptionsBuilderFactory</code>: <strong>no change in 3.4a</strong> — <code>saltboot</code> routing
+  lands in 3.4b with the builder. Until then <code>getBuilder(saltboot)</code> throws
+  <code>KernelOptionsBuilderException</code> (unknown-type rule), and no 3.4a path calls
+  it for image trees.</li>
+</ul>
+<h3 id="33-lifecycle">3.3 Lifecycle</h3>
+<p>Two kinds of image trees, no flag column: the <strong>generated</strong> tree of an image
+is the one whose label equals the image&rsquo;s generated label
+(<code>name-version-revision</code>); every other image tree is <strong>user-created</strong>.</p>
+<ul>
+<li><strong>Generated — create:</strong> <code>SaltbootUtils.createSaltbootDistro(imageInfo,
+  distros, con)</code> first ensures the generated tree (before its early return
+  for an existing distro), so both callers — inspect and the cobbler
+  migration — create it: label = <code>name-version-revision</code>, org = image org,
+  <code>install_type</code> = <code>saltboot</code>, <code>kstree_type</code> = <code>externally-managed</code>,
+  <code>base_path</code> = parent dir of the kernel/initrd paths (T3; error if they
+  differ), <code>image</code> = imageInfo. Missing kernel/initrd → existing
+  <code>SaltbootException</code>, no tree. If the label is taken by another tree
+  (§6), is longer than 64 characters or does not match the image-tree label
+  rule <code>^[-_.0-9A-Za-z]{1,64}$</code> (O1/O2, §5a.2), the tree is skipped with a
+  warning — the cobbler distro is still created as today. The same rule
+  validates user-created image tree labels (§3.4).</li>
+<li><strong>Generated — delete:</strong> only together with its image. The new delete call
+  refuses it (it mirrors the cobbler distro, which lives as long as the
+  image).</li>
+<li><strong>User-created:</strong> created/updated/deleted through the new API (§3.4) —
+  pure data in this step (T6: no cobbler object; consumers arrive with 3.4b
+  / the trigger model 3.5 / G6). Optional <code>kernel_options(_post)</code> are stored
+  as typed.</li>
+<li><strong>Image deletion:</strong> <code>ImageInfoFactory.delete</code> removes all trees of the
+  image explicitly (keeps the Hibernate session consistent) before removing
+  the <code>ImageInfo</code>; the FK cascade is the safety net. Image trees are never
+  referenced by kickstart profiles/sessions (the filtered lookups never hand
+  them out), so no <code>rhnKickstartDefaults</code> FK blocks the delete.</li>
+<li><strong>Migration of existing images:</strong> new <code>UpgradeCommand</code> task
+  <code>upgrade_satellite_create_saltboot_trees</code> queued idempotently from
+  <code>upgrade/next</code>; it ensures the generated tree for every Kiwi image that has
+  both <code>kernel</code> and <code>initrd</code> files and no <code>bundle</code> file (the inspect
+  condition). No cobbler access needed (T6) → runs synchronously in
+  <code>upgrade()</code>, like <code>MIGRATE_SALTBOOT_DOMAIN</code>.</li>
+</ul>
+<h3 id="34-xml-rpc-image-trees-t7">3.4 XML-RPC: image trees (T7)</h3>
+<p>New calls in the <code>kickstart.tree</code> namespace (handler
+<code>KickstartTreeHandler</code>, <code>@apidoc</code> like the existing calls), all org-scoped,
+same permission as the existing tree calls (verify at implementation start):</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>createFromImage(treeLabel, imageId, installType, kernelOptions, kernelOptionsPost)</code></td>
+<td><code>installType</code> must be an image-based type — only <code>saltboot</code> today (keeps the call usable for G5 image types, e.g. combustion, without a new signature); image must belong to the org and have <code>kernel</code> + <code>initrd</code> files; duplicate label → existing duplicate-label fault. Overload without the option strings.</td>
+</tr>
+<tr>
+<td><code>listImageTrees()</code> / <code>listImageTrees(imageId)</code></td>
+<td>label, image id, install type, kernel options</td>
+</tr>
+<tr>
+<td><code>getImageTreeDetails(treeLabel)</code></td>
+<td>new serializer for image trees (the existing <code>KickstartTreeSerializer</code> dereferences the channel and stays untouched)</td>
+</tr>
+<tr>
+<td><code>updateImageTree(treeLabel, kernelOptions, kernelOptionsPost)</code></td>
+<td>options only; image and type are fixed</td>
+</tr>
+<tr>
+<td><code>deleteImageTree(treeLabel)</code></td>
+<td>refuses the generated tree (§3.3)</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Existing <code>create</code>/<code>update</code> reject <code>saltboot</code> with the unknown-install-type
+  fault; existing <code>getDetails</code>/<code>delete</code>/<code>rename</code>/<code>list*</code> never see image
+  trees (T4) — their behavior and output are unchanged (guardrail 5).</li>
+<li>New endpoints need RBAC rows (<code>schema/spacewalk/common/data/endpoint.sql</code>,
+  <code>endpointNamespace.sql</code> + an <code>upgrade/next</code> script), following step 3.2&rsquo;s
+  <code>020-saltboot-api-endpoints.sql</code>.</li>
+<li>Image trees stay invisible in the JSP UI (distribution list filtered by
+  T4, install type hidden by T7) until the React UI.</li>
+</ul>
+<h3 id="35-not-in-this-step">3.5 Not in this step</h3>
+<ul>
+<li>Saltboot builder and factory routing, computed distro options merged into
+  <code>kernel_options</code> — 3.4b.</li>
+<li>Cobbler objects for user-created trees, pointing cobbler objects at trees
+  (<code>cobbler_id</code>), deriving cobbler names from trees — G6 seam (step 5.1).</li>
+<li>Selecting a tree from a branch/config (which tree a terminal boots) —
+  trigger model 3.5 / UI 3.3.</li>
+<li>UI for image trees — 3.3 / Phase 2 UI.</li>
+</ul>
+<h2 id="4-tests">4. Tests</h2>
+<ul>
+<li><strong>DB-free:</strong> <code>KickstartInstallType</code> saltboot predicate + breed/os-version;
+  <code>KickstartableTree</code> image kernel/initrd path resolution (mocked
+  <code>ImageInfo</code>/<code>ImageFile</code>).</li>
+<li><strong>DB-backed:</strong> upgrade script applied twice; CHECK rejects none/both
+  sources; one label space (kickstart tree create/rename rejects a label
+  used by an image tree with the normal duplicate fault, and vice versa);
+  every filtered lookup ignores an image tree (label, id, org lists, cobbler
+  id, backsync); install type hidden from the list and rejected by tree
+  create/update (UI action + XML-RPC); generated tree on inspect /
+  <code>createSaltbootDistro</code> (incl. existing-distro early return, label
+  collision skip); several trees per image; all trees deleted with the
+  image; migration idempotency; new XML-RPC calls (<code>KickstartTreeHandlerTest</code>:
+  create incl. foreign-org image / image without kernel / non-image install
+  type / duplicate label, list, details, update, delete incl. generated-tree
+  refusal) + RBAC rows; regression: tree-op suites,
+  <code>KickstartTreeHandlerTest</code>, <code>CobblerDistroSyncCommand</code>/<code>CobblerSyncTask</code>
+  tests, saltboot suites (<code>SaltbootUtilsTest</code>, <code>SaltbootMigrationUtilsTest</code>,
+  <code>PXEEventTest</code>), <code>ImageInfoFactoryTest</code>, <code>ImageInspectActionTest</code> (if
+  present).</li>
+<li>Checkstyle main + tests.</li>
+</ul>
+<h2 id="5-sessions">5. Sessions</h2>
+<ol>
+<li><strong>3.4a-1</strong> — schema + upgrade script, install type, entity, factory
+   filters/lookups + unfiltered label check, T7 guards on the existing
+   UI/XML-RPC, DB-free + DB-backed tests.</li>
+<li><strong>3.4a-2</strong> — lifecycle (generated tree on create, deletion with the
+   image), upgrade migration task, new image-tree XML-RPC calls + RBAC rows,
+   E2E on the agent VM: upgrade on a stack with existing pxe images
+   (generated trees created, distribution list and existing XML-RPC output
+   unchanged), image-tree API round trip.</li>
+<li><strong>3.4b</strong> — builder work (<code>97-…</code>), routed by the <code>saltboot</code> install type.</li>
+</ol>
+<h2 id="5a-session-34a-1-implementation-plan">5a. Session 3.4a-1 — implementation plan</h2>
+<p>Verified against tree <code>3484a7e3ee9</code> (2026-10-19). Java paths relative to
+<code>java/core/src/</code>.</p>
+<h3 id="5a1-facts-checked-for-this-session">5a.1 Facts checked for this session</h3>
+<ul>
+<li><code>suseImageInfo.id</code> is <code>NUMERIC</code> → <code>image_id NUMERIC</code> matches.
+  <code>tables.deps</code>: <code>rhnKickstartableTree :: rhnChannel rhnKSTreeType
+  web_customer …</code>; <code>suseImageInfo</code> depends on <code>rhnServerAction
+  suseImageProfile suseImageStore suseMinionInfo …</code> — none of these depend on
+  <code>rhnKickstartableTree</code>, so adding <code>suseImageInfo</code> is cycle-free (confirmed
+  by the blend build, §5a.4).</li>
+<li><code>upgrade/next/</code> holds <code>001-…</code>, <code>010-…</code>, <code>020-…</code> → new script
+  <code>030-saltboot-image-tree.sql</code>.</li>
+<li>Duplicate-label checks today: <code>TreeCreateOperation#store</code> and
+  <code>BaseTreeAction#processCommandSetters</code> (label change in the UI), both via
+  <code>lookupKickstartTreeByLabel</code>. XML-RPC <code>create</code> goes through
+  <code>TreeCreateOperation</code>. XML-RPC <code>rename</code> has <strong>no</strong> duplicate check (a clash
+  ends in the DB constraint) — pre-existing, left as is.</li>
+<li>Install-type resolution from user input: only
+  <code>BaseTreeAction#processCommandSetters</code> (step-1.8 guard) and
+  <code>KickstartTreeHandler#getInstallType</code> (used by <code>create</code> and <code>update</code>,
+  throws <code>NoSuchKickstartInstallTypeException</code>).</li>
+<li><code>lookupKickstartInstallTypes()</code> is a cacheable HQL list — callers:
+  <code>BaseTreeAction</code> dropdown, <code>kickstart.tree.listInstallTypes</code>.</li>
+<li>Kickstart label rule <code>VALIDATE_LABEL_REGEX = ^[-_0-9A-Za-z]{1,255}$</code>
+  (no dots); column <code>label VARCHAR(64)</code>; <code>suseImageInfo.name</code> and <code>version</code>
+  are <code>VARCHAR(128)</code> each → see open items O1/O2.</li>
+<li>Test homes: <code>KickstartFactoryTest</code> (<code>domain/kickstart/factory</code>),
+  <code>KickstartableTreeTest</code>, <code>KickstartInstallTypeTest</code>, tree-op suites
+  (<code>manager/kickstart/tree</code>), <code>BaseTreeActionTest</code>, <code>KickstartTreeHandlerTest</code>;
+  image fixtures via <code>ImageTestUtils.createImageInfo(…)</code> +
+  <code>createImageFile(image, filename, type)</code>.</li>
+</ul>
+<h3 id="5a2-open-items-decided-user-2026-10-19-o1-a-o2-a">5a.2 Open items — decided (user, 2026-10-19): <strong>O1 (a), O2 (a)</strong></h3>
+<p>Label column stays <code>VARCHAR(64)</code> for now; a generated label longer than 64
+skips the generated tree with a warning. Image trees use their own label rule
+<code>^[-_.0-9A-Za-z]{1,64}$</code> (dots allowed); the generated label is the exact
+<code>name-version-revision</code>. Both are implemented in 3.4a-2 (image-tree create
+path); 3.4a-1 is unaffected.</p>
+<ul>
+<li><strong>O1 — label length.</strong> Generated labels <code>name-version-revision</code> can exceed
+  <code>VARCHAR(64)</code>. Options: (a) keep 64, skip the generated tree with a warning
+  when too long (typical <code>POS_Image_JeOS7-7.1.0-3</code> is ~25 chars); (b) widen
+  <code>label</code> to 256 in this session&rsquo;s script (also matches the 255 in the regex;
+  check ISS export/import and UI field lengths). Recommendation: (a), as long
+  as no real-world image names exceed it.</li>
+<li><strong>O2 — dots in labels.</strong> Image versions contain dots, the kickstart label
+  rule forbids them. Options: (a) image trees get their own rule
+  <code>^[-_.0-9A-Za-z]{1,64}$</code> (no DB constraint exists; image trees are never
+  served under <code>/ks/dist/&lt;label&gt;</code>), generated label = exact
+  <code>name-version-revision</code>; (b) sanitize dots to <code>_</code> in the generated label
+  and keep one rule. Recommendation: (a) — the label stays the recognizable
+  image identity and matches the saltboot cobbler names. Affects 3.4a-2 code
+  only (the rule lives with the image-tree create path), decided now.</li>
+</ul>
+<h3 id="5a3-work-items">5a.3 Work items</h3>
+<ol>
+<li><strong>Schema</strong>
+   * <code>schema/spacewalk/common/tables/rhnKickstartableTree.sql</code>: <code>channel_id</code>
+     nullable; <code>image_id NUMERIC</code> + FK <code>rhn_kstree_iid_fk</code> → <code>suseImageInfo</code>
+     ON DELETE CASCADE; CHECK <code>rhn_kstree_source_ck
+     (num_nonnulls(channel_id, image_id) = 1)</code>; index <code>rhn_kstree_iid_idx</code>.
+   * <code>tables.deps</code>: add <code>suseImageInfo</code> to <code>rhnKickstartableTree</code>.
+   * <code>schema/spacewalk/common/data/rhnKSInstallType.sql</code>: <code>saltboot</code> /
+     <code>Saltboot image</code>.
+   * <code>schema/spacewalk/upgrade/next/030-saltboot-image-tree.sql</code>: §3.1,
+     every statement idempotent (CHECK via <code>DO</code> block on <code>pg_constraint</code>).
+   * <code>susemanager-schema.changes.oholecek.saltboot_image_tree</code>.</li>
+<li><strong>Install type</strong> (<code>main/java/com/redhat/rhn/domain/kickstart/KickstartInstallType.java</code>):
+   <code>SALTBOOT</code> constant, <code>isSaltboot()</code>, <code>getCobblerBreed()</code> → <code>generic</code>.</li>
+<li><strong>Entity</strong> (<code>KickstartableTree.java</code>): <code>image</code> (<code>@ManyToOne(fetch = LAZY)
+   @JoinColumn(name = "image_id")</code>), getter/setter, <code>isImageTree()</code>; image
+   branch in <code>getDefaultKernelPaths()</code> / <code>getDefaultInitrdPaths()</code> (single
+   path of the <code>kernel</code> / <code>initrd</code> <code>ImageFile</code>, same expression as
+   <code>createSaltbootDistro</code>: store path for the image + <code>ImageFile.file</code>) so
+   <code>getKernelPath()</code> / <code>getInitrdPath()</code> work unchanged; <code>getKernelXenPath()</code>
+   / <code>getInitrdXenPath()</code> return null for image trees. Missing file →
+   <code>getDefault*Paths()</code> returns an empty array → existing
+   <code>INVALID_KERNEL</code> / <code>INVALID_INITRD</code> validator error.</li>
+<li><strong>Factory</strong> (<code>KickstartFactory.java</code>):
+   * <code>AND k.image IS NULL</code> in <code>lookupKickstartTreeByLabel</code> (both),
+     <code>lookupKickstartTreeByIdAndOrg</code>, <code>findTreeById</code>, <code>listTreesByOrg</code>,
+     <code>lookupAccessibleTreesByOrg</code>, <code>lookupKickstartTreeByCobblerIdOrXenId</code>,
+     <code>listCandidatesForBacksync</code> (criteria <code>isNull(root.get("image"))</code>);
+   * <code>lookupKickstartInstallTypes()</code> → <code>WHERE t.label &lt;&gt; 'saltboot'</code>;
+   * new <code>treeLabelExists(String label, Org org)</code> (unfiltered),
+     <code>lookupImageTreeByLabel(label, org)</code>, <code>listImageTrees(ImageInfo)</code>,
+     <code>listImageTreesByOrg(Org)</code>.</li>
+<li><strong>Duplicate-label checks</strong> → <code>treeLabelExists</code> in <code>TreeCreateOperation#store</code>
+   and <code>BaseTreeAction#processCommandSetters</code> (error keys unchanged:
+   <code>distribution.tree.exists</code>).</li>
+<li><strong>T7 guards on existing paths:</strong> <code>BaseTreeAction#processCommandSetters</code>
+   treats <code>saltboot</code> like an unresolved type (<code>kickstart.tree.invalidinstalltype</code>);
+   <code>KickstartTreeHandler#getInstallType</code> throws
+   <code>NoSuchKickstartInstallTypeException</code> for <code>saltboot</code>.</li>
+<li><code>spacewalk-java.changes.oholecek.saltboot_image_tree</code>.</li>
+</ol>
+<p>Not in this session: lifecycle hooks, migration task, new XML-RPC calls,
+label rule for image trees (3.4a-2).</p>
+<h3 id="5a4-tests-and-verification">5a.4 Tests and verification</h3>
+<ul>
+<li><strong>DB-free:</strong> <code>KickstartInstallTypeTest</code> — <code>isSaltboot()</code>, breed <code>generic</code>,
+  os version <code>virtio26</code>, saltboot is neither SUSE nor generic (factory
+  precedence stays safe).</li>
+<li><strong>DB-backed</strong> (agent VM, pgsql-4eclipse container with the branch schema,
+  <code>AGENTS_CUSTOM.md</code> §3):</li>
+<li><code>KickstartableTreeTest</code> — image tree persists with <code>channel</code> null;
+    kernel/initrd paths from <code>ImageFile</code>; missing kernel → validator error;
+    CHECK rejects a tree with both or neither source (flush → constraint
+    violation).</li>
+<li><code>KickstartFactoryTest</code> — each filtered lookup ignores an image tree with
+    the same label/org/cobbler id as the query; install-type list lacks
+    <code>saltboot</code>; <code>treeLabelExists</code> sees both kinds; image-tree lookups;
+    image deletion cascades the tree at DB level.</li>
+<li><code>TreeCreateOperationTest</code> / <code>BaseTreeActionTest</code> — kickstart tree with an
+    image-tree label → <code>distribution.tree.exists</code>; <code>saltboot</code> install type →
+    <code>kickstart.tree.invalidinstalltype</code>.</li>
+<li><code>KickstartTreeHandlerTest</code> — <code>create</code>/<code>update</code> with <code>saltboot</code> →
+    <code>NoSuchKickstartInstallTypeException</code>; <code>listInstallTypes</code> unchanged;
+    <code>getDetails</code>/<code>delete</code>/<code>rename</code> on an image-tree label → not found.</li>
+<li>Regression: tree-op suites, <code>BaseTreeEditOperationKernelOptionsTest</code>,
+    <code>CobblerDistroSyncCommand</code>/<code>CobblerSyncTask</code> tests, saltboot suites,
+    builder/factory/list suites (<code>20-kernel-options.md</code> §9.3).</li>
+<li>Schema: <code>make -C schema/spacewalk/postgres main</code> (blend order, no cycle; do
+  not commit <code>main.sql</code>), <code>030-…</code> applied twice on the test DB.</li>
+<li><code>mvn -f java compile</code>, checkstyle main + tests (command in <code>95-…</code> §5).</li>
+</ul>
+<h2 id="6-risks">6. Risks</h2>
+<ul>
+<li><strong>Unknown leak sites</strong> — any future HQL over <code>KickstartableTree</code> that does
+  not go through the filtered factory methods sees image trees; mitigated by
+  the review list in §1.2 and a test per filtered lookup; reconsider a
+  Hibernate-level split (<code>@SQLRestriction</code>) if leaks accumulate.</li>
+<li><strong>Shared label space</strong> — a later reposync of a custom (org-owned) tree
+  whose label equals an image tree label fails on the unique index (vendor
+  trees have <code>org_id</code> NULL and never collide). Image labels
+  (<code>name-version-revision</code>) and distro labels rarely overlap; accepted, and
+  the generated-tree path skips instead of failing (§3.3).</li>
+<li><strong>blend dependency order</strong> — <code>rhnKickstartableTree</code> → <code>suseImageInfo</code>;
+  check <code>tables.deps</code> for cycles before relying on it.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-19 — planning round 9: step 3.4 split into 3.4a (this) and 3.4b;
+  survey of tree lookups/Python consumers/install type done; T1–T3 by the
+  user, T4–T7 proposed.</li>
+<li>2026-10-19 — review: T4/T6 acked; T5 revised (one label space across all
+  trees, no per-image uniqueness, generated label <code>name-version-revision</code>);
+  T7 revised (user-created image trees; JSP hides <code>saltboot</code>, existing
+  XML-RPC rejects it, new <code>kickstart.tree</code> image-tree calls with an image id
+  parameter, §3.4); unfiltered duplicate-label check added. All T decisions
+  now locked.</li>
+<li>2026-10-19 — session 3.4a-1 planned (§5a): facts verified (FK type, deps,
+  duplicate-label and install-type entry points, test homes); open items O1
+  (label length) and O2 (dots in image-tree labels) raised.</li>
+<li>2026-10-19 — O1 (a) keep 64 chars, skip too-long generated labels; O2 (a)
+  image trees allow dots (own label rule). Session 3.4a-1 ready to start.</li>
+<li>2026-10-20 — session 3.4a-1 implemented as planned in §5a.3 (items 1–7).
+  Deviations/notes: <code>treeLabelExists</code> also matches vendor trees
+  (<code>org IS NULL</code>) to keep the old duplicate-check semantics;
+  <code>findTreeById</code> returns null for image trees explicitly;
+  <code>KickstartableTree#pathExists</code> is null-safe (image trees have no Xen
+  paths). Tests: new <code>KickstartImageTreeTest</code> (10), additions in
+  <code>KickstartInstallTypeTest</code>, <code>TreeCreateOperationTest</code>, <code>BaseTreeActionTest</code>,
+  <code>KickstartTreeHandlerTest</code>, fixtures <code>KickstartTestUtils#createSaltbootImage</code>
+  / <code>#createImageTree</code>. Agent VM (<code>mgradm stop</code> → pgsql-4eclipse container
+  with the branch schema, stack restored afterwards): 65 + 179 tests green;
+  upgrade script applied twice and replayed on a rebuilt pre-change schema.
+  VM caveat: its <code>~/.m2</code> is stale against the branch poms (jackson 2.18.9 vs
+  2.18.11, branding 5.3.1 vs 5.3.2, older servlet API) and central is
+  blocked — verification used VM-copy-only pins of those versions and two
+  <code>@Override</code> removals in unrelated test mocks (reverted; nothing committed).
+  Local sandbox cannot run Maven (exec/jar plugins not cached).</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>96-step-3.4a-saltboot-image-tree.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

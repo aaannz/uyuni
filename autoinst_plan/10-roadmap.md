@@ -290,7 +290,45 @@ before starting any step here.
 * Saltboot area inside the new autoinstallation UI: deployment profiles,
   group/terminal targeting, image selection, status; formula form replaced.
 
-### Step 3.4 — PXE/kernel options via builders (status: NOT STARTED)
+### Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)
+
+Split into sub-steps across sessions (planning round 9):
+
+#### Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20)
+
+* Design: [`96-step-3.4a-saltboot-image-tree.md`](96-step-3.4a-saltboot-image-tree.md)
+  — `KickstartableTree` with nullable `channel_id` + new `image_id`
+  (exactly one set), `saltboot` install type (cobbler breed `generic`),
+  `base_path` = image dir, kernel/initrd from `ImageFile`; kickstart-facing
+  factory lookups exclude image trees (one shared label space); a generated
+  tree (`name-version-revision`) per image plus user-created image trees via
+  new `kickstart.tree` XML-RPC calls taking an image id (existing calls
+  reject `saltboot`, JSP UI hides it); deleted with the image; upgrade task
+  for existing images. Java-side distro record for the Cobbler exit (G6).
+  Decisions T1–T7 locked; labels stay ≤ 64 chars, image-tree labels allow
+  dots (O1/O2). Session 3.4a-1 planned in the step doc §5a.
+* Sessions: 3.4a-1 (schema, install type, entity, lookup filters, guards,
+  tests), 3.4a-2 (lifecycle, migration task, image-tree API, VM E2E).
+* 3.4a-1 implemented per the step doc §5a: schema + idempotent `030-` upgrade
+  script, `saltboot` install type (breed `generic`), `KickstartableTree.image`,
+  image-based kernel/initrd paths, `image IS NULL` filters on the kickstart
+  lookups, install-type list filter, unfiltered `treeLabelExists`, image-tree
+  lookups, T7 guards (UI action + XML-RPC). Verified on the agent VM: 65 + 179
+  tests green incl. 10 new `KickstartImageTreeTest`, upgrade script applied
+  twice and replayed on a rebuilt pre-change schema, checkstyle clean for the
+  changed files.
+
+#### Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)
+
+* Plan: [`97-step-3.4b-saltboot-kernel-options.md`](97-step-3.4b-saltboot-kernel-options.md)
+  — `SaltbootKernelOptionsBuilder` joins the `KernelOptionsBuilder` interface,
+  routed by the `saltboot` install type (3.4a), `distroOptions(imageTree)`;
+  branch/terminal bound at construction (proxy FQDN + proxy creator as
+  user); `pxe_update` persists into `SaltbootTerminal` first; system records
+  recompute branch options (no cobbler read-back); cobbler transport stays
+  a `Map` (decisions K1–K5).
+
+Original step scope:
 
 * Route `SaltbootUtils`/`PXEEventMessageAction` option construction
   (`panic=60 splash=silent`, per-terminal params, master/minion prefixes)
@@ -586,3 +624,23 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   §5.9. Verification correction recorded: today's formula merge replaces
   `edit-group` values and keeps one group's data per formula. Design:
   `90-step-3.1-saltboot-model.md`. Status → DONE (design only, no code).
+* 2026-10-19 — planning round 9 (step 3.3 skipped, React UI not done; step
+  3.4 design): saltboot builder joins the `KernelOptionsBuilder` interface
+  (bound context, no signature change), builder user = creator of the proxy,
+  terminal options from a persisted `SaltbootTerminal` (part of the 3.5
+  hand-off pulled forward), recomputed branch options on system records,
+  `Map` transport kept. Doc drift recorded: `KernelOptionsList#applyOverrides`
+  listed in `20-kernel-options.md` §1 does not exist. Design:
+  `97-step-3.4b-saltboot-kernel-options.md`. Status → IN PROGRESS.
+* 2026-10-19 — planning round 9, continued: user decision to give saltboot
+  distros a Java-side representation now (Cobbler exit needs it) — step 3.4
+  split into **3.4a** (image-based `KickstartableTree`: nullable
+  `channel_id` + `image_id`, `saltboot` install type, breed `generic`) and
+  **3.4b** (builder, now routed by install type). `generic_rpm` rejected
+  (routes to the RHEL builder). Survey: Python consumers and cobbler sync
+  queries are channel-scoped (safe); 7 Java lookups and the install-type
+  list need image-tree filters; reposync's `(org_id, label)` uniqueness
+  motivates a partial label index. Design: `96-step-3.4a-saltboot-image-tree.md`
+  (T1–T3 user, T4–T7 proposed).
+* 2026-10-20 — step 3.4a-1 implemented and verified on the agent VM (details
+  under step 3.4a; VM build-cache drift noted in `96-…` changelog).

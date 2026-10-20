@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>97-step-3.4b-saltboot-kernel-options — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">97-step-3.4b-saltboot-kernel-options</p>
+<a class="h2" href="#1-current-state-verified-2026-10-19-tree-3484a7e3ee9">1. Current state (verified 2026-10-19, tree 3484a7e3ee9)</a>
+<a class="h3" href="#11-option-build-sites">1.1 Option build sites</a>
+<a class="h3" href="#12-contracts-that-must-hold">1.2 Contracts that must hold</a>
+<a class="h3" href="#13-doc-drift-found">1.3 Doc drift found</a>
+<a class="h2" href="#2-decisions-user-planning-round-9-2026-10-19">2. Decisions (user, planning round 9, 2026-10-19)</a>
+<a class="h2" href="#3-design">3. Design</a>
+<a class="h3" href="#31-fitting-into-the-interface-k1-bound-context-no-signature-change">3.1 Fitting into the interface (K1) — bound context, no signature change</a>
+<a class="h3" href="#32-branch-sources-k2-k4-s1">3.2 Branch sources (K2, K4, S1)</a>
+<a class="h3" href="#33-terminal-persistence-k3">3.3 Terminal persistence (K3)</a>
+<a class="h3" href="#34-normalizations-documented-vs-the-legacy-maps">3.4 Normalizations (documented, vs. the legacy maps)</a>
+<a class="h3" href="#35-cobbler-boundary-k5">3.5 Cobbler boundary (K5)</a>
+<a class="h3" href="#36-files">3.6 Files</a>
+<a class="h2" href="#4-tests">4. Tests</a>
+<a class="h2" href="#5-e2e-agent-vm">5. E2E (agent VM)</a>
+<a class="h2" href="#changelog">Changelog</a>
+</nav>
+<main>
+<article>
+<h1 id="step-34b-saltboot-pxekernel-options-via-builders">Step 3.4b — Saltboot PXE/Kernel Options via Builders</h1>
+<blockquote>
+<p><strong>Revision (planning round 9, after the split):</strong> this step now follows
+step 3.4a (<a href="96-step-3.4a-saltboot-image-tree.md"><code>96-step-3.4a-saltboot-image-tree.md</code></a>).
+Saltboot distros are image-based <code>KickstartableTree</code>s with install type
+<code>saltboot</code>, so §3.1 changes: <code>KernelOptionsBuilderFactory.getBuilder</code>
+routes <code>isSaltboot()</code> (checked first) to <code>SaltbootKernelOptionsBuilder</code>,
+<code>distroOptions(imageTree)</code> receives the real tree (and is persisted into
+its <code>kernel_options</code>, then pushed to the cobbler distro), and the
+&ldquo;direct construction / no factory route&rdquo; text below is superseded. Branch
+and terminal stay bound at construction (a factory overload or a
+<code>with…</code> step on the returned builder — settled at 3.4b start). The rest
+(K2–K5) is unchanged.</p>
+<p>Plan for roadmap step 3.4b (<code>10-roadmap.md</code> Phase 3): route the saltboot
+kernel option construction (<code>SaltbootUtils</code>, <code>PXEEventMessageAction</code>,
+<code>ProxyBackupEventAction</code>) through the G0 builder hierarchy and read the
+option sources from the saltboot domain. Closes the Phase 1 deferral
+&ldquo;Saltboot PXE option maps&rdquo;.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branch</td>
+<td><code>sles16_agama</code></td>
+</tr>
+<tr>
+<td>Created</td>
+<td>2026-10-19</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>PLANNED (planning round 9)</td>
+</tr>
+<tr>
+<td>Related</td>
+<td><code>00-goals.md</code> §G0/§G3/§5.9, <code>20-kernel-options.md</code> §2/§6, <code>90-step-3.1-saltboot-model.md</code> §6.2, <code>95-step-3.2-saltboot-implementation.md</code> (S1)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-current-state-verified-2026-10-19-tree-3484a7e3ee9">1. Current state (verified 2026-10-19, tree <code>3484a7e3ee9</code>)</h2>
+<p>Java paths are relative to <code>java/core/src/main/java/</code>.</p>
+<h3 id="11-option-build-sites">1.1 Option build sites</h3>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>What it builds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SaltbootUtils.createSaltbootDistro</code> (<code>com/suse/manager/saltboot/SaltbootUtils.java:249</code>)</td>
+<td>distro options, literal <code>panic=60 splash=silent</code>, breed <code>generic</code></td>
+</tr>
+<tr>
+<td><code>SaltbootUtils.getKernelOptions(ServerGroup)</code> (L409) → private <code>getKernelOptions(...)</code> (L430)</td>
+<td>branch options for the cobbler <strong>group profile</strong>: <code>MINION_ID_PREFIX=&lt;group name&gt;</code>, <code>MASTER=&lt;download server&gt;</code>, <code>DISABLE_ID_PREFIX=1</code>, <code>DISABLE_UNIQUE_SUFFIX=1</code>, one of <code>USE_FQDN_MINION_ID=1</code> / <code>DISABLE_HOSTNAME_ID=1</code> / <code>USE_MAC_MINION_ID=1</code>, then the user&rsquo;s <code>default_kernel_parameters</code> applied <strong>over</strong> the computed keys (<code>putAll</code>). Source: formula pillar first, domain branch otherwise (decision S1). Formula path with empty <code>download_server</code>: bare <code>MASTER</code> (null value). Domain path without a proxy: no <code>MASTER</code>.</td>
+</tr>
+<tr>
+<td><code>PXEEventMessageAction.execute</code> (<code>com/suse/manager/saltboot/PXEEventMessageAction.java:54-64</code>)</td>
+<td>terminal string <code>root=&lt;root&gt; [salt_device=&lt;dev&gt;] [&lt;event kernel params&gt;]</code> by concatenation</td>
+</tr>
+<tr>
+<td><code>SaltbootUtils.createSaltbootSystem</code> (L616)</td>
+<td>system record options = <strong>group profile options read back from cobbler</strong> (<code>group.getKernelOptions()</code>) with the terminal string applied over them (<code>putAll</code>); the record&rsquo;s profile is the <em>image</em> profile, so the branch options must be on the record itself</td>
+</tr>
+<tr>
+<td><code>ProxyBackupEventAction.convertSinglePxeEntry</code> (<code>com/suse/proxy/event/ProxyBackupEventAction.java:343</code>)</td>
+<td>RBS → containerized conversion: passes the legacy PXE entry&rsquo;s raw <code>args</code> as the terminal string</td>
+</tr>
+</tbody>
+</table>
+<p>Parsing is done by the private <code>SaltbootUtils.splitStringIgnoreQuotes</code> (a
+regex that also honors single quotes; duplicate keys: last wins). Transport to
+cobbler is a <code>Map</code> (unordered; every kickstart path sends a string).</p>
+<h3 id="12-contracts-that-must-hold">1.2 Contracts that must hold</h3>
+<ul>
+<li><strong>Proxy filter:</strong> <code>containers/proxy-tftpd-image/tftp_wrapper.py</code>
+  (<code>HttpResponseDataFilteredPXE</code> / <code>…Grub</code>) recognizes saltboot entries by the
+  substring <code>MASTER=&lt;proxy fqdn&gt;</code> plus <code>MINION_ID_PREFIX</code>. An older proxy
+  container must keep working (<code>00-goals.md</code> §5.8), so both keys and the
+  <code>MASTER=</code> value form stay unchanged.</li>
+<li><strong>Cobbler inheritance:</strong> distro (<code>panic=60 splash=silent</code>) → image profile →
+  system record. Group profiles parent the image profile and are used for the
+  not-yet-deployed (unknown terminal) PXE entry.</li>
+<li><code>SaltbootTerminal</code> (step 3.2) exists with <code>boot_image</code>, <code>root_device</code>,
+  <code>salt_device</code>, <code>terminal_kernel_parameters</code>, <code>last_pxe_update</code>,
+  <code>last_result</code>, but <strong>nothing writes those columns yet</strong> — only the force
+  flags are used.</li>
+</ul>
+<h3 id="13-doc-drift-found">1.3 Doc drift found</h3>
+<ul>
+<li><code>20-kernel-options.md</code> §1 lists <code>KernelOptionsList#applyOverrides</code>; that
+  method does not exist (the API is <code>setOption*</code>, <code>addMissingOptions</code>,
+  <code>addOption(s)</code>, <code>removeOption</code>, <code>hasOption</code>, <code>getValue</code>). §1 is corrected
+  with this step.</li>
+</ul>
+<h2 id="2-decisions-user-planning-round-9-2026-10-19">2. Decisions (user, planning round 9, 2026-10-19)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K1</td>
+<td>The saltboot builder <strong>joins the <code>KernelOptionsBuilder</code> interface</strong> (extends <code>AbstractKernelOptionsBuilder</code>); the interface may be modified, smaller modifications preferred.</td>
+</tr>
+<tr>
+<td>K2</td>
+<td>The builder&rsquo;s <code>serverFqdn</code> is the FQDN of the proxy (branch server) the terminal connects through; the builder&rsquo;s <strong><code>User</code> is the creator of that proxy system</strong> (<code>Server#getCreator()</code>, may be null).</td>
+</tr>
+<tr>
+<td>K3</td>
+<td>Terminal options are built from the domain: <code>pxe_update</code> handling <strong>first persists</strong> the reported values into <code>SaltbootTerminal</code>, then the builder reads them (pulls this part of the 3.5 hand-off forward).</td>
+</tr>
+<tr>
+<td>K4</td>
+<td>System record options are <strong>recomputed</strong> via the builder from the branch sources (formula-first per S1, else the domain branch) — no read-back of the cobbler group profile options.</td>
+</tr>
+<tr>
+<td>K5</td>
+<td>Cobbler transport stays a <strong><code>Map</code></strong> (byte-compatible records); builders produce <code>KernelOptionsList</code>, converted at the cobbler boundary.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-design">3. Design</h2>
+<h3 id="31-fitting-into-the-interface-k1-bound-context-no-signature-change">3.1 Fitting into the interface (K1) — bound context, no signature change</h3>
+<p>The interface methods take kickstart/cobbler objects; saltboot has no
+<code>KickstartableTree</code>, and its branch/terminal inputs are domain objects. The
+smallest change is to <strong>bind the saltboot context at construction</strong> and keep
+every interface signature as is:</p>
+<pre><code class="language-java">public class SaltbootKernelOptionsBuilder extends AbstractKernelOptionsBuilder {
+    // proxyFqdn -&gt; serverFqdn (MASTER=), proxyCreator -&gt; user (K2)
+    // branch and terminal are optional: a distro-only builder has neither
+    public SaltbootKernelOptionsBuilder(String proxyFqdn, User proxyCreator,
+                                        SaltbootBranch branch, SaltbootTerminal terminal)
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Interface method</th>
+<th>Saltboot meaning</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>distroOptions(tree)</code></td>
+<td>boot-the-image-distro options; <code>tree</code> unused (null allowed)</td>
+<td><code>panic=60 splash=silent</code></td>
+</tr>
+<tr>
+<td><code>profileOptions(profile)</code></td>
+<td>branch options for the cobbler <strong>group profile</strong>; <code>profile</code> unused (as in every existing builder)</td>
+<td><code>MINION_ID_PREFIX=&lt;branch group name&gt;</code>, <code>MASTER=&lt;serverFqdn&gt;</code> (bare <code>MASTER</code> flag when no FQDN, §3.4), naming flags; the parsed <code>default_kernel_parameters</code> <strong>win</strong> (<code>user.addMissingOptions(computed)</code>)</td>
+</tr>
+<tr>
+<td><code>systemOptions(record)</code></td>
+<td>full per-terminal options for the cobbler <strong>system record</strong>; <code>record</code> unused</td>
+<td><code>root=&lt;root_device&gt;</code>, <code>salt_device=&lt;salt_device&gt;</code> (if set), parsed <code>terminal_kernel_parameters</code>, all winning over <code>profileOptions</code> (<code>terminal.addMissingOptions(branch)</code>)</td>
+</tr>
+<tr>
+<td><code>selfUpdateOption(tree)</code>, <code>mediaOptions(url)</code></td>
+<td>not applicable</td>
+<td>empty <code>KernelOptionsList</code></td>
+</tr>
+</tbody>
+</table>
+<p>Missing bound inputs throw <code>KernelOptionsBuilderException</code> (via <code>require</code>):
+<code>profileOptions</code> needs a branch, <code>systemOptions</code> a branch and a terminal with a
+root device.</p>
+<p><strong>Interface modifications (javadoc only):</strong></p>
+<ul>
+<li><code>systemOptions</code> — &ldquo;never written to Cobbler records&rdquo; becomes &ldquo;never written
+  to Cobbler records <em>of Cobbler-rendered breeds</em>; builders for the <code>generic</code>
+  breed own the whole command line and write it&rdquo; (<code>20-kernel-options.md</code> §6:
+  saltboot is the reference pattern for post-Cobbler ownership).</li>
+<li><code>distroOptions</code> — the tree parameter may be null for builders that are not
+  backed by a kickstart tree.</li>
+<li>Class javadoc — builders may bind their context at construction.</li>
+</ul>
+<p><strong>Obtaining the builder:</strong> saltboot has no install type, so it does not go
+through <code>KernelOptionsBuilderFactory.getBuilder(installType, …)</code> (that factory
+stays install-type-only, locked step 1.1). <code>SaltbootUtils</code> gets one private
+helper that resolves the sources and constructs the builder (§3.2). The
+distro-only builder is <code>new SaltbootKernelOptionsBuilder(null, null, null,
+null)</code> — the image distro is org-wide, not tied to a proxy.</p>
+<p>Rejected alternative: changing the parameter types (e.g. a generic context
+object per method) — touches all three Phase 1 callers and all builders for no
+gain in the kickstart paths.</p>
+<h3 id="32-branch-sources-k2-k4-s1">3.2 Branch sources (K2, K4, S1)</h3>
+<p>Private <code>SaltbootUtils.branchBuilder(ServerGroup group, SaltbootTerminal terminal)</code>:</p>
+<ol>
+<li><strong>Formula pillar present</strong> (<code>formula-saltboot-group</code> on the group,
+   authoritative per S1): a <strong>transient, never-saved</strong> <code>SaltbootBranch(group)</code>
+   carries naming flags + <code>default_kernel_parameters</code> from the form data;
+   <code>proxyFqdn</code> = the form&rsquo;s <code>download_server</code> text verbatim (exact <code>MASTER=</code>
+   parity); <code>proxyCreator</code> = creator of the proxy found by that FQDN
+   (<code>ServerFactory.listByFqdn</code> + <code>isProxy()</code>, no notification — the
+   dual-write already reports misses), else null. The mapping reuses
+   <code>SaltbootFormulaMapper</code> by splitting a side-effect-free <code>fillBranch(branch,
+   formData)</code> out of <code>applyBranchFormula</code> (proxy lookup and save stay in
+   <code>applyBranchFormula</code>).</li>
+<li><strong>Domain branch:</strong> <code>SaltbootFactory.lookupBranch(group)</code>; <code>proxyFqdn</code> =
+   <code>SaltbootTerminalResolver.proxyFqdn(branch)</code> (the single FQDN resolution
+   point, D2 extension point); <code>proxyCreator</code> = <code>branch.getProxy().getCreator()</code>.</li>
+<li>Neither → <code>SaltbootException("Missing saltboot group pillar")</code> (unchanged).</li>
+</ol>
+<p>Used by <code>updateGroupProfile</code> (<code>profileOptions</code>) and <code>createSaltbootSystem</code>
+(<code>systemOptions</code>). <code>createSaltbootSystem</code> resolves the branch group by name
+(<code>ServerGroupFactory.lookupByNameAndOrg(saltbootGroup, org)</code>); a missing group
+throws <code>SaltbootException</code> like a missing group profile does today. The check
+that the cobbler group profile exists is kept (it is the unknown-terminal
+entry the proxy serves).</p>
+<h3 id="33-terminal-persistence-k3">3.3 Terminal persistence (K3)</h3>
+<p><code>PXEEventMessageAction.execute</code>:</p>
+<ol>
+<li><code>SaltbootFactory.lookupOrCreateTerminal(minion.getId())</code>; set
+   <code>boot_image</code>, <code>root_device</code> (event <code>root</code>), <code>salt_device</code>,
+   <code>terminal_kernel_parameters</code> (event <code>kernel_parameters</code>),
+   <code>last_pxe_update = now</code>.</li>
+<li><code>SaltbootUtils.createSaltbootSystem(minion, terminal, group, hwAddresses)</code>
+   (new signature; builds via <code>systemOptions</code>).</li>
+<li><code>last_result</code> = <code>"OK"</code> or the failure message (same message as the
+   <code>PXEEventFailed</code> notification).</li>
+<li>Flag reset unchanged (<code>resetSaltbootRedeployFlags</code>; the
+   reset-after-failure question stays with 3.5, <code>90-…</code> §1.9).</li>
+</ol>
+<p>The empty-root check stays before persistence (no terminal row update for an
+invalid event; the notification as today).</p>
+<p><code>ProxyBackupEventAction.convertSinglePxeEntry</code> (RBS conversion, slated for
+removal, <code>90-…</code> §6.5): persists the legacy entry&rsquo;s <code>args</code> as
+<code>terminal_kernel_parameters</code> (root/salt device unknown → null) and calls the
+same <code>createSaltbootSystem</code>. Since <code>systemOptions</code> requires a root device, the
+builder accepts a terminal without <code>root_device</code> <strong>only</strong> when
+<code>terminal_kernel_parameters</code> is set (the RBS <code>args</code> carry the full legacy
+line incl. <code>root=</code>); otherwise it throws. Parity: today these <code>args</code> are
+applied over the group options exactly the same way.</p>
+<h3 id="34-normalizations-documented-vs-the-legacy-maps">3.4 Normalizations (documented, vs. the legacy maps)</h3>
+<ul>
+<li><strong>Parser:</strong> <code>splitStringIgnoreQuotes</code> is removed; parsing goes through
+  <code>KernelOptionsList</code>. Double-quoted values keep their quotes in the value
+  (same as today). Single quotes are no longer grouping characters — the
+  Linux kernel only honors double quotes on the command line, so
+  single-quoted values containing spaces were already broken at boot.</li>
+<li><strong>Duplicate keys:</strong> repeated keys inside one user string are kept
+  (multi-value → <code>List</code> in the map → rendered twice by cobbler); legacy kept
+  only the last. Precedence between layers is unchanged: user default
+  parameters over computed branch keys, terminal values over branch values.</li>
+<li><strong>No proxy:</strong> the builder emits a bare <code>MASTER</code> flag when it has no FQDN —
+  legacy formula behavior; for the domain path this is new but only affects
+  branches without a proxy, which cannot be served by any proxy anyway
+  (<code>tftp_wrapper.py</code> needs <code>MASTER=&lt;fqdn&gt;</code>) and already raise the &ldquo;pick a
+  proxy&rdquo; notification.</li>
+<li><strong>System record freshness:</strong> branch options on the record are computed from
+  the current formula/domain data instead of the last-saved cobbler group
+  profile — identical unless the cobbler group profile was edited by hand.</li>
+<li><strong>Order:</strong> cobbler maps were unordered before and stay unordered.</li>
+</ul>
+<h3 id="35-cobbler-boundary-k5">3.5 Cobbler boundary (K5)</h3>
+<p>New <code>KernelOptionsList#toMap()</code> returning <code>Map&lt;String, Object&gt;</code> in insertion
+order (<code>LinkedHashMap</code>): single occurrence → <code>String</code>, repeated key →
+<code>List&lt;String&gt;</code>, flag → <code>""</code> (the legacy flag form of
+<code>splitStringIgnoreQuotes</code>; real cobbler stores blank values as a flag, see
+<code>20-kernel-options.md</code> §9.4). The bare <code>MASTER</code> was sent as <code>null</code> before;
+<code>""</code> and <code>null</code> round-trip to the same flag in real cobbler, and the mock
+stores what it gets (tests assert via <code>KernelOptionsList</code>).</p>
+<p>Call sites: <code>createSaltbootDistro</code> keeps <code>setKernelOptions(Optional.of(
+builder.distroOptions(null).toString()))</code> — a string, as today; group profile
+and system record use <code>toMap()</code>.</p>
+<h3 id="36-files">3.6 Files</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>com/suse/manager/autoinstallation/builder/SaltbootKernelOptionsBuilder.java</code></td>
+<td>new</td>
+</tr>
+<tr>
+<td><code>com/suse/manager/autoinstallation/builder/KernelOptionsBuilder.java</code></td>
+<td>javadoc (§3.1)</td>
+</tr>
+<tr>
+<td><code>com/suse/manager/autoinstallation/KernelOptionsList.java</code></td>
+<td><code>toMap()</code></td>
+</tr>
+<tr>
+<td><code>com/suse/manager/saltboot/SaltbootUtils.java</code></td>
+<td>builder use; <code>branchBuilder</code>; <code>createSaltbootSystem(minion, terminal, group, hwAddresses[, con])</code>; remove <code>splitStringIgnoreQuotes</code> and the private <code>getKernelOptions</code> pair</td>
+</tr>
+<tr>
+<td><code>com/suse/manager/saltboot/PXEEventMessageAction.java</code></td>
+<td>terminal persistence (§3.3)</td>
+</tr>
+<tr>
+<td><code>com/suse/proxy/event/ProxyBackupEventAction.java</code></td>
+<td>terminal persistence + new call</td>
+</tr>
+<tr>
+<td><code>com/suse/manager/autoinstallation/saltboot/SaltbootFormulaMapper.java</code></td>
+<td>split side-effect-free <code>fillBranch</code></td>
+</tr>
+<tr>
+<td><code>spacewalk-java.changes.oholecek.saltboot_kernel_options</code></td>
+<td>changelog fragment</td>
+</tr>
+</tbody>
+</table>
+<p>No schema change, no API change (<code>saltboot.getTerminalState</code> now returns the
+populated columns — documented values already).</p>
+<h2 id="4-tests">4. Tests</h2>
+<ul>
+<li><strong>DB-free:</strong> <code>SaltbootKernelOptionsBuilderTest</code> — distro constant; branch
+  options per naming mode, flags, user parameters winning over computed keys,
+  bare <code>MASTER</code> without FQDN, quoted values; system options (root/salt
+  device, terminal params winning over branch, RBS mode without root, missing
+  inputs → exception); <code>selfUpdateOption</code>/<code>mediaOptions</code> empty;
+  <code>KernelOptionsListTest</code> for <code>toMap()</code> (order, multi-value, flags).</li>
+<li><strong>DB-backed (agent VM, pgsql-4eclipse):</strong> <code>SaltbootUtilsTest</code> (group
+  profile + system record parity, formula and domain paths, transient branch
+  never persisted), <code>PXEEventTest</code> (terminal columns written, <code>last_result</code>
+  on success/failure, record options), <code>SaltbootFormulaMapperTest</code>
+  (<code>fillBranch</code> split), plus the §9.3 regression map of
+  <code>20-kernel-options.md</code> (saltboot suites + <code>SaltbootMigrationUtilsTest</code>,
+  builder/factory/list suites) and the step-3.2 saltboot suites.</li>
+<li>Checkstyle (main + tests) as in step 3.2.</li>
+</ul>
+<h2 id="5-e2e-agent-vm">5. E2E (agent VM)</h2>
+<ul>
+<li>Coordinate the VM window; record deployed versions. Note from step 3.2: the
+  VM runs an overlaid jar, and default access groups are duplicated in its DB
+  (the dedupe needs the user&rsquo;s go-ahead) — check before creating groups via
+  the API.</li>
+<li>With a branch-deployed backend: create a branch via the <code>saltboot</code> API (and
+  one through the formula), check the cobbler group profile
+  (<code>cobbler profile report</code>) and the generated grub/pxelinux entry for
+  <code>MASTER=&lt;proxy fqdn&gt;</code> + <code>MINION_ID_PREFIX</code> (proxy filter contract).</li>
+<li>Fire a <code>suse/manager/pxe_update</code> event for a registered minion (if one is
+  available on the VM) and check the <code>SaltbootTerminal</code> row and the system
+  record options; otherwise rely on <code>PXEEventTest</code> and record the gap.</li>
+</ul>
+<h2 id="changelog">Changelog</h2>
+<ul>
+<li>2026-10-19 — planning round 9: current state verified, decisions K1–K5
+  taken by the user, design written.</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>97-step-3.4b-saltboot-kernel-options.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

@@ -133,9 +133,9 @@ footer.note {
 <a class="h3" href="#step-26-resolve-deferred-kernel-option-consumers-status-not-started">Step 2.6 — Resolve deferred kernel-option consumers (status: NOT STARTED)</a>
 <a class="h2" href="#phase-3-saltboot-integration-g3">Phase 3 — Saltboot integration (G3)</a>
 <a class="h3" href="#step-31-saltboot-deployment-model-design-status-done-2026-10-19">Step 3.1 — Saltboot deployment model design (status: DONE 2026-10-19)</a>
-<a class="h3" href="#step-32-java-domain-schema-api-status-not-started">Step 3.2 — Java domain, schema, API (status: NOT STARTED)</a>
+<a class="h3" href="#step-32-java-domain-schema-api-status-done-2026-10-19-e2e-partial">Step 3.2 — Java domain, schema, API (status: DONE 2026-10-19, E2E partial)</a>
 <a class="h3" href="#step-33-react-ui-status-not-started-blocked-on-step-22">Step 3.3 — React UI (status: NOT STARTED — blocked on step 2.2)</a>
-<a class="h3" href="#step-34-pxekernel-options-via-builders-status-not-started">Step 3.4 — PXE/kernel options via builders (status: NOT STARTED)</a>
+<a class="h3" href="#step-34-pxekernel-options-via-builders-status-in-progress-split-2026-10-19">Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)</a>
 <a class="h3" href="#step-35-triggerorchestration-model-status-not-started">Step 3.5 — Trigger/orchestration model (status: NOT STARTED)</a>
 <a class="h2" href="#phase-4-generic-mechanisms-image-integration-g4-g5">Phase 4 — Generic mechanisms + image integration (G4 + G5)</a>
 <a class="h3" href="#step-41-profile-types-for-cloud-init-ignition-combustion-status-not-started">Step 4.1 — Profile types for cloud-init / ignition / combustion (status: NOT STARTED)</a>
@@ -431,7 +431,7 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   and keeps only one group&rsquo;s data per formula (step doc §1.2) — migration maps
   per-system partitioning to root configs.</li>
 </ul>
-<h3 id="step-32-java-domain-schema-api-status-not-started">Step 3.2 — Java domain, schema, API (status: NOT STARTED)</h3>
+<h3 id="step-32-java-domain-schema-api-status-done-2026-10-19-e2e-partial">Step 3.2 — Java domain, schema, API (status: DONE 2026-10-19, E2E partial)</h3>
 <ul>
 <li>Implement the model + XML-RPC/REST API; keep <code>SaltbootUtils</code> Cobbler entry
   generation working, routed through the new domain.</li>
@@ -440,13 +440,60 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   (<code>UpgradeCommand</code> task + idempotent <code>upgrade/next/</code> queue script), and
   dual-write in <code>FormulaFactory</code> (formula unassignment must no longer delete
   the cobbler group profile when a branch exists). Hand-off list in §6.1.</li>
+<li>Implemented per <a href="95-step-3.2-saltboot-implementation.md"><code>95-step-3.2-saltboot-implementation.md</code></a>:
+  4 tables + idempotent <code>upgrade/next</code> scripts (model, migration task, 18 API
+  RBAC rows), entities/factory/DB-free resolver, <code>SaltbootPillarGenerator</code> in
+  the full <code>MinionPillarManager</code> path, <code>SaltbootManager</code> + <code>saltboot</code> XML-RPC
+  namespace, formula dual-write, <code>UpgradeCommand</code> migration, <code>SaltbootUtils</code>
+  reading the domain (formula first), §1.9 fix. Extra config columns
+  <code>terminal_kernel_parameters</code>/<code>freeze_image</code> (found in the formula form).</li>
+<li>Verified on the agent VM: 371 tests green (155 saltboot/pillar + 216
+  neighbouring), checkstyle clean (main + tests); real XML-RPC run: 11 checks
+  green, then blocked by duplicate default access groups on the VM (see step
+  doc §5) — rest of the E2E script pending.</li>
 </ul>
 <h3 id="step-33-react-ui-status-not-started-blocked-on-step-22">Step 3.3 — React UI (status: NOT STARTED — blocked on step 2.2)</h3>
 <ul>
 <li>Saltboot area inside the new autoinstallation UI: deployment profiles,
   group/terminal targeting, image selection, status; formula form replaced.</li>
 </ul>
-<h3 id="step-34-pxekernel-options-via-builders-status-not-started">Step 3.4 — PXE/kernel options via builders (status: NOT STARTED)</h3>
+<h3 id="step-34-pxekernel-options-via-builders-status-in-progress-split-2026-10-19">Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)</h3>
+<p>Split into sub-steps across sessions (planning round 9):</p>
+<h4 id="step-34a-saltboot-distro-as-image-based-tree-status-in-progress-34a-1-done-2026-10-20">Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20)</h4>
+<ul>
+<li>Design: <a href="96-step-3.4a-saltboot-image-tree.md"><code>96-step-3.4a-saltboot-image-tree.md</code></a>
+  — <code>KickstartableTree</code> with nullable <code>channel_id</code> + new <code>image_id</code>
+  (exactly one set), <code>saltboot</code> install type (cobbler breed <code>generic</code>),
+  <code>base_path</code> = image dir, kernel/initrd from <code>ImageFile</code>; kickstart-facing
+  factory lookups exclude image trees (one shared label space); a generated
+  tree (<code>name-version-revision</code>) per image plus user-created image trees via
+  new <code>kickstart.tree</code> XML-RPC calls taking an image id (existing calls
+  reject <code>saltboot</code>, JSP UI hides it); deleted with the image; upgrade task
+  for existing images. Java-side distro record for the Cobbler exit (G6).
+  Decisions T1–T7 locked; labels stay ≤ 64 chars, image-tree labels allow
+  dots (O1/O2). Session 3.4a-1 planned in the step doc §5a.</li>
+<li>Sessions: 3.4a-1 (schema, install type, entity, lookup filters, guards,
+  tests), 3.4a-2 (lifecycle, migration task, image-tree API, VM E2E).</li>
+<li>3.4a-1 implemented per the step doc §5a: schema + idempotent <code>030-</code> upgrade
+  script, <code>saltboot</code> install type (breed <code>generic</code>), <code>KickstartableTree.image</code>,
+  image-based kernel/initrd paths, <code>image IS NULL</code> filters on the kickstart
+  lookups, install-type list filter, unfiltered <code>treeLabelExists</code>, image-tree
+  lookups, T7 guards (UI action + XML-RPC). Verified on the agent VM: 65 + 179
+  tests green incl. 10 new <code>KickstartImageTreeTest</code>, upgrade script applied
+  twice and replayed on a rebuilt pre-change schema, checkstyle clean for the
+  changed files.</li>
+</ul>
+<h4 id="step-34b-saltboot-builder-status-planned-after-34a">Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)</h4>
+<ul>
+<li>Plan: <a href="97-step-3.4b-saltboot-kernel-options.md"><code>97-step-3.4b-saltboot-kernel-options.md</code></a>
+  — <code>SaltbootKernelOptionsBuilder</code> joins the <code>KernelOptionsBuilder</code> interface,
+  routed by the <code>saltboot</code> install type (3.4a), <code>distroOptions(imageTree)</code>;
+  branch/terminal bound at construction (proxy FQDN + proxy creator as
+  user); <code>pxe_update</code> persists into <code>SaltbootTerminal</code> first; system records
+  recompute branch options (no cobbler read-back); cobbler transport stays
+  a <code>Map</code> (decisions K1–K5).</li>
+</ul>
+<p>Original step scope:</p>
 <ul>
 <li>Route <code>SaltbootUtils</code>/<code>PXEEventMessageAction</code> option construction
   (<code>panic=60 splash=silent</code>, per-terminal params, master/minion prefixes)
@@ -536,7 +583,7 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   (post-Phase-1 UI-guard addendum, 2026-10-15) also DONE.</li>
 <li>2.0 unblocks 2.1 scope; 2.1 unblocks 2.2; 2.2/2.3 → 2.4 → 2.5/2.6.</li>
 <li>3.1/3.2/3.4/3.5 depend on Phase 1 only (amendment 2026-10-19,
-  <code>00-goals.md</code> §5.7); 3.3 depends on 2.2. Phase 3 status: 3.1 DONE.</li>
+  <code>00-goals.md</code> §5.7); 3.3 depends on 2.2. Phase 3 status: 3.1, 3.2 DONE.</li>
 <li>4.x depends on 2.1 (entity) and 3.x (image/saltboot wiring exists).</li>
 <li>5.1 is independent after Phase 1; 5.2/5.3 are docs, best after 2.4.</li>
 </ul>
@@ -760,6 +807,7 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   for now and start Phase 3. <code>00-goals.md</code> §5.7 amended — G3 backend steps
   (3.1, 3.2, 3.4, 3.5) may precede G1+G2; step 3.3 (React UI) stays blocked
   on step 2.2. Dependency map updated.</li>
+<li>2026-10-19 — step 3.2 implemented (see step doc <code>95-…</code>), E2E partially run.</li>
 <li>2026-10-19 — step 3.1 (saltboot deployment model design) done: two entity
   families (<code>suseSaltbootBranch</code> with proxy FK → primary FQDN, hierarchical
   <code>suseSaltbootConfig</code> with JSONB partitioning + group/system assignments with
@@ -770,6 +818,26 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   §5.9. Verification correction recorded: today&rsquo;s formula merge replaces
   <code>edit-group</code> values and keeps one group&rsquo;s data per formula. Design:
   <code>90-step-3.1-saltboot-model.md</code>. Status → DONE (design only, no code).</li>
+<li>2026-10-19 — planning round 9 (step 3.3 skipped, React UI not done; step
+  3.4 design): saltboot builder joins the <code>KernelOptionsBuilder</code> interface
+  (bound context, no signature change), builder user = creator of the proxy,
+  terminal options from a persisted <code>SaltbootTerminal</code> (part of the 3.5
+  hand-off pulled forward), recomputed branch options on system records,
+  <code>Map</code> transport kept. Doc drift recorded: <code>KernelOptionsList#applyOverrides</code>
+  listed in <code>20-kernel-options.md</code> §1 does not exist. Design:
+  <code>97-step-3.4b-saltboot-kernel-options.md</code>. Status → IN PROGRESS.</li>
+<li>2026-10-19 — planning round 9, continued: user decision to give saltboot
+  distros a Java-side representation now (Cobbler exit needs it) — step 3.4
+  split into <strong>3.4a</strong> (image-based <code>KickstartableTree</code>: nullable
+  <code>channel_id</code> + <code>image_id</code>, <code>saltboot</code> install type, breed <code>generic</code>) and
+  <strong>3.4b</strong> (builder, now routed by install type). <code>generic_rpm</code> rejected
+  (routes to the RHEL builder). Survey: Python consumers and cobbler sync
+  queries are channel-scoped (safe); 7 Java lookups and the install-type
+  list need image-tree filters; reposync&rsquo;s <code>(org_id, label)</code> uniqueness
+  motivates a partial label index. Design: <code>96-step-3.4a-saltboot-image-tree.md</code>
+  (T1–T3 user, T4–T7 proposed).</li>
+<li>2026-10-20 — step 3.4a-1 implemented and verified on the agent VM (details
+  under step 3.4a; VM build-cache drift noted in <code>96-…</code> changelog).</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run
