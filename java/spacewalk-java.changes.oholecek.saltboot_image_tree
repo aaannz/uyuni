@@ -1,1 +1,3 @@
 - Add saltboot install type and image based autoinstallation tree support
+- Create trees with cobbler distros for saltboot images
+- Add image tree API calls to kickstart.tree

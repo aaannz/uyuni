@@ -55,19 +55,23 @@ public class CobblerDistroHelper {
      */
     public Distro createDistroFromTree(CobblerConnection cobblerConnection,
                                        KickstartableTree tree) {
-        Map<String, Object> ksmeta = createKsMetadataFromTree(tree);
-
-        Distro distro = new Distro.Builder<String>()
+        Distro.Builder<String> builder = new Distro.Builder<String>()
                 .setName(tree.getCobblerDistroName())
                 .setKernel(tree.getKernelPath())
                 .setInitrd(tree.getInitrdPath())
-                .setKsmeta(Optional.of(ksmeta))
                 .setBreed(tree.getInstallType().getCobblerBreed())
-                .setOsVersion(tree.getInstallType().getCobblerOsVersion())
-                .setArch(tree.getChannel().getChannelArch().cobblerArch())
                 .setKernelOptions(Optional.of(tree.getKernelOptions()))
-                .setKernelOptionsPost(Optional.of(tree.getKernelOptionsPost()))
-                .build(cobblerConnection);
+                .setKernelOptionsPost(Optional.of(tree.getKernelOptionsPost()));
+        if (tree.isImageTree()) {
+            // image distros carry neither media metadata nor an os version
+            builder.setArch(tree.getImage().getImageArch().getName());
+        }
+        else {
+            builder.setKsmeta(Optional.of(createKsMetadataFromTree(tree)))
+                    .setOsVersion(tree.getInstallType().getCobblerOsVersion())
+                    .setArch(tree.getChannel().getChannelArch().cobblerArch());
+        }
+        Distro distro = builder.build(cobblerConnection);
 
         tree.setCobblerId(distro.getUid());
         return distro;
@@ -108,15 +112,18 @@ public class CobblerDistroHelper {
      * @param tree tree containing information for updating the new Distro
      */
      public void updateDistroFromTree(Distro distro, KickstartableTree tree) {
-        Map<String, Object> ksmeta = createKsMetadataFromTree(tree);
-
-        distro.setName(CobblerCommand.makeCobblerName(tree));
+        distro.setName(tree.getCobblerDistroName());
         distro.setInitrd(tree.getInitrdPath());
         distro.setKernel(tree.getKernelPath());
         distro.setBreed(tree.getInstallType().getCobblerBreed());
-        distro.setOsVersion(tree.getInstallType().getCobblerOsVersion());
-        distro.setKsMeta(Optional.of(ksmeta));
-        distro.setArch(tree.getChannel().getChannelArch().cobblerArch());
+        if (tree.isImageTree()) {
+            distro.setArch(tree.getImage().getImageArch().getName());
+        }
+        else {
+            distro.setOsVersion(tree.getInstallType().getCobblerOsVersion());
+            distro.setKsMeta(Optional.of(createKsMetadataFromTree(tree)));
+            distro.setArch(tree.getChannel().getChannelArch().cobblerArch());
+        }
         distro.setKernelOptions(Optional.of(tree.getKernelOptions()));
         distro.setKernelOptionsPost(Optional.of(tree.getKernelOptionsPost()));
         distro.save();

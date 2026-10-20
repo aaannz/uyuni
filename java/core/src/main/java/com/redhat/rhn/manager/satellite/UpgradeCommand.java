@@ -17,6 +17,10 @@ package com.redhat.rhn.manager.satellite;
 
 import com.redhat.rhn.GlobalInstanceHolder;
 import com.redhat.rhn.common.hibernate.HibernateFactory;
+import com.redhat.rhn.domain.image.ImageFile;
+import com.redhat.rhn.domain.image.ImageInfo;
+import com.redhat.rhn.domain.image.ImageInfoFactory;
+import com.redhat.rhn.domain.image.ImageProfile;
 import com.redhat.rhn.domain.org.OrgFactory;
 import com.redhat.rhn.domain.role.RoleFactory;
 import com.redhat.rhn.domain.server.MinionServer;
@@ -26,9 +30,11 @@ import com.redhat.rhn.domain.task.TaskFactory;
 import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.domain.user.UserFactory;
 import com.redhat.rhn.manager.BaseTransactionCommand;
+import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 import com.redhat.rhn.taskomatic.TaskomaticApi;
 import com.redhat.rhn.taskomatic.TaskomaticApiException;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
 import com.suse.manager.autoinstallation.saltboot.SaltbootDomainMigration;
 import com.suse.manager.saltboot.SaltbootMigrationException;
 import com.suse.manager.saltboot.SaltbootMigrationUtils;
@@ -38,10 +44,12 @@ import com.suse.salt.netapi.datatypes.target.MinionList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.cobbler.CobblerConnection;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -64,6 +72,7 @@ public class UpgradeCommand extends BaseTransactionCommand {
     public static final String MIGRATE_COBBLER = UPGRADE_TASK_NAME + "migrate_cobbler";
     public static final String MGR_SYNC_ALL = UPGRADE_TASK_NAME + "mgr_sync_all";
     public static final String MIGRATE_SALTBOOT_DOMAIN = UPGRADE_TASK_NAME + "migrate_saltboot_domain";
+    public static final String CREATE_SALTBOOT_TREES = UPGRADE_TASK_NAME + "create_saltboot_trees";
 
     /**
      * Constructor
@@ -125,6 +134,9 @@ public class UpgradeCommand extends BaseTransactionCommand {
                     case MIGRATE_COBBLER:
                         migrateCobbler(t);
                         return; // do not remove the task here, migrateCobbler handles it
+                    case CREATE_SALTBOOT_TREES:
+                        delayedCreateSaltbootTrees(t);
+                        continue; // do not remove the task here, the delayed run handles it
                     default:
                 }
                 // always run this
@@ -214,5 +226,53 @@ public class UpgradeCommand extends BaseTransactionCommand {
                 HibernateFactory.closeSession();
             }
         }).start();
+    }
+
+    /**
+     * Create the trees of the saltboot images.
+     * The execution must be delayed, because cobbler auth needs a fully started tomcat.
+     */
+    protected void delayedCreateSaltbootTrees(Task t) {
+        new Thread(() -> {
+            try {
+                LOG.info("Saltboot trees creation: waiting");
+                Thread.sleep(60000);
+                LOG.info("Saltboot trees creation: started");
+                createSaltbootTrees();
+                TaskFactory.remove(t);
+                HibernateFactory.commitTransaction();
+                LOG.info("Saltboot trees creation: finished");
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            finally {
+                HibernateFactory.closeSession();
+            }
+        }).start();
+    }
+
+    /**
+     * Ensure the generated tree for every built Kiwi image with boot files and without bundles,
+     * oldest image first. A failing image is logged and does not stop the others.
+     */
+    void createSaltbootTrees() {
+        CobblerConnection con = CobblerXMLRPCHelper.getUncachedAutomatedConnection();
+        for (ImageInfo image : ImageInfoFactory.list()) {
+            if (!ImageProfile.TYPE_KIWI.equals(image.getImageType()) || !image.isBuilt() || !isSaltbootImage(image)) {
+                continue;
+            }
+            try {
+                ImageTreeManager.ensureGeneratedTree(image, con);
+            }
+            catch (RuntimeException e) {
+                LOG.error("Unable to create the saltboot tree of image {}", image.getId(), e);
+            }
+        }
+    }
+
+    private static boolean isSaltbootImage(ImageInfo image) {
+        Set<String> fileTypes = image.getImageFiles().stream().map(ImageFile::getType).collect(Collectors.toSet());
+        return fileTypes.containsAll(List.of("kernel", "initrd")) && !fileTypes.contains("bundle");
     }
 }

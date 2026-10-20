@@ -7416,6 +7416,31 @@ INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
     ON CONFLICT DO NOTHING;
 INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
     SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.kickstart.tree.create_from_image' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/kickstart/tree/createFromImage' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.kickstart.tree.list_image_trees' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/kickstart/tree/listImageTrees' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.kickstart.tree.get_image_tree_details' AND ns.access_mode = 'R'
+    AND ep.endpoint = '/manager/api/kickstart/tree/getImageTreeDetails' AND ep.http_method = 'GET'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.kickstart.tree.update_image_tree' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/kickstart/tree/updateImageTree' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
+    WHERE ns.namespace = 'api.kickstart.tree.delete_image_tree' AND ns.access_mode = 'W'
+    AND ep.endpoint = '/manager/api/kickstart/tree/deleteImageTree' AND ep.http_method = 'POST'
+    ON CONFLICT DO NOTHING;
+INSERT INTO access.endpointNamespace (namespace_id, endpoint_id)
+    SELECT ns.id, ep.id FROM access.namespace ns, access.endpoint ep
     WHERE ns.namespace = 'api.maintenance.assign_schedule_to_systems' AND ns.access_mode = 'W'
     AND ep.endpoint = '/manager/api/maintenance/assignScheduleToSystems' AND ep.http_method = 'POST'
     ON CONFLICT DO NOTHING;

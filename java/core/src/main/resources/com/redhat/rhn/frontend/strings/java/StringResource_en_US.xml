@@ -5808,6 +5808,30 @@ Follow this url to see the full list of inactive systems:
           <context context-type="sourcefile">/rhn/kickstart/TreeEdit.do</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="kickstart.tree.image.generated" xml:space="preserve">
+        <source>The distribution is generated for its image and is removed together with the image: {0}</source>
+        <context-group name="ctx">
+          <context context-type="sourcefile">/rhn/kickstart/TreeCreate.do</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="kickstart.tree.image.invalidlabel" xml:space="preserve">
+        <source>The image distribution label may only contain letters, digits, dots, hyphens and underscores and must be at most 64 characters long: {0}</source>
+        <context-group name="ctx">
+          <context context-type="sourcefile">/rhn/kickstart/TreeCreate.do</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="kickstart.tree.image.nobootfiles" xml:space="preserve">
+        <source>The image has no kernel and initrd files in one directory: {0}</source>
+        <context-group name="ctx">
+          <context context-type="sourcefile">/rhn/kickstart/TreeCreate.do</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="kickstart.tree.image.reservedlabel" xml:space="preserve">
+        <source>The label is reserved for the distribution generated for the image: {0}</source>
+        <context-group name="ctx">
+          <context context-type="sourcefile">/rhn/kickstart/TreeCreate.do</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="kickstart.tree.invalidinitrd" xml:space="preserve">
         <source>The initrd could not be found at the specified location: {0}</source>
         <context-group name="ctx">

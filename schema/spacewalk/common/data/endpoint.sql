@@ -4694,6 +4694,21 @@ INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_re
     VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.update', '/manager/api/kickstart/tree/update', 'POST', 'A', True)
     ON CONFLICT (endpoint, http_method) DO NOTHING;
 INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
+    VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.createFromImage', '/manager/api/kickstart/tree/createFromImage', 'POST', 'A', True)
+    ON CONFLICT (endpoint, http_method) DO NOTHING;
+INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
+    VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.listImageTrees', '/manager/api/kickstart/tree/listImageTrees', 'GET', 'A', True)
+    ON CONFLICT (endpoint, http_method) DO NOTHING;
+INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
+    VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.getImageTreeDetails', '/manager/api/kickstart/tree/getImageTreeDetails', 'GET', 'A', True)
+    ON CONFLICT (endpoint, http_method) DO NOTHING;
+INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
+    VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.updateImageTree', '/manager/api/kickstart/tree/updateImageTree', 'POST', 'A', True)
+    ON CONFLICT (endpoint, http_method) DO NOTHING;
+INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
+    VALUES ('com.redhat.rhn.frontend.xmlrpc.kickstart.tree.KickstartTreeHandler.deleteImageTree', '/manager/api/kickstart/tree/deleteImageTree', 'POST', 'A', True)
+    ON CONFLICT (endpoint, http_method) DO NOTHING;
+INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)
     VALUES ('com.suse.manager.xmlrpc.maintenance.MaintenanceHandler.assignScheduleToSystems', '/manager/api/maintenance/assignScheduleToSystems', 'POST', 'A', True)
     ON CONFLICT (endpoint, http_method) DO NOTHING;
 INSERT INTO access.endpoint (class_method, endpoint, http_method, scope, auth_required)

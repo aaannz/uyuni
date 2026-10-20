@@ -655,7 +655,12 @@ INSERT INTO access.accessGroupNamespace
         'api.kickstart.tree.get_details',
         'api.kickstart.tree.list',
         'api.kickstart.tree.rename',
-        'api.kickstart.tree.update'
+        'api.kickstart.tree.update',
+        'api.kickstart.tree.create_from_image',
+        'api.kickstart.tree.list_image_trees',
+        'api.kickstart.tree.get_image_tree_details',
+        'api.kickstart.tree.update_image_tree',
+        'api.kickstart.tree.delete_image_tree'
     )
     ON CONFLICT DO NOTHING;
 

@@ -14,13 +14,19 @@
  */
 package com.redhat.rhn.manager.satellite;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.redhat.rhn.domain.image.ImageInfo;
+import com.redhat.rhn.domain.kickstart.KickstartFactory;
+import com.redhat.rhn.domain.kickstart.KickstartTestUtils;
 import com.redhat.rhn.domain.server.MinionServer;
 import com.redhat.rhn.domain.server.MinionServerFactory;
 import com.redhat.rhn.domain.server.MinionServerFactoryTest;
+import com.redhat.rhn.testing.ImageTestUtils;
 import com.redhat.rhn.testing.JMockBaseTestCaseWithUser;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
 import com.suse.manager.webui.services.iface.SaltApi;
 import com.suse.manager.webui.services.pillar.MinionPillarManager;
 import com.suse.salt.netapi.datatypes.target.MinionList;
@@ -118,5 +124,35 @@ public class UpgradeCommandTest extends JMockBaseTestCaseWithUser {
 
     private static MinionListMatcher minionListWith(List<String> expectedIds) {
         return new MinionListMatcher(expectedIds);
+    }
+
+    /**
+     * Tests that createSaltbootTrees creates the tree of the saltboot images only, and only once
+     */
+    @Test
+    public void testCreateSaltbootTrees() throws Exception {
+        KickstartTestUtils.setupTestConfiguration(user);
+        ImageInfo image = KickstartTestUtils.createSaltbootImageWithBootFiles(user);
+        ImageInfo bundled = KickstartTestUtils.createSaltbootImageWithBootFiles(user);
+        ImageTestUtils.createImageFile(bundled, ImageTreeManager.generatedLabel(bundled) + "/bundle.tar", "bundle");
+        ImageInfo unbuilt = KickstartTestUtils.createSaltbootImageWithBootFiles(user);
+        unbuilt.setBuilt(false);
+        try {
+            UpgradeCommand command = new UpgradeCommand(context.mock(SaltApi.class), MinionPillarManager.INSTANCE);
+
+            command.createSaltbootTrees();
+            command.createSaltbootTrees();
+
+            assertEquals(1, KickstartFactory.listImageTrees(image).size());
+            assertTrue(KickstartFactory.listImageTrees(image).get(0).isGeneratedImageTree());
+            assertTrue(KickstartFactory.listImageTrees(bundled).isEmpty());
+            assertTrue(KickstartFactory.listImageTrees(unbuilt).isEmpty());
+        }
+        finally {
+            KickstartTestUtils.deleteBootFiles(image);
+            KickstartTestUtils.deleteBootFiles(bundled);
+            KickstartTestUtils.deleteBootFiles(unbuilt);
+            KickstartTestUtils.cleanUpCobbler();
+        }
     }
 }

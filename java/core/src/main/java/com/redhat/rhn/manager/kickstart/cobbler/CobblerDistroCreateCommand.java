@@ -71,12 +71,12 @@ public class CobblerDistroCreateCommand extends CobblerDistroCommand {
     @Override
     public ValidatorError store() {
         CobblerDistroHelper.getInstance().createDistroFromTree(
-                CobblerXMLRPCHelper.getConnection(user),
+                getCobblerConnection(),
                 tree);
 
         if (tree.doesParaVirt()) {
             CobblerDistroHelper.getInstance().createXenDistroFromTree(
-                    CobblerXMLRPCHelper.getConnection(user),
+                    getCobblerConnection(),
                     tree);
         }
 

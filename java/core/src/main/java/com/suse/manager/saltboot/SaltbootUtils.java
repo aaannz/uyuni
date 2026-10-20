@@ -32,6 +32,7 @@ import com.redhat.rhn.domain.server.ServerFactory;
 import com.redhat.rhn.domain.server.ServerGroup;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
 import com.suse.manager.autoinstallation.saltboot.SaltbootBranch;
 import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
 import com.suse.manager.autoinstallation.saltboot.SaltbootTerminalResolver;
@@ -60,6 +61,7 @@ import java.util.stream.Collectors;
 public final class SaltbootUtils {
     private static final Logger LOG = LogManager.getLogger(SaltbootUtils.class);
     public static final String DEFAULT_BOOT_IMAGE = "DEFAULT_IMAGE";
+    public static final String DISTRO_KERNEL_OPTIONS = "panic=60 splash=silent";
     private SaltbootUtils() { }
 
     private static String makeCobblerFilterNameV(ImageInfo imageInfo) {
@@ -189,7 +191,9 @@ public final class SaltbootUtils {
 
 
     /**
-     * Create saltboot distribution based on provided image and boot image info
+     * Create saltboot profiles based on provided image and boot image info
+     * The distro is the one of the image tree, see {@link ImageTreeManager#ensureGeneratedTree}. A legacy
+     * distro is created only if the image has no tree.
      * For each distribution, new profile is created as well
      * <p>Distro name is: imageName-imageVersion:S:orgId:orgName</p>
      * @param imageInfo image info
@@ -209,7 +213,9 @@ public final class SaltbootUtils {
     }
 
     /**
-     * Create saltboot distribution based on provided image and boot image info
+     * Create saltboot profiles based on provided image and boot image info
+     * The distro is the one of the image tree, see {@link ImageTreeManager#ensureGeneratedTree}. A legacy
+     * distro is created only if the image has no tree.
      * For each distribution, new profile is created as well
      * <p>Distro name is: imageName-imageVersion:S:orgId:orgName</p>
      * @param imageInfo image info
@@ -221,36 +227,14 @@ public final class SaltbootUtils {
         String nameV = makeCobblerNameV(imageInfo);
         String name = makeCobblerName(imageInfo);
 
-        // Return early when distribution already exists
-        if (distros.stream().anyMatch(d -> nameVR.equals(d.getName()))) {
+        // Return early when the private profile of the distribution already exists
+        if (Profile.lookupByName(con, nameVR) != null) {
             LOG.debug("Saltboot distribution {} already exists", nameVR);
             return;
         }
 
-        final String pathPrefix = OSImageStoreUtils.getOSImageStorePathForImage(imageInfo);
-
-        Map<String, String> imageFilePaths = imageInfo.getImageFiles().stream()
-                .filter(f -> "kernel".equals(f.getType()) || "initrd".equals(f.getType()))
-                .collect(Collectors.toMap(ImageFile::getType, f -> pathPrefix + f.getFile()));
-
-        String kernel = imageFilePaths.get("kernel");
-        String initrd = imageFilePaths.get("initrd");
-
-        if (initrd == null || kernel == null) {
-            throw new SaltbootException("Missing initrd or kernel files from the image");
-        }
-
-        // First create actual distro object
-        // Generic breed is required for cobbler not appending any autoyast or kickstart keywords
-        Distro cd = new Distro.Builder<String>()
-            .setName(nameVR)
-            .setInitrd(initrd)
-            .setKernel(kernel)
-            .setKernelOptions(Optional.of("panic=60 splash=silent"))
-            .setArch(imageInfo.getImageArch().getName()).setBreed("generic")
-            .build(con);
-        cd.setComment("Distro for image " + nameVR + " belonging to organization " + imageInfo.getOrg().getName());
-        cd.save();
+        Distro treeDistro = Distro.lookupByName(con, nameVR);
+        Distro cd = treeDistro != null ? treeDistro : createLegacyDistro(imageInfo, nameVR, con);
 
         // Each distro have its own private profile for individual system records
         // SystemRecords need to be decoupled from saltboot group default profiles
@@ -258,7 +242,10 @@ public final class SaltbootUtils {
 
         // Make a copy of passed distros, as that list can be immutable
         List<Distro> distributions = new ArrayList<>(distros);
-        distributions.add(cd);
+        String distroName = cd.getName();
+        if (distributions.stream().noneMatch(d -> distroName.equals(d.getName()))) {
+            distributions.add(cd);
+        }
 
 
         // Update DEFAULT_BOOT_IMAGE profile to point to this one
@@ -280,6 +267,33 @@ public final class SaltbootUtils {
                 updateDistroProfile(con, nameV, cd, "Default image for " + nameV);
             }
         });
+    }
+
+    private static Distro createLegacyDistro(ImageInfo imageInfo, String nameVR, CobblerConnection con) {
+        final String pathPrefix = OSImageStoreUtils.getOSImageStorePathForImage(imageInfo);
+
+        Map<String, String> imageFilePaths = imageInfo.getImageFiles().stream()
+                .filter(f -> "kernel".equals(f.getType()) || "initrd".equals(f.getType()))
+                .collect(Collectors.toMap(ImageFile::getType, f -> pathPrefix + f.getFile()));
+
+        String kernel = imageFilePaths.get("kernel");
+        String initrd = imageFilePaths.get("initrd");
+
+        if (initrd == null || kernel == null) {
+            throw new SaltbootException("Missing initrd or kernel files from the image");
+        }
+
+        // Generic breed is required for cobbler not appending any autoyast or kickstart keywords
+        Distro cd = new Distro.Builder<String>()
+            .setName(nameVR)
+            .setInitrd(initrd)
+            .setKernel(kernel)
+            .setKernelOptions(Optional.of(DISTRO_KERNEL_OPTIONS))
+            .setArch(imageInfo.getImageArch().getName()).setBreed("generic")
+            .build(con);
+        cd.setComment("Distro for image " + nameVR + " belonging to organization " + imageInfo.getOrg().getName());
+        cd.save();
+        return cd;
     }
 
     /**

@@ -28,6 +28,8 @@ import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerCommand;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
+import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.manager.webui.services.SaltConstants;
 
 import org.apache.commons.io.FileUtils;
@@ -319,7 +321,17 @@ public class KickstartableTree extends BaseDomainHelper {
      * @return the cobblerDistroName
      */
     public String getCobblerDistroName() {
+        if (isImageTree()) {
+            return SaltbootUtils.makeCobblerName(getOrg(), getLabel());
+        }
         return CobblerCommand.makeCobblerName(getLabel(), getOrg());
+    }
+
+    /**
+     * @return true if this is the tree generated for its image, false for user created image trees
+     */
+    public boolean isGeneratedImageTree() {
+        return isImageTree() && ImageTreeManager.generatedLabel(image).equals(getLabel());
     }
 
     /**

@@ -28,6 +28,7 @@ import com.redhat.rhn.domain.server.InstalledProduct;
 import com.redhat.rhn.domain.server.MinionSummary;
 import com.redhat.rhn.manager.errata.ErrataManager;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
 import com.suse.manager.reactor.utils.RhelUtils;
 import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.manager.utils.SaltUtils;
@@ -286,6 +287,7 @@ public class ImageInspectAction extends Action {
                     SaltStateGeneratorService.INSTANCE.generateOSImagePillar(ret.getImage(),
                             ret.getBootImage(), imageInfo);
                     if (ret.getBootImage().isPresent() && ret.getBundles().isEmpty()) {
+                        ImageTreeManager.ensureGeneratedTree(imageInfo);
                         SaltbootUtils.createSaltbootDistro(imageInfo);
                     }
                 }

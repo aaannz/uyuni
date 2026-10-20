@@ -13,11 +13,14 @@ package com.redhat.rhn.domain.kickstart;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.redhat.rhn.common.conf.Config;
 import com.redhat.rhn.common.conf.ConfigDefaults;
+import com.redhat.rhn.domain.image.ImageFile;
 import com.redhat.rhn.domain.image.ImageInfo;
 import com.redhat.rhn.domain.image.ImageProfile;
+import com.redhat.rhn.domain.image.OSImageStoreUtils;
 import com.redhat.rhn.domain.kickstart.cobbler.CobblerSnippet;
 import com.redhat.rhn.domain.server.MinionServer;
 import com.redhat.rhn.domain.server.MinionServerFactoryTest;
@@ -29,6 +32,9 @@ import com.redhat.rhn.manager.kickstart.cobbler.MockXMLRPCInvoker;
 import com.redhat.rhn.testing.ImageTestUtils;
 import com.redhat.rhn.testing.TestUtils;
 
+import com.suse.manager.autoinstallation.ImageTreeManager;
+
+import org.apache.commons.io.FileUtils;
 import org.cobbler.CobblerConnection;
 import org.cobbler.CobblerObject;
 import org.cobbler.Distro;
@@ -203,6 +209,37 @@ public class KickstartTestUtils {
         ImageTestUtils.createImageFile(image, "kernel", "kernel");
         ImageTestUtils.createImageFile(image, "initrd", "initrd");
         return TestUtils.saveAndFlush(image);
+    }
+
+    /**
+     * Creates a saved saltboot image whose kernel and initrd are laid out like the image build does:
+     * in a directory named after the image below the OS image store of the org, and present on disk.
+     * Use {@link #deleteBootFiles(ImageInfo)} to remove them.
+     *
+     * @param user the owner
+     * @return the saved image
+     * @throws Exception if the fixtures cannot be created
+     */
+    public static ImageInfo createSaltbootImageWithBootFiles(User user) throws Exception {
+        ImageInfo image = createSaltbootImage(user);
+        String dir = ImageTreeManager.generatedLabel(image) + "/";
+        for (ImageFile file : image.getImageFiles()) {
+            file.setFile(dir + file.getFile());
+            File onDisk = new File(OSImageStoreUtils.getOSImageStorePathForImage(image) + file.getFile());
+            FileUtils.forceMkdirParent(onDisk);
+            assertTrue(onDisk.createNewFile() || onDisk.exists());
+        }
+        return TestUtils.saveAndFlush(image);
+    }
+
+    /**
+     * Removes the boot files created by {@link #createSaltbootImageWithBootFiles(User)}.
+     *
+     * @param image the image
+     */
+    public static void deleteBootFiles(ImageInfo image) {
+        FileUtils.deleteQuietly(new File(OSImageStoreUtils.getOSImageStorePathForImage(image) +
+                ImageTreeManager.generatedLabel(image)));
     }
 
     /**

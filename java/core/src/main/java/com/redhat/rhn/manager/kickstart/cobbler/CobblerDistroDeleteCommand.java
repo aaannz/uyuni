@@ -57,7 +57,7 @@ public class CobblerDistroDeleteCommand extends CobblerDistroCommand {
             return null;
         }
 
-        CobblerConnection con = CobblerXMLRPCHelper.getConnection(user);
+        CobblerConnection con = getCobblerConnection();
         Distro dis = Distro.lookupById(con, tree.getCobblerId());
 
         if (dis == null) {

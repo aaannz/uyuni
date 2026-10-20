@@ -1734,6 +1734,21 @@ INSERT INTO access.namespace (namespace, access_mode, description)
     VALUES ('api.kickstart.tree.update', 'W', 'Edit a Kickstart Tree (Distribution) in #product().')
     ON CONFLICT (namespace, access_mode) DO NOTHING;
 INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.kickstart.tree.create_from_image', 'W', 'Create a Kickstart Tree (Distribution) based on an OS image in #product().')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.kickstart.tree.list_image_trees', 'R', 'List the Kickstart Trees (Distributions) based on OS images.')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.kickstart.tree.get_image_tree_details', 'R', 'The detailed information about a tree based on an OS image.')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.kickstart.tree.update_image_tree', 'W', 'Update the kernel options of a Kickstart Tree (Distribution) based on an OS image.')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
+    VALUES ('api.kickstart.tree.delete_image_tree', 'W', 'Delete a Kickstart Tree (Distribution) based on an OS image.')
+    ON CONFLICT (namespace, access_mode) DO NOTHING;
+INSERT INTO access.namespace (namespace, access_mode, description)
     VALUES ('api.maintenance.assign_schedule_to_systems', 'W', 'Assign schedule with given name to systems with given IDs.')
     ON CONFLICT (namespace, access_mode) DO NOTHING;
 INSERT INTO access.namespace (namespace, access_mode, description)

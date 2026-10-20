@@ -18,6 +18,8 @@ package com.redhat.rhn.frontend.xmlrpc.kickstart.tree;
 import com.redhat.rhn.common.conf.ConfigDefaults;
 import com.redhat.rhn.common.validator.ValidatorError;
 import com.redhat.rhn.domain.channel.Channel;
+import com.redhat.rhn.domain.image.ImageInfo;
+import com.redhat.rhn.domain.image.ImageInfoFactory;
 import com.redhat.rhn.domain.kickstart.KickstartFactory;
 import com.redhat.rhn.domain.kickstart.KickstartInstallType;
 import com.redhat.rhn.domain.kickstart.KickstartableTree;
@@ -25,14 +27,21 @@ import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.frontend.dto.kickstart.KickstartableTreeDetail;
 import com.redhat.rhn.frontend.xmlrpc.BaseHandler;
 import com.redhat.rhn.frontend.xmlrpc.InvalidChannelLabelException;
+import com.redhat.rhn.frontend.xmlrpc.NoSuchImageException;
 import com.redhat.rhn.manager.channel.ChannelManager;
 import com.redhat.rhn.manager.kickstart.tree.TreeCreateOperation;
 import com.redhat.rhn.manager.kickstart.tree.TreeDeleteOperation;
 import com.redhat.rhn.manager.kickstart.tree.TreeEditOperation;
 
 import com.suse.manager.api.ReadOnly;
+import com.suse.manager.autoinstallation.ImageTreeManager;
 
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * KickstartTreeHandler - methods related to CRUD operations
@@ -337,6 +346,218 @@ public class KickstartTreeHandler extends BaseHandler {
             throw new InvalidKickstartTreeException(ve.getKey());
         }
         return 1;
+    }
+
+    /**
+     * Create a Kickstart Tree (Distribution) based on an OS image.
+     *
+     * @param loggedInUser The current user
+     * @param treeLabel Label for the new tree
+     * @param imageId id of the image the tree is based on
+     * @param installType label of the image based install type
+     * @return 1 if successful, exception otherwise.
+     *
+     * @apidoc.doc Create a Kickstart Tree (Distribution) based on an OS image in #product().
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("string", "treeLabel" "The new tree label. Letters, digits, dots,
+     * hyphens and underscores, up to 64 characters.")
+     * @apidoc.param #param_desc("int", "imageId", "Id of the image with kernel and initrd files.")
+     * @apidoc.param #param_desc("string", "installType", "Label of the image based install type (saltboot).")
+     * @apidoc.returntype #return_int_success()
+     */
+    public int createFromImage(User loggedInUser, String treeLabel, Integer imageId, String installType) {
+        return createFromImage(loggedInUser, treeLabel, imageId, installType, "", "");
+    }
+
+    /**
+     * Create a Kickstart Tree (Distribution) based on an OS image.
+     *
+     * @param loggedInUser The current user
+     * @param treeLabel Label for the new tree
+     * @param imageId id of the image the tree is based on
+     * @param installType label of the image based install type
+     * @param kernelOptions options to be passed to the kernel when booting
+     * @param postKernelOptions options to be passed to the kernel after installation
+     * @return 1 if successful, exception otherwise.
+     *
+     * @apidoc.doc Create a Kickstart Tree (Distribution) based on an OS image in #product(). Labels shaped
+     * like name-x.y.z-n are reserved by convention for the trees generated for images: such a label of
+     * another image can take over the saltboot default profiles of the organization.
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("string", "treeLabel" "The new tree label. Letters, digits, dots,
+     * hyphens and underscores, up to 64 characters.")
+     * @apidoc.param #param_desc("int", "imageId", "Id of the image with kernel and initrd files.")
+     * @apidoc.param #param_desc("string", "installType", "Label of the image based install type (saltboot).")
+     * @apidoc.param #param_desc("string", "kernelOptions", "Options to be passed to the kernel
+     * when booting. ")
+     * @apidoc.param #param_desc("string", "postKernelOptions", "Options to be passed to the kernel
+     * after installation. ")
+     * @apidoc.returntype #return_int_success()
+     */
+    public int createFromImage(User loggedInUser, String treeLabel, Integer imageId, String installType,
+                               String kernelOptions, String postKernelOptions) {
+        KickstartInstallType type = KickstartFactory.lookupKickstartInstallTypeByLabel(installType);
+        if (type == null || !type.isSaltboot()) {
+            throw new NoSuchKickstartInstallTypeException(installType);
+        }
+        ImageInfo image = lookupImage(loggedInUser, imageId);
+        checkResult(ImageTreeManager.create(loggedInUser, treeLabel, image, kernelOptions, postKernelOptions));
+        return 1;
+    }
+
+    /**
+     * List the trees based on OS images.
+     *
+     * @param loggedInUser The current user
+     * @return the image trees of the organization
+     *
+     * @apidoc.doc List the Kickstart Trees (Distributions) based on OS images.
+     * @apidoc.param #session_key()
+     * @apidoc.returntype
+     *   #return_array_begin()
+     *     #struct_begin("tree")
+     *       #prop_desc("string", "label", "the tree label")
+     *       #prop_desc("int", "image_id", "the id of the image")
+     *       #prop_desc("string", "install_type", "the install type label")
+     *       #prop_desc("string", "base_path", "the directory with the boot files")
+     *       #prop_desc("string", "kernel_options", "the kernel options")
+     *       #prop_desc("string", "kernel_options_post", "the post install kernel options")
+     *       #prop_desc("boolean", "generated", "true for the tree generated for its image")
+     *     #struct_end()
+     *   #array_end()
+     */
+    @ReadOnly
+    public List<Map<String, Object>> listImageTrees(User loggedInUser) {
+        return KickstartFactory.listImageTreesByOrg(loggedInUser.getOrg()).stream()
+                .map(this::imageTreeToMap).collect(Collectors.toList());
+    }
+
+    /**
+     * List the trees based on an OS image.
+     *
+     * @param loggedInUser The current user
+     * @param imageId id of the image
+     * @return the trees of the image
+     *
+     * @apidoc.doc List the Kickstart Trees (Distributions) based on an OS image.
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("int", "imageId", "Id of the image.")
+     * @apidoc.returntype
+     *   #return_array_begin()
+     *     #struct_begin("tree")
+     *       #prop_desc("string", "label", "the tree label")
+     *       #prop_desc("int", "image_id", "the id of the image")
+     *       #prop_desc("string", "install_type", "the install type label")
+     *       #prop_desc("string", "base_path", "the directory with the boot files")
+     *       #prop_desc("string", "kernel_options", "the kernel options")
+     *       #prop_desc("string", "kernel_options_post", "the post install kernel options")
+     *       #prop_desc("boolean", "generated", "true for the tree generated for its image")
+     *     #struct_end()
+     *   #array_end()
+     */
+    @ReadOnly
+    public List<Map<String, Object>> listImageTrees(User loggedInUser, Integer imageId) {
+        return KickstartFactory.listImageTrees(lookupImage(loggedInUser, imageId)).stream()
+                .map(this::imageTreeToMap).collect(Collectors.toList());
+    }
+
+    /**
+     * Returns details of the tree based on an OS image specified by the label
+     *
+     * @param loggedInUser The current user
+     * @param treeLabel Label of the image tree
+     * @return the tree details
+     *
+     * @apidoc.doc The detailed information about a tree based on an OS image.
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("string", "treeLabel", "Label of the image tree.")
+     * @apidoc.returntype
+     *   #struct_begin("tree")
+     *     #prop_desc("string", "label", "the tree label")
+     *     #prop_desc("int", "image_id", "the id of the image")
+     *     #prop_desc("string", "install_type", "the install type label")
+     *     #prop_desc("string", "base_path", "the directory with the boot files")
+     *     #prop_desc("string", "kernel_options", "the kernel options")
+     *     #prop_desc("string", "kernel_options_post", "the post install kernel options")
+     *     #prop_desc("boolean", "generated", "true for the tree generated for its image")
+     *   #struct_end()
+     */
+    @ReadOnly
+    public Map<String, Object> getImageTreeDetails(User loggedInUser, String treeLabel) {
+        return imageTreeToMap(lookupImageTree(loggedInUser, treeLabel));
+    }
+
+    /**
+     * Update the kernel options of a tree based on an OS image.
+     *
+     * @param loggedInUser The current user
+     * @param treeLabel Label of the image tree
+     * @param kernelOptions options to be passed to the kernel when booting
+     * @param postKernelOptions options to be passed to the kernel after installation
+     * @return 1 if successful, exception otherwise.
+     *
+     * @apidoc.doc Update the kernel options of a Kickstart Tree (Distribution) based on an OS image.
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("string", "treeLabel", "Label of the image tree.")
+     * @apidoc.param #param_desc("string", "kernelOptions", "Options to be passed to the kernel
+     * when booting. ")
+     * @apidoc.param #param_desc("string", "postKernelOptions", "Options to be passed to the kernel
+     * after installation. ")
+     * @apidoc.returntype #return_int_success()
+     */
+    public int updateImageTree(User loggedInUser, String treeLabel, String kernelOptions,
+                               String postKernelOptions) {
+        checkResult(ImageTreeManager.update(loggedInUser, lookupImageTree(loggedInUser, treeLabel),
+                kernelOptions, postKernelOptions));
+        return 1;
+    }
+
+    /**
+     * Delete a tree based on an OS image. The tree generated for an image is deleted with the image.
+     *
+     * @param loggedInUser The current user
+     * @param treeLabel Label of the image tree
+     * @return 1 if successful, exception otherwise.
+     *
+     * @apidoc.doc Delete a Kickstart Tree (Distribution) based on an OS image. The tree generated for an image
+     * cannot be deleted, it is deleted together with the image.
+     * @apidoc.param #session_key()
+     * @apidoc.param #param_desc("string", "treeLabel", "Label of the image tree.")
+     * @apidoc.returntype #return_int_success()
+     */
+    public int deleteImageTree(User loggedInUser, String treeLabel) {
+        checkResult(ImageTreeManager.delete(loggedInUser, lookupImageTree(loggedInUser, treeLabel)));
+        return 1;
+    }
+
+    private ImageInfo lookupImage(User user, Integer imageId) {
+        return ImageInfoFactory.lookupByIdAndOrg(imageId, user.getOrg()).orElseThrow(NoSuchImageException::new);
+    }
+
+    private KickstartableTree lookupImageTree(User user, String treeLabel) {
+        KickstartableTree tree = KickstartFactory.lookupImageTreeByLabel(treeLabel, user.getOrg());
+        if (tree == null) {
+            throw new InvalidKickstartTreeException("api.kickstart.tree.notfound");
+        }
+        return tree;
+    }
+
+    private void checkResult(ValidatorError error) {
+        if (error != null) {
+            throw new InvalidKickstartTreeException(error.getKey(), error.getValues());
+        }
+    }
+
+    private Map<String, Object> imageTreeToMap(KickstartableTree tree) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("label", tree.getLabel());
+        map.put("image_id", tree.getImage().getId().intValue());
+        map.put("install_type", tree.getInstallType().getLabel());
+        map.put("base_path", tree.getBasePath());
+        map.put("kernel_options", StringUtils.defaultString(tree.getKernelOptions()));
+        map.put("kernel_options_post", StringUtils.defaultString(tree.getKernelOptionsPost()));
+        map.put("generated", tree.isGeneratedImageTree());
+        return map;
     }
 
     private Channel getChannel(String label, User user) {
