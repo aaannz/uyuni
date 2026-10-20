@@ -20,6 +20,7 @@ import com.redhat.rhn.common.hibernate.HibernateFactory;
 import com.redhat.rhn.common.util.FileUtils;
 import com.redhat.rhn.domain.action.Action;
 import com.redhat.rhn.domain.channel.Channel;
+import com.redhat.rhn.domain.image.ImageInfo;
 import com.redhat.rhn.domain.kickstart.crypto.CryptoKey;
 import com.redhat.rhn.domain.kickstart.crypto.CryptoKeyType;
 import com.redhat.rhn.domain.kickstart.crypto.SslCryptoKey;
@@ -262,7 +263,8 @@ public class KickstartFactory extends HibernateFactory {
         Session session = HibernateFactory.getSession();
         return session.createQuery("""
                         FROM KickstartableTree AS k
-                        WHERE k.cobblerId = :cid OR k.cobblerXenId = :cid
+                        WHERE (k.cobblerId = :cid OR k.cobblerXenId = :cid)
+                        AND k.image IS NULL
                         ORDER BY k.label""", KickstartableTree.class)
                 .setParameter("cid", cobblerId)
                 .uniqueResult();
@@ -570,7 +572,8 @@ public class KickstartFactory extends HibernateFactory {
         Session session = HibernateFactory.getSession();
         KickstartableTree retval = session
             .createQuery(
-                "FROM KickstartableTree AS k WHERE k.label = :label AND k.org.id = :org_id", KickstartableTree.class
+                "FROM KickstartableTree AS k WHERE k.label = :label AND k.org.id = :org_id AND k.image IS NULL",
+                KickstartableTree.class
             )
             .setParameter(LABEL, label, StandardBasicTypes.STRING)
             .setParameter(ORG_ID, org.getId(), StandardBasicTypes.LONG)
@@ -579,12 +582,77 @@ public class KickstartFactory extends HibernateFactory {
         // we try by label and NULL org (RHN owned channel)
         if (retval == null) {
             retval = session.createQuery(
-                    "FROM KickstartableTree AS k WHERE k.label = :label AND k.org IS NULL", KickstartableTree.class
+                    "FROM KickstartableTree AS k WHERE k.label = :label AND k.org IS NULL AND k.image IS NULL",
+                    KickstartableTree.class
                 )
                 .setParameter(LABEL, label)
                 .uniqueResult();
         }
         return retval;
+    }
+
+    /**
+     * Check whether a tree of any kind (channel or image based) uses the label in the org
+     * or as a vendor tree. Channel and image based trees share one label space.
+     *
+     * @param label to check
+     * @param org owning org
+     * @return true if a tree with that label exists
+     */
+    public static boolean treeLabelExists(String label, Org org) {
+        return HibernateFactory.getSession().createQuery("""
+                        SELECT COUNT(k) FROM KickstartableTree AS k
+                        WHERE k.label = :label AND (k.org.id = :org_id OR k.org IS NULL)""", Long.class)
+                .setParameter(LABEL, label)
+                .setParameter(ORG_ID, org.getId())
+                .uniqueResult() > 0;
+    }
+
+    /**
+     * Lookup an image based tree by its label.
+     *
+     * @param label to lookup
+     * @param org owning org
+     * @return KickstartableTree if found, otherwise null
+     */
+    public static KickstartableTree lookupImageTreeByLabel(String label, Org org) {
+        return HibernateFactory.getSession().createQuery("""
+                        FROM KickstartableTree AS k
+                        WHERE k.label = :label AND k.org.id = :org_id AND k.image IS NOT NULL""",
+                        KickstartableTree.class)
+                .setParameter(LABEL, label)
+                .setParameter(ORG_ID, org.getId())
+                .uniqueResult();
+    }
+
+    /**
+     * List the trees based on the given image.
+     *
+     * @param image the image
+     * @return list of image based trees
+     */
+    public static List<KickstartableTree> listImageTrees(ImageInfo image) {
+        return HibernateFactory.getSession().createQuery("""
+                        FROM KickstartableTree AS k
+                        WHERE k.image.id = :image_id
+                        ORDER BY k.label""", KickstartableTree.class)
+                .setParameter("image_id", image.getId())
+                .list();
+    }
+
+    /**
+     * List the image based trees of an org.
+     *
+     * @param org owning org
+     * @return list of image based trees
+     */
+    public static List<KickstartableTree> listImageTreesByOrg(Org org) {
+        return HibernateFactory.getSession().createQuery("""
+                        FROM KickstartableTree AS k
+                        WHERE k.org.id = :org_id AND k.image IS NOT NULL
+                        ORDER BY k.label""", KickstartableTree.class)
+                .setParameter(ORG_ID, org.getId())
+                .list();
     }
 
     /**
@@ -595,7 +663,7 @@ public class KickstartFactory extends HibernateFactory {
      */
     public static KickstartableTree lookupKickstartTreeByLabel(String label) {
         Session session = HibernateFactory.getSession();
-        return session.createQuery("FROM KickstartableTree AS k WHERE k.label = :label",
+        return session.createQuery("FROM KickstartableTree AS k WHERE k.label = :label AND k.image IS NULL",
                         KickstartableTree.class)
                 .setParameter(LABEL, label)
                 .uniqueResult();
@@ -670,7 +738,7 @@ public class KickstartFactory extends HibernateFactory {
         Session session = HibernateFactory.getSession();
         return session.createQuery("""
                         FROM KickstartableTree AS k
-                        WHERE k.org.id = :org_id OR k.org IS NULL
+                        WHERE (k.org.id = :org_id OR k.org IS NULL) AND k.image IS NULL
                         ORDER BY k.label""", KickstartableTree.class)
                 .setParameter(ORG_ID, org.getId())
                 .list();
@@ -685,7 +753,8 @@ public class KickstartFactory extends HibernateFactory {
         Session session = HibernateFactory.getSession();
         return session.createQuery("""
                         FROM KickstartableTree AS k
-                        WHERE k.org.id = :org_id ORDER BY k.label""", KickstartableTree.class)
+                        WHERE k.org.id = :org_id AND k.image IS NULL
+                        ORDER BY k.label""", KickstartableTree.class)
                 .setParameter(ORG_ID, org.getId())
                 .list();
     }
@@ -736,6 +805,7 @@ public class KickstartFactory extends HibernateFactory {
                             FROM KickstartableTree AS k
                             WHERE k.id = :tree_id
                             AND (k.org.id = :org_id OR k.org IS NULL)
+                            AND k.image IS NULL
                             """, KickstartableTree.class)
                     .setParameter(ORG_ID, org.getId(), StandardBasicTypes.LONG)
                     .setParameter("tree_id", treeId, StandardBasicTypes.LONG)
@@ -879,7 +949,7 @@ public class KickstartFactory extends HibernateFactory {
         KickstartableTree retval = HibernateFactory.getSession().getReference(KickstartableTree.class, treeId);
         if (retval != null) {
             List<Channel> list = OrgFactory.lookupById(orgId).getAccessibleChannels();
-            if (!list.contains(retval.getChannel())) {
+            if (retval.isImageTree() || !list.contains(retval.getChannel())) {
                 retval = null;
             }
         }
@@ -901,7 +971,7 @@ public class KickstartFactory extends HibernateFactory {
      */
     public static List<KickstartInstallType> lookupKickstartInstallTypes() {
         Session session = HibernateFactory.getSession();
-        return session.createQuery("FROM KickstartInstallType AS t ORDER BY t.label DESC",
+        return session.createQuery("FROM KickstartInstallType AS t WHERE t.label <> 'saltboot' ORDER BY t.label DESC",
                         KickstartInstallType.class)
                 //Retrieve from cache if there
                 .setCacheable(true)
@@ -1145,6 +1215,7 @@ public class KickstartFactory extends HibernateFactory {
         Root<KickstartableTree> root = query.from(KickstartableTree.class);
         query.select(root)
                 .where(builder.and(
+                        builder.isNull(root.get("image")),
                         builder.isNotNull(root.get("cobblerId")),
                         builder.isNull(root.get("kernelOptions")),
                         builder.isNull(root.get("kernelOptionsPost"))));

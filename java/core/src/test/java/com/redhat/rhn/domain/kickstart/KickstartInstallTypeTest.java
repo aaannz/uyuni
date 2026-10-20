@@ -109,6 +109,26 @@ public class KickstartInstallTypeTest extends BaseTestCase {
 
         assertEquals("redhat", type("fedora18").getCobblerBreed());
         assertEquals("fedora18", type("fedora18").getCobblerOsVersion());
+
+        assertEquals("generic", type("saltboot").getCobblerBreed());
+        assertEquals("virtio26", type("saltboot").getCobblerOsVersion());
+    }
+
+    /**
+     * Saltboot is its own install type: neither SUSE nor generic, so the
+     * kernel options factory can never mistake it for another OS class.
+     */
+    @Test
+    public void testIsSaltboot() {
+        assertTrue(type("saltboot").isSaltboot());
+        assertFalse(type("saltboot").isSUSE());
+        assertFalse(type("saltboot").isGeneric());
+        assertFalse(type("saltboot").isRhel());
+        assertFalse(type("saltboot").isSLES16OrGreater());
+
+        assertFalse(type("generic_rpm").isSaltboot());
+        assertFalse(type("opensuse16.1").isSaltboot());
+        assertFalse(type("rhel_7").isSaltboot());
     }
 
     private KickstartInstallType type(String label) {

@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.redhat.rhn.common.validator.ValidatorError;
 import com.redhat.rhn.domain.channel.Channel;
+import com.redhat.rhn.domain.kickstart.KickstartTestUtils;
 import com.redhat.rhn.manager.kickstart.tree.TreeCreateOperation;
 import com.redhat.rhn.testing.ChannelTestUtils;
 import com.redhat.rhn.testing.JMockBaseTestCaseWithUser;
@@ -95,6 +96,36 @@ public class BaseTreeActionTest extends JMockBaseTestCaseWithUser {
                 new TreeCreateOperation(user), form, request);
 
         assertEquals("kickstart.tree.invalidinstalltype", error.getKey());
+    }
+
+    /**
+     * The saltboot install type only exists for image based trees and is
+     * rejected like an unknown label.
+     */
+    @Test
+    public void testSaltbootInstallTypeRejected() {
+        checking(new Expectations() {{
+            allowing(form).getString(BaseTreeAction.INSTALL_TYPE);
+            will(returnValue("saltboot"));
+        }});
+
+        ValidatorError error = action.processCommandSetters(
+                new TreeCreateOperation(user), form, request);
+
+        assertEquals("kickstart.tree.invalidinstalltype", error.getKey());
+    }
+
+    /**
+     * A label already used by an image based tree is a duplicate.
+     */
+    @Test
+    public void testLabelOfImageTreeRejected() throws Exception {
+        KickstartTestUtils.createImageTree(user, KickstartTestUtils.createSaltbootImage(user), LABEL);
+
+        ValidatorError error = action.processCommandSetters(
+                new TreeCreateOperation(user), form, request);
+
+        assertEquals("distribution.tree.exists", error.getKey());
     }
 
     /**

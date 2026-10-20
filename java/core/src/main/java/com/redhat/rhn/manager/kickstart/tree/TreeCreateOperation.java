@@ -54,10 +54,9 @@ public class TreeCreateOperation extends BaseTreeEditOperation {
      */
     @Override
     public ValidatorError store() {
-        KickstartableTree existingTree = KickstartFactory.lookupKickstartTreeByLabel(
-                        this.getTree().getLabel(), this.getUser().getOrg());
-        if (existingTree != null) {
-            return new ValidatorError("distribution.tree.exists", existingTree.getLabel());
+        String label = this.getTree().getLabel();
+        if (KickstartFactory.treeLabelExists(label, this.getUser().getOrg())) {
+            return new ValidatorError("distribution.tree.exists", label);
         }
 
         return super.store();

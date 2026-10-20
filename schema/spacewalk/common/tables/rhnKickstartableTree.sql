@@ -23,9 +23,13 @@ CREATE TABLE rhnKickstartableTree
                             ON DELETE CASCADE,
     label           VARCHAR(64) NOT NULL,
     base_path       VARCHAR(256) NOT NULL,
-    channel_id      NUMERIC NOT NULL
+    channel_id      NUMERIC
                         CONSTRAINT rhn_kstree_cid_fk
                             REFERENCES rhnChannel (id)
+                            ON DELETE CASCADE,
+    image_id        NUMERIC
+                        CONSTRAINT rhn_kstree_iid_fk
+                            REFERENCES suseImageInfo (id)
                             ON DELETE CASCADE,
     cobbler_id      VARCHAR(64),
     cobbler_xen_id  VARCHAR(64),
@@ -44,13 +48,19 @@ CREATE TABLE rhnKickstartableTree
     created         TIMESTAMPTZ
                         DEFAULT (current_timestamp) NOT NULL,
     modified        TIMESTAMPTZ
-                        DEFAULT (current_timestamp) NOT NULL
+                        DEFAULT (current_timestamp) NOT NULL,
+    CONSTRAINT rhn_kstree_source_ck
+        CHECK (num_nonnulls(channel_id, image_id) = 1)
 )
 
 ;
 
 CREATE UNIQUE INDEX rhn_kstree_oid_label_uq
     ON rhnKickstartableTree (org_id, label)
+    ;
+
+CREATE INDEX rhn_kstree_iid_idx
+    ON rhnKickstartableTree (image_id)
     ;
 
 CREATE SEQUENCE rhn_kstree_id_seq;

@@ -16,11 +16,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.redhat.rhn.common.conf.Config;
 import com.redhat.rhn.common.conf.ConfigDefaults;
+import com.redhat.rhn.domain.image.ImageInfo;
+import com.redhat.rhn.domain.image.ImageProfile;
 import com.redhat.rhn.domain.kickstart.cobbler.CobblerSnippet;
+import com.redhat.rhn.domain.server.MinionServer;
+import com.redhat.rhn.domain.server.MinionServerFactoryTest;
+import com.redhat.rhn.domain.token.ActivationKey;
 import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerCommand;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 import com.redhat.rhn.manager.kickstart.cobbler.MockXMLRPCInvoker;
+import com.redhat.rhn.testing.ImageTestUtils;
 import com.redhat.rhn.testing.TestUtils;
 
 import org.cobbler.CobblerConnection;
@@ -177,5 +183,44 @@ public class KickstartTestUtils {
         p.setKickstart(k.buildCobblerFileName());
         k.setCobblerId(p.getUid());
 
+    }
+
+    /**
+     * Creates a built Kiwi OS image with kernel and initrd files.
+     *
+     * @param user the owner
+     * @return the saved image
+     * @throws Exception if the fixtures cannot be created
+     */
+    public static ImageInfo createSaltbootImage(User user) throws Exception {
+        MinionServer server = MinionServerFactoryTest.createTestMinionServer(user);
+        ActivationKey key = ImageTestUtils.createActivationKey(user);
+        ImageProfile profile = ImageTestUtils.createKiwiImageProfile(
+                "pos-image-" + TestUtils.randomString(), key, user);
+        ImageInfo image = ImageTestUtils.createImageInfo(profile, server, "1.0.0", user);
+        image.setImageType(ImageProfile.TYPE_KIWI);
+        image.setBuilt(true);
+        ImageTestUtils.createImageFile(image, "kernel", "kernel");
+        ImageTestUtils.createImageFile(image, "initrd", "initrd");
+        return TestUtils.saveAndFlush(image);
+    }
+
+    /**
+     * Creates a saved image based tree with the saltboot install type.
+     *
+     * @param user the owner
+     * @param image the image backing the tree
+     * @param label the tree label
+     * @return the saved tree
+     */
+    public static KickstartableTree createImageTree(User user, ImageInfo image, String label) {
+        KickstartableTree tree = new KickstartableTree();
+        tree.setLabel(label);
+        tree.setImage(image);
+        tree.setInstallType(KickstartFactory.lookupKickstartInstallTypeByLabel(KickstartInstallType.SALTBOOT));
+        tree.setTreeType(KickstartFactory.TREE_TYPE_EXTERNAL);
+        tree.setBasePath("/tmp/kickstart/" + label);
+        tree.setOrg(user.getOrg());
+        return KickstartFactory.saveKickstartableTree(tree);
     }
 }

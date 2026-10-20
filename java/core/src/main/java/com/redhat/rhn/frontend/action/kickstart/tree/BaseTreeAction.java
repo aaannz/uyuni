@@ -91,10 +91,8 @@ public abstract class BaseTreeAction extends BaseEditAction {
 
         String label = form.getString(LABEL);
         if (!label.equals(bte.getTree().getLabel())) {
-            KickstartableTree tree = KickstartFactory.lookupKickstartTreeByLabel(
-                    label, bte.getUser().getOrg());
-            if (tree != null) {
-                return new ValidatorError("distribution.tree.exists", tree.getLabel());
+            if (KickstartFactory.treeLabelExists(label, bte.getUser().getOrg())) {
+                return new ValidatorError("distribution.tree.exists", label);
             }
         }
 
@@ -108,7 +106,7 @@ public abstract class BaseTreeAction extends BaseEditAction {
         String installTypeLabel = form.getString(INSTALL_TYPE);
         KickstartInstallType type = installTypeLabel == null ? null :
                 KickstartFactory.lookupKickstartInstallTypeByLabel(installTypeLabel);
-        if (type == null) {
+        if (type == null || type.isSaltboot()) {
             return new ValidatorError("kickstart.tree.invalidinstalltype",
                     installTypeLabel);
         }

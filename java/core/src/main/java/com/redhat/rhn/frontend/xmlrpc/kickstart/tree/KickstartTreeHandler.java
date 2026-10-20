@@ -351,7 +351,7 @@ public class KickstartTreeHandler extends BaseHandler {
     private KickstartInstallType getInstallType(String installType) {
         KickstartInstallType type =
             KickstartFactory.lookupKickstartInstallTypeByLabel(installType);
-        if (type == null) {
+        if (type == null || type.isSaltboot()) {
             throw new NoSuchKickstartInstallTypeException(installType);
         }
         return type;

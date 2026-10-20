@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.redhat.rhn.common.validator.ValidatorError;
 import com.redhat.rhn.domain.kickstart.KickstartFactory;
 import com.redhat.rhn.domain.kickstart.KickstartInstallType;
 import com.redhat.rhn.domain.kickstart.KickstartTestUtils;
@@ -47,6 +48,20 @@ public class TreeCreateOperationTest extends TreeOperationTestBase {
         assertNotNull(cmd.getTree().getLabel());
         assertNotNull(cmd.getTree().getTreeType());
         assertNotNull(cmd.getTree().getOrgId());
+    }
+
+    @Test
+    public void testCreateRejectsLabelOfImageTree() throws Exception {
+        String label = "image-tree-" + TestUtils.randomString();
+        KickstartTestUtils.createImageTree(user, KickstartTestUtils.createSaltbootImage(user), label);
+
+        TreeCreateOperation cmd = new TreeCreateOperation(user);
+        setTestTreeParams(cmd);
+        cmd.setLabel(label);
+
+        ValidatorError error = cmd.store();
+        assertNotNull(error);
+        assertEquals("distribution.tree.exists", error.getKey());
     }
 
     // helper method

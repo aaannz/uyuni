@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.redhat.rhn.domain.channel.Channel;
@@ -27,10 +28,12 @@ import com.redhat.rhn.domain.kickstart.KickstartData;
 import com.redhat.rhn.domain.kickstart.KickstartDataTest;
 import com.redhat.rhn.domain.kickstart.KickstartFactory;
 import com.redhat.rhn.domain.kickstart.KickstartInstallType;
+import com.redhat.rhn.domain.kickstart.KickstartTestUtils;
 import com.redhat.rhn.domain.kickstart.KickstartableTree;
 import com.redhat.rhn.domain.kickstart.KickstartableTreeTest;
 import com.redhat.rhn.frontend.dto.kickstart.KickstartableTreeDetail;
 import com.redhat.rhn.frontend.xmlrpc.BaseHandlerTestCase;
+import com.redhat.rhn.frontend.xmlrpc.InvalidChannelLabelException;
 import com.redhat.rhn.frontend.xmlrpc.kickstart.KickstartHandler;
 import com.redhat.rhn.testing.TestUtils;
 
@@ -168,5 +171,40 @@ public class KickstartTreeHandlerTest extends BaseHandlerTestCase {
         assertFalse(types.isEmpty());
         System.out.println("type: " + types.get(0).getClass().getName());
         assertInstanceOf(KickstartInstallType.class, types.get(0));
+    }
+
+    @Test
+    public void testListInstallTypesHidesSaltboot() {
+        List types = handler.listInstallTypes(admin);
+
+        assertTrue(types.stream().noneMatch(t -> ((KickstartInstallType) t).isSaltboot()));
+    }
+
+    @Test
+    public void testCreateRejectsSaltbootInstallType() throws Exception {
+        Channel baseChan = ChannelFactoryTest.createTestChannel(admin);
+
+        assertThrows(NoSuchKickstartInstallTypeException.class, () -> handler.create(admin, TestUtils.randomString(),
+                KickstartableTreeTest.KICKSTART_TREE_PATH.getAbsolutePath(), baseChan.getLabel(),
+                KickstartInstallType.SALTBOOT, "", ""));
+    }
+
+    @Test
+    public void testUpdateRejectsSaltbootInstallType() throws Exception {
+        Channel baseChan = ChannelFactoryTest.createTestChannel(admin);
+        KickstartableTree testTree = KickstartableTreeTest.createTestKickstartableTree(baseChan);
+
+        assertThrows(NoSuchKickstartInstallTypeException.class, () -> handler.update(admin, testTree.getLabel(),
+                testTree.getBasePath(), baseChan.getLabel(), KickstartInstallType.SALTBOOT, "", ""));
+    }
+
+    @Test
+    public void testImageTreeIsInvisibleToTreeCalls() throws Exception {
+        String label = "image-tree-" + TestUtils.randomString();
+        KickstartTestUtils.createImageTree(admin, KickstartTestUtils.createSaltbootImage(admin), label);
+
+        assertThrows(InvalidChannelLabelException.class, () -> handler.getDetails(admin, label));
+        assertThrows(InvalidKickstartTreeException.class, () -> handler.delete(admin, label));
+        assertThrows(InvalidKickstartTreeException.class, () -> handler.rename(admin, label, "renamed-" + label));
     }
 }

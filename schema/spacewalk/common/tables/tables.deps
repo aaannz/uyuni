@@ -92,7 +92,7 @@ rhnFileLocation                    :: rhnFile
 rhnImageNeededCache                :: web_customer suseImageInfo rhnErrata rhnChannel
 rhnKSData                          :: web_customer
 rhnKickstartableTree               :: rhnChannel rhnKSTreeType web_customer \
-                                      rhnKSInstallType
+                                      rhnKSInstallType suseImageInfo
 rhnKickstartCommand                :: rhnKSData rhnKickstartCommandName
 rhnKickstartDefaults               :: rhnKSData rhnKickstartableTree rhnServerProfile \
                                       rhnKickstartVirtualizationType

@@ -77,4 +77,9 @@ insert into rhnKSInstallType (id, label, name)
                 'opensuse16.1','SUSE Linux Enterprise 16'
         );
 
+insert into rhnKSInstallType (id, label, name)
+        values (sequence_nextval('rhn_ksinstalltype_id_seq'),
+                'saltboot','Saltboot image'
+        );
+
 commit;

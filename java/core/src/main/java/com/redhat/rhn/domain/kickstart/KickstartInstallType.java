@@ -44,6 +44,7 @@ public class KickstartInstallType extends BaseDomainHelper {
     public static final String RHEL_9 = "rhel_9";
     public static final String RHEL_10 = "rhel_10";
     public static final String GENERIC_RPM = "generic_rpm";
+    public static final String SALTBOOT = "saltboot";
 
     // Spacewalk's install type prefixes for some multi-version
     // distros
@@ -147,6 +148,13 @@ public class KickstartInstallType extends BaseDomainHelper {
      */
     public boolean isGeneric() {
         return getLabel().startsWith(GENERIC_BREED);
+    }
+
+    /**
+     * @return true if the installer type is a saltboot image.
+     */
+    public boolean isSaltboot() {
+        return SALTBOOT.equals(getLabel());
     }
 
     /**
@@ -307,7 +315,7 @@ public class KickstartInstallType extends BaseDomainHelper {
     public String getCobblerBreed() {
         String breed = REDHAT_BREED;
 
-        if (getLabel().equals(GENERIC_RPM)) {
+        if (getLabel().equals(GENERIC_RPM) || isSaltboot()) {
             breed = GENERIC_BREED;
         }
         else if (isSUSE()) {

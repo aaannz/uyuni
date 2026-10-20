@@ -20,6 +20,9 @@ import com.redhat.rhn.common.util.StringUtil;
 import com.redhat.rhn.common.validator.ValidatorException;
 import com.redhat.rhn.domain.BaseDomainHelper;
 import com.redhat.rhn.domain.channel.Channel;
+import com.redhat.rhn.domain.image.ImageFile;
+import com.redhat.rhn.domain.image.ImageInfo;
+import com.redhat.rhn.domain.image.OSImageStoreUtils;
 import com.redhat.rhn.domain.org.Org;
 import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerCommand;
@@ -86,6 +89,10 @@ public class KickstartableTree extends BaseDomainHelper {
     private Channel channel;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "image_id")
+    private ImageInfo image;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "install_type")
     private KickstartInstallType installType;
 
@@ -127,6 +134,27 @@ public class KickstartableTree extends BaseDomainHelper {
      */
     public void setBasePath(String b) {
         this.basePath = b;
+    }
+
+    /**
+     * @return the image backing this tree, null for channel based trees
+     */
+    public ImageInfo getImage() {
+        return image;
+    }
+
+    /**
+     * @param imageIn the image backing this tree
+     */
+    public void setImage(ImageInfo imageIn) {
+        this.image = imageIn;
+    }
+
+    /**
+     * @return true if the tree is backed by an image instead of a channel
+     */
+    public boolean isImageTree() {
+        return image != null;
     }
 
     /**
@@ -320,11 +348,23 @@ public class KickstartableTree extends BaseDomainHelper {
         return getBasePath();
     }
 
+    private String[] getImageFilePaths(String fileType) {
+        String pathPrefix = OSImageStoreUtils.getOSImageStorePathForImage(image);
+        return image.getImageFiles().stream()
+                .filter(f -> fileType.equals(f.getType()))
+                .map(ImageFile::getFile)
+                .map(file -> pathPrefix + file)
+                .toArray(String[]::new);
+    }
+
     /**
      * Returns default kernel paths
      * @return default kernel paths
      */
     public String[] getDefaultKernelPaths() {
+        if (isImageTree()) {
+            return getImageFilePaths("kernel");
+        }
         List<String> paths = new ArrayList<>();
         String arch = this.getChannel().getChannelArch().getLabel();
         if (this.installType.isSUSE()) {
@@ -389,6 +429,9 @@ public class KickstartableTree extends BaseDomainHelper {
      * @return default initrd paths
      */
     public String[] getDefaultInitrdPaths() {
+        if (isImageTree()) {
+            return getImageFilePaths("initrd");
+        }
         List<String> paths = new ArrayList<>();
         String arch = this.getChannel().getChannelArch().getLabel();
         if (this.installType.isSUSE()) {
@@ -455,6 +498,9 @@ public class KickstartableTree extends BaseDomainHelper {
      * @return the kernel path
      */
     public String getKernelXenPath() {
+        if (isImageTree()) {
+            return null;
+        }
         if (this.installType.isSUSE()) {
             String arch = this.getChannel().getChannelArch().getName();
             if (arch.equals("IA-32")) {
@@ -472,6 +518,9 @@ public class KickstartableTree extends BaseDomainHelper {
      * @return the Initrd path
      */
     public String getInitrdXenPath() {
+        if (isImageTree()) {
+            return null;
+        }
         if (this.installType.isSUSE()) {
             String arch = this.getChannel().getChannelArch().getName();
             if (arch.equals("IA-32")) {
@@ -549,8 +598,7 @@ public class KickstartableTree extends BaseDomainHelper {
      * @return true if it can, false otherwise
      */
     public boolean doesParaVirt() {
-        File kernel = new File(this.getKernelXenPath());
-        return kernel.exists();
+        return pathExists(getKernelXenPath());
     }
 
     /**
@@ -577,7 +625,7 @@ public class KickstartableTree extends BaseDomainHelper {
     }
 
     private boolean pathExists(String path) {
-        return new File(path).exists();
+        return path != null && new File(path).exists();
     }
 
     /**
