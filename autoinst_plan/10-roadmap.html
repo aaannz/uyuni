@@ -459,7 +459,7 @@ the prerequisite for the saltboot UI (step 3.3).</p>
 </ul>
 <h3 id="step-34-pxekernel-options-via-builders-status-in-progress-split-2026-10-19">Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)</h3>
 <p>Split into sub-steps across sessions (planning round 9):</p>
-<h4 id="step-34a-saltboot-distro-as-image-based-tree-status-in-progress-34a-1-done-2026-10-20">Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20)</h4>
+<h4 id="step-34a-saltboot-distro-as-image-based-tree-status-in-progress-34a-1-done-2026-10-20-34a-2-implemented-2026-10-20-e2e-pending">Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20, 3.4a-2 implemented 2026-10-20, E2E pending)</h4>
 <ul>
 <li>Design: <a href="96-step-3.4a-saltboot-image-tree.md"><code>96-step-3.4a-saltboot-image-tree.md</code></a>
   — <code>KickstartableTree</code> with nullable <code>channel_id</code> + new <code>image_id</code>
@@ -482,6 +482,22 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   tests green incl. 10 new <code>KickstartImageTreeTest</code>, upgrade script applied
   twice and replayed on a rebuilt pre-change schema, checkstyle clean for the
   changed files.</li>
+<li>3.4a-2 planned in the step doc §5b (planning round 10): generated tree
+  from the inspect hook + a delayed upgrade task, <strong>T6 revised</strong> — image
+  trees own their cobbler distro (saltboot <code>:S:</code> naming, existing distros
+  adopted), <code>createSaltbootDistro</code> reduced to the profiles (+ legacy fallback),
+  <code>ImageTreeManager</code>, five new <code>kickstart.tree</code> image-tree calls
+  (<code>config_admin</code> RBAC), E2E with seeded fixtures (VM has no OS images).
+  O3 decided (b): only the own generated label is reserved, the
+  generated-shaped-label risk is documented.</li>
+<li>3.4a-2 implemented per the step doc §5b (code + unit tests; the VM E2E of §5b.5
+  is still pending): <code>ImageTreeManager</code> (generated tree ensured by the inspect
+  hook and the delayed <code>upgrade_satellite_create_saltboot_trees</code> task, distro
+  adopt-or-create, user-tree create/update/delete, trees removed with the image),
+  image-aware <code>CobblerDistroHelper</code>/<code>getCobblerDistroName</code>, <code>createSaltbootDistro</code>
+  reduced to the profiles (legacy distro only as fallback), five <code>kickstart.tree</code>
+  image-tree calls + RBAC rows (<code>050-</code>), queue script <code>040-</code>. Verified on the agent
+  VM: 114 + 24 tests green in the affected suites, checkstyle (main + tests) clean.</li>
 </ul>
 <h4 id="step-34b-saltboot-builder-status-planned-after-34a">Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)</h4>
 <ul>
@@ -838,6 +854,13 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   (T1–T3 user, T4–T7 proposed).</li>
 <li>2026-10-20 — step 3.4a-1 implemented and verified on the agent VM (details
   under step 3.4a; VM build-cache drift noted in <code>96-…</code> changelog).</li>
+<li>2026-10-20 — planning round 10 (session 3.4a-2): user decisions L1
+  (generated tree from inspect + upgrade task), T6 revised (image trees own
+  their cobbler distro; <code>createSaltbootDistro</code> keeps the profile logic),
+  L3 (own generated label reserved); L4–L9 proposed; O3 (b) — no wider
+  label reservation, risk documented in the step doc §6. 3.4b hand-off
+  noted (<code>distroOptions(tree)</code> feeds the generated tree). Plan:
+  <code>96-step-3.4a-saltboot-image-tree.md</code> §5b.</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run

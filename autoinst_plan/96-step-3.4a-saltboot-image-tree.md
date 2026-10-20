@@ -12,7 +12,7 @@
 |---|---|
 | Branch | `sles16_agama` |
 | Created | 2026-10-19 |
-| Status | IN PROGRESS — session 3.4a-1 DONE 2026-10-20, 3.4a-2 open |
+| Status | IN PROGRESS — session 3.4a-1 DONE 2026-10-20, 3.4a-2 implemented 2026-10-20 (E2E §5b.5 pending) |
 | Related | `00-goals.md` §G3/§G5/§G6, §4 guardrails 4–6; `90-step-3.1-saltboot-model.md`; `20-kernel-options.md` §3 |
 
 ---
@@ -90,7 +90,7 @@ is neither `generic_rpm` nor SUSE; `getCobblerOsVersion()` falls back to
 | T3 | `base_path` = directory holding the image's kernel/initrd; kernel/initrd resolved from the `ImageFile` rows. | user, round 9 |
 | T4 | Kickstart-facing lookups **exclude image trees in the factory queries** (`k.image IS NULL`); image trees get their own lookups. No change at the ~30 `getChannel()` call sites. Duplicate-label checks keep seeing **all** trees (one label space). | user, round 9 |
 | T5 | Tree labels stay unique per org across **all** trees (existing `rhn_kstree_oid_label_uq` unchanged). The generated tree of an image is labeled `name-version-revision` (unique per org for images). **Several trees per image are allowed** (generated + user-created). | user, round 9 |
-| T6 | `cobbler_id` stays **NULL** for image trees in this step: cobbler objects keep being found by the saltboot `:S:` names in `SaltbootUtils`; no cobbler sync/backsync path ever sees image trees (guardrail 4). | user, round 9 |
+| T6 | ~~`cobbler_id` stays **NULL** for image trees in this step~~ **Revised 2026-10-20 (user, round 10):** an image tree **owns its cobbler distro** like a channel tree — creating the tree creates (or adopts) the distro and sets `cobbler_id`, editing updates it, deleting removes it. Distro name = saltboot scheme `label:S:orgId:orgName` for every image tree. Cobbler sync/backsync still never see image trees (3.4a-1 filters, guardrail 4). Details §5b.2. | user, round 9; revised round 10 |
 | T7 | Users may create **their own image-based trees**: install type `saltboot` + image id instead of channel + tree path. The legacy JSP distribution UI hides/rejects `saltboot` until the React UI (Phase 2 / 3.3) lands; existing XML-RPC `kickstart.tree.create/update` reject `saltboot` (`listInstallTypes` output unchanged — guardrail 5); **new XML-RPC calls** manage image trees with an image id parameter (§3.4). | user, round 9 |
 
 ## 3. Design
@@ -154,6 +154,12 @@ INSERT INTO rhnKSInstallType (id, label, name)
   it for image trees.
 
 ### 3.3 Lifecycle
+
+> Superseded in parts by planning round 10 (§5b.2): the generated tree is
+> created by the inspect hook and the upgrade task (not inside
+> `createSaltbootDistro`), every image tree owns a cobbler distro (T6
+> revised), the upgrade task runs delayed (needs cobbler), and user-created
+> trees cannot take generated-style labels. §5b is authoritative for 3.4a-2.
 
 Two kinds of image trees, no flag column: the **generated** tree of an image
 is the one whose label equals the image's generated label
@@ -389,6 +395,230 @@ label rule for image trees (3.4a-2).
   not commit `main.sql`), `030-…` applied twice on the test DB.
 * `mvn -f java compile`, checkstyle main + tests (command in `95-…` §5).
 
+## 5b. Session 3.4a-2 — implementation plan
+
+Verified against tree `4d62c02020c` (3.4a-1 commit, 2026-10-20). Java paths
+relative to `java/core/src/main/java/`.
+
+### 5b.1 Facts checked for this session
+
+* **Inspect hook:** `ImageInspectAction:286-289` — `pxe` image type → OS
+  image pillar; `bootImage present && bundles empty` →
+  `SaltbootUtils.createSaltbootDistro(imageInfo)` (no try/catch).
+* **File layout:** `ImageBuildAction:297-313` stores kernel/initrd as
+  `name-version-revision/<file>` relative to
+  `OSImageStoreUtils.getOSImageStorePathForImage(image)` (= store root +
+  `orgId/`). kernel/initrd rows exist **only** for Kiwi builds with a boot
+  image and no bundles — exactly the inspect condition. So the generated
+  label equals the image directory name, and `base_path` = store path +
+  `name-version-revision`.
+* **`createSaltbootDistro(image, distros, con)`:** early return when a
+  distro named `nameVR` exists; otherwise builds the distro
+  (`panic=60 splash=silent`, breed `generic`, arch
+  `image.getImageArch().getName()` — a `ServerArch`; no os_version, no
+  ksmeta), private profile `nameVR`, then repoints `DEFAULT_IMAGE` / `name`
+  / `name-version` profiles via `selectDistro` (regex over all distro
+  names, highest saltboot version wins). Second caller:
+  `SaltbootMigrationUtils.migrateSaltbootDistros` (legacy naming
+  migration, `MIGRATE_COBBLER`, runs in a delayed thread that commits
+  Hibernate itself).
+* **`deleteSaltbootDistro(image, con)`:** looks the distro up by `nameVR`,
+  deletes the private profile, repoints the three profiles to the remaining
+  distros, removes the distro. Called from `ImageInfoFactory.delete` (callers:
+  `ImageInfoHandler.delete`, `ImageBuildController`, both via
+  `deleteWithObsoletes`).
+* **Cobbler distro plumbing for trees:** `CobblerDistroHelper.createDistroFromTree`
+  / `updateDistroFromTree` read arch from `tree.getChannel()`, always set
+  `ksmeta` (media path) and os_version; `updateDistroFromTree` renames the
+  distro to `CobblerCommand.makeCobblerName(tree)`. `CobblerCommand.makeCobblerName`
+  **strips dots** (`1.0.0` → `100`), `SaltbootUtils.makeCobblerName` keeps
+  them. `CobblerDistroCreateCommand` / `CobblerDistroDeleteCommand` call
+  `CobblerXMLRPCHelper.getConnection(user)` → NPE for `user == null`
+  (`CobblerCommand#getCobblerConnection()` is the null-safe variant used by
+  the edit command). `removeKickstartableTree` → `removeSaltFS()` deletes
+  `bootloader/<org>/<label>` — no channel access, safe for image trees.
+* **Upgrade tasks:** `UpgradeCommand#upgrade` runs at tomcat start;
+  synchronous tasks are removed after the switch; `MIGRATE_COBBLER` uses a
+  delayed thread (60 s — cobbler auth calls back into a fully started
+  tomcat) that removes the task, commits and closes the session itself (and
+  `return`s from the loop, skipping later tasks in that run — pre-existing,
+  not copied). Queue scripts guard with `NOT EXISTS` (`010-…`).
+* **RBAC:** existing `api.kickstart.tree.*` rows are granted to
+  `config_admin` in `accessGroupNamespace.sql` (`list_install_types` to
+  all). Step 3.2's `020-…` added namespace/endpoint/endpointNamespace rows
+  only. API return style of step 3.2's `SaltbootHandler`: plain
+  `Map<String, Object>`, no registered serializer.
+* **Error keys:** `distribution.tree.exists`, `api.kickstart.tree.notfound`
+  (`InvalidKickstartTreeException`); `kickstart.tree.invalidlabel` text names
+  the kickstart rule (no dots, min. 4 chars) → image trees need their own
+  key. `NoSuchImageException` exists. Step 1.8's key lives in `en_US` only.
+* **VM (read-only check 12:14 CEST):** `spacewalk-java-5.3.1-260400.1.2.uyuni6`,
+  `uyuni-server` + `uyuni-db` up, **no OS images** (`suseImageInfo` empty) →
+  E2E needs seeded fixtures (§5b.5).
+
+### 5b.2 Decisions (planning round 10, 2026-10-20)
+
+| # | Decision | Status |
+|---|---|---|
+| L1 | Generated tree is ensured by **`ImageInspectAction`** (same condition, before `createSaltbootDistro`) and by the **upgrade task**; `createSaltbootDistro` no longer builds the distro when the generated tree provides it and keeps the **profile** logic (private, `DEFAULT_IMAGE`, `name`, `name-version`). | user |
+| L2 | **T6 revised:** creating any image tree creates its cobbler distro (`cobbler_id` set); update/delete follow. An already existing distro of that name is **adopted** (uid stored, object untouched) — covers images that predate the step. | user |
+| L3 | `createFromImage` rejects the image's own generated label (dedicated fault) — only inspect/upgrade create the generated tree. | user |
+| L4 | Cobbler distro name for **all** image trees = `SaltbootUtils.makeCobblerName(org, label)` (`label:S:orgId:orgName`): keeps dots, equals today's `nameVR` for the generated tree (adoption, `deleteSaltbootDistro` lookup and profile filters keep working); unique because tree labels are unique per org. | proposed |
+| L5 | Image-tree distros: breed `generic`, arch = `image.getImageArch().getName()`, kernel/initrd from the tree, **no os_version, no ksmeta** (parity with today's saltboot distro). | proposed |
+| L6 | Generated tree `kernel_options` = `panic=60 splash=silent` from one shared constant (`SaltbootUtils.DISTRO_KERNEL_OPTIONS`, also used by the legacy fallback) — moved literal, no new site; 3.4b replaces it with `distroOptions(tree)`. User-created trees store options as typed. | proposed |
+| L7 | Upgrade task `upgrade_satellite_create_saltboot_trees` runs in a **delayed thread** (`migrateCobbler` pattern, without its loop `return`) — it needs cobbler for L2. The work itself is a plain method so tests call it synchronously. | proposed |
+| L8 | New API methods return `Map<String, Object>` (step-3.2 convention) instead of a new serializer; RBAC rows granted to `config_admin` like the existing tree calls; list/details `R` + `GET` (`@ReadOnly`), create/update/delete `W` + `POST`. | proposed |
+| L9 | User-created trees get **no cobbler profile** — nothing references them before the trigger model (3.5). | proposed |
+
+**O3 — decided (user, 2026-10-20): (b)** only the L3 check; the risk is
+accepted and documented (§6, `createFromImage` `@apidoc`). L3 protects only
+the image's own label. A user tree whose label *looks* generated
+(`…-x.y.z-n`, e.g. `POS_Image-9.9.9-1`) gets a `…:S:…` distro that matches
+the `DEFAULT_IMAGE` / `name` / `name-version` filters in `selectDistro` and,
+as the "highest version", could take over those profiles on the next
+create/delete. (Rejected alternative (a): reject every user label ending in
+`-<d>.<d>.<d>-<d>`.)
+
+### 5b.3 Work items
+
+1. **Image-tree manager** — new `com/suse/manager/autoinstallation/ImageTreeManager.java`
+   (static, next to `KernelOptionsList`; no cobbler logic of its own beyond
+   calling the distro helper/commands):
+   * `generatedLabel(ImageInfo)` → `name-version-revision`;
+     `IMAGE_TREE_LABEL_REGEX = ^[-_.0-9A-Za-z]{1,64}$` (O1/O2);
+   * `ensureGeneratedTree(ImageInfo, CobblerConnection)` → `Optional<KickstartableTree>`:
+     existing image tree with the generated label → ensure its distro
+     (adopt by name / create if gone) and return it; otherwise skip with a
+     warning when kernel/initrd are missing, kernel and initrd live in
+     different directories, the label breaks the rule or
+     `treeLabelExists` is true; else build the tree (org = image org,
+     `saltboot`, `externally-managed`, `base_path`, `image`, L6 options),
+     adopt-or-create the distro (L2/L4/L5), save the tree. Idempotent.
+   * `create(user, label, image, installType, kernelOptions, kernelOptionsPost)`:
+     image type must be image-based (`isSaltboot()` today), label rule, L3
+     (no wider shape check, O3 (b)), `treeLabelExists`, kernel + initrd present; saves the tree and
+     runs `CobblerDistroCreateCommand(tree, user)`;
+   * `update(user, tree, kernelOptions, kernelOptionsPost)` →
+     `CobblerDistroEditCommand`; `delete(user, tree)` refuses the generated
+     tree, then `CobblerDistroDeleteCommand` + `removeKickstartableTree`;
+   * `deleteImageTrees(ImageInfo)` — used on image deletion (no refusal).
+   Validation failures return `ValidatorError` (tree-op convention); the
+   handler maps them to faults.
+2. **Entity** (`KickstartableTree`): `getCobblerDistroName()` → the L4 name
+   for image trees; `isGeneratedImageTree()` (label equals
+   `ImageTreeManager.generatedLabel(image)`).
+3. **Distro helper/commands** (`manager/kickstart/cobbler/`):
+   `CobblerDistroHelper` image branch (L5: arch from image, skip ksmeta and
+   os_version); `updateDistroFromTree` names via `tree.getCobblerDistroName()`
+   (identical for channel trees); `CobblerDistroCreateCommand` /
+   `CobblerDistroDeleteCommand` use the null-safe `getCobblerConnection()`
+   (identical for non-null users).
+4. **Inspect** (`ImageInspectAction`): `ImageTreeManager.ensureGeneratedTree`
+   with the automated connection right before `createSaltbootDistro`, same
+   condition.
+5. **`SaltbootUtils.createSaltbootDistro(image, distros, con)`** (L1): early
+   return when the **private profile** `nameVR` exists (was: the distro);
+   distro = `Distro.lookupByName(con, nameVR)` (the tree's, created by step 4
+   / the upgrade task), legacy creation only when absent (generated tree
+   skipped — keeps today's behavior for long/odd labels); profile logic
+   unchanged. Javadoc updated. `SaltbootMigrationUtils` unchanged.
+6. **Image deletion** (`ImageInfoFactory.delete`): after
+   `deleteSaltbootDistro` (removes the generated tree's distro + profiles by
+   name), `ImageTreeManager.deleteImageTrees(image)` (user-tree distros via
+   the delete command — the generated one is already gone → logged no-op),
+   then the existing file/row removal. FK cascade stays the safety net.
+7. **Upgrade task** (`UpgradeCommand`): `CREATE_SALTBOOT_TREES`, delayed
+   thread (L7) running `createSaltbootTrees()`: every Kiwi image with kernel +
+   initrd, oldest first, `ensureGeneratedTree` per image with per-image
+   try/catch + log; then remove task, commit, close session.
+8. **XML-RPC** (`KickstartTreeHandler`, §3.4 signatures): `createFromImage`
+   (+ overload without options), `listImageTrees()` / `listImageTrees(imageId)`,
+   `getImageTreeDetails`, `updateImageTree`, `deleteImageTree`; map fields
+   `label`, `image_id`, `install_type`, `base_path`, `kernel_options`,
+   `kernel_options_post`, `generated`; foreign/missing image →
+   `NoSuchImageException`; non-image install type →
+   `NoSuchKickstartInstallTypeException`; missing tree →
+   `api.kickstart.tree.notfound`; `@apidoc` like the existing calls —
+   `createFromImage` notes that labels shaped `<name>-<x.y.z>-<n>` are
+   reserved by convention for generated trees and may take over the
+   saltboot default profiles (§6, O3 (b)).
+9. **Strings** (`StringResource_en_US.xml`): `kickstart.tree.image.invalidlabel`,
+   `kickstart.tree.image.reservedlabel`, `kickstart.tree.image.nobootfiles`,
+   `kickstart.tree.image.generated` (delete refused).
+10. **Schema/RBAC:** `upgrade/next/040-saltboot-image-tree-migration.sql`
+    (queue, `NOT EXISTS`), `upgrade/next/050-saltboot-image-tree-api.sql`
+    (5 endpoints: namespace + endpoint + endpointNamespace +
+    accessGroupNamespace `config_admin`, all idempotent); same rows in
+    `common/data/{namespace,endpoint,endpointNamespace,accessGroupNamespace}.sql`.
+11. **Changelog fragments:** extend the existing
+    `*.changes.oholecek.saltboot_image_tree` (java + schema).
+12. **3.4b hand-off** (`97-…` §3.5): the generated tree carries the distro
+    options — `distroOptions(tree)` feeds the tree's `kernel_options` in
+    `ensureGeneratedTree`, `createSaltbootDistro` builds a distro only in the
+    fallback.
+
+### 5b.4 Tests
+
+* **DB-free:** `generatedLabel`, label rule (dots ok, 65 chars rejected,
+  a generated-shaped label of another image accepted — O3 (b)),
+  `isGeneratedImageTree`.
+* **DB-backed, mock cobbler:**
+  * `ImageTreeManagerTest` (new): ensure creates tree + distro (name,
+    breed, arch, kernel/initrd, options, no ksmeta); idempotent second call;
+    adopts a pre-existing `nameVR` distro (uid stored, object untouched);
+    recreates a missing distro; skips on collision / too long / invalid
+    label / missing files / split directories; create (happy, foreign-org
+    image, no kernel, non-image type, duplicate label vs channel tree and
+    vice versa, own generated label rejected), update (options reach cobbler),
+    delete (distro gone, generated refused), `deleteImageTrees`.
+  * `SaltbootUtilsTest`: with an ensured tree → no second distro, private +
+    default profiles point to the tree's distro; without a tree → legacy
+    distro (existing tests unchanged); early return on existing private
+    profile.
+  * `ImageInfoFactoryTest`: delete removes all trees of the image and the
+    user-tree distro.
+  * `UpgradeCommandTest`: `createSaltbootTrees()` creates the trees,
+    second run is a no-op, non-Kiwi / bundle images ignored.
+  * `KickstartTreeHandlerTest`: every new call incl. faults; existing
+    `list`/`getDetails` output unchanged with image trees present.
+* **Real-cobbler mode** (opt-in, VM): image-tree distro create/update/delete
+  accepted by cobbler 3.3.3 (breed `generic` without os_version, dots in
+  names).
+* **Regression:** 3.4a-1 suites (`KickstartImageTreeTest` etc.), tree-op
+  suites, `CobblerDistroSyncCommand`/`CobblerSyncTask`, `CobblerCommandTest`,
+  saltboot suites (`SaltbootUtilsTest`, `SaltbootMigrationUtilsTest`,
+  `PXEEventTest`, `SaltbootDomainMigrationTest`), `ImageInfoFactoryTest`,
+  builder/factory/list suites. No `ImageInspectAction` test exists — the
+  hook is covered through `ImageTreeManagerTest` + the E2E.
+* Checkstyle main + tests; `make -C schema/spacewalk/postgres main` (blend),
+  `040`/`050` applied twice.
+
+### 5b.5 E2E (agent VM)
+
+1. Announce the window; record the deployed version; `mgradm stop` only for
+   the unit-test container phase, then restore.
+2. **Before the branch deploy** (release code), seed the fixture: an OS
+   image store, two built Kiwi `ImageInfo`s (`name/version/revision`) with
+   `kernel` + `initrd` `ImageFile` rows and dummy files under
+   `/srv/www/os-images/<org>/<name-version-revision>/`; for image A a legacy
+   saltboot distro + private profile created with `cobbler distro/profile
+   add` under the `nameVR` name (simulates a pre-step image), image B
+   without cobbler objects.
+3. Deploy the branch backend (`AGENTS_CUSTOM.md` §3 quirks + fingerprint
+   check), apply `upgrade/next` `001`–`050`, restart tomcat; after the
+   delay: generated tree A with `cobbler_id` = existing distro uid
+   (adopted), tree B with a new distro; `cobbler distro report` unchanged
+   for A; distribution list (JSP) and `kickstart.tree.list`/`getDetails`
+   output unchanged.
+4. API round trip (Python XML-RPC script): `createFromImage` (distro
+   appears with the typed options), `listImageTrees`,
+   `getImageTreeDetails`, `updateImageTree` (options in cobbler),
+   `deleteImageTree` (distro gone); faults: own generated label,
+   duplicate of a channel-tree label, foreign image, generated-tree delete.
+5. `image.delete` of B (with a user tree on it): trees, distros and
+   profiles gone; default profiles repointed to A.
+6. Remove fixtures, restore the stack, record results in §5b + changelog.
+
 ## 6. Risks
 
 * **Unknown leak sites** — any future HQL over `KickstartableTree` that does
@@ -402,6 +632,21 @@ label rule for image trees (3.4a-2).
   the generated-tree path skips instead of failing (§3.3).
 * **blend dependency order** — `rhnKickstartableTree` → `suseImageInfo`;
   check `tables.deps` for cycles before relying on it.
+* **DB/cobbler atomicity (3.4a-2)** — the tree row and its cobbler distro
+  are two systems. `ensureGeneratedTree` builds the tree, creates/adopts the
+  distro, then saves; a failed DB commit leaves an orphan `:S:` distro, which
+  the next ensure adopts (idempotent by name). A rolled-back inspect
+  transaction behaves the same way.
+* **Generated-shaped user labels (accepted, O3 (b))** — a user-created image
+  tree labeled like a generated one (`<name>-<x.y.z>-<n>`, e.g.
+  `POS_Image-9.9.9-1`) gets a `:S:` distro that `selectDistro` treats as a
+  saltboot image version; if it sorts highest it takes over the
+  `DEFAULT_IMAGE` / `name` / `name-version` cobbler profiles the next time an
+  image is created or deleted, so terminals booting those profiles would boot
+  the user tree's distro (same image files, possibly different kernel
+  options). Only the image's own generated label is rejected (L3). Documented
+  in the `createFromImage` `@apidoc`; revisit when profile selection moves to
+  the trigger model (3.5) / G6.
 
 ## Changelog
 
@@ -435,3 +680,37 @@ label rule for image trees (3.4a-2).
   blocked — verification used VM-copy-only pins of those versions and two
   `@Override` removals in unrelated test mocks (reverted; nothing committed).
   Local sandbox cannot run Maven (exec/jar plugins not cached).
+* 2026-10-20 — planning round 10 (session 3.4a-2, §5b): facts verified
+  against `4d62c02020c` (inspect condition = kernel/initrd presence, image
+  dir = generated label, cobbler distro helper channel-bound and
+  dot-stripping naming, null-user NPE in create/delete commands, upgrade
+  tasks needing cobbler must run delayed, RBAC via `config_admin`, VM has no
+  OS images). User decisions: L1 (generated tree from inspect + upgrade
+  task; `createSaltbootDistro` keeps the profiles), **T6 revised** (image
+  trees own their cobbler distro, L2), L3 (own generated label reserved).
+  Proposed: L4–L9. O3 decided by the user: (b) — only L3, the
+  generated-shaped-label risk is accepted and documented (§6, apidoc).
+* 2026-10-20 — session 3.4a-2 implemented as planned in §5b.3 (items 1–11).
+  Deviations/notes: `ensureGeneratedTree` calls `CobblerDistroHelper` directly
+  (no create command, hence no cobbler sync per image; the user-tree calls use
+  the create/edit/delete commands incl. their sync); the manager takes the
+  validated install type from the handler (`NoSuchKickstartInstallTypeException`
+  there), it does not re-check it; `isGeneratedImageTree()` lives on the entity
+  and `ImageTreeManager.generatedLabel` is shared by both; an existing tree whose
+  label belongs to another image's tree is skipped with a warning; boot files
+  missing on disk skip the generated tree (`ValidatorException` caught in
+  `ensureGeneratedTree`). `createSaltbootDistro` now returns early when the
+  private **profile** exists (also repairs a distro without profile in the
+  legacy migration). Upgrade task uses `continue` (not `return`) after queuing
+  the delayed run. Test notes: the cobbler mock creates a placeholder distro per
+  `new_profile` and returns kernel options as typed strings — assertions count
+  distros by name and parse both forms. New: `ImageTreeManagerTest` (24),
+  additions in `KickstartTreeHandlerTest` and `UpgradeCommandTest`, fixtures
+  `KickstartTestUtils#createSaltbootImageWithBootFiles`/`#deleteBootFiles`.
+  Agent VM (`mgradm stop` → pgsql-4eclipse, restored afterwards): 114 tests
+  (affected suites incl. saltboot, tree-op, handler, upgrade) + 24, checkstyle
+  main + tests clean. VM caveats as in 3.4a-1 (VM-copy-only pom pins and two
+  mock `@Override` removals, not committed). **Not done yet:** §5b.5 E2E
+  (seeded fixtures, branch deploy, API round trip), the opt-in real-cobbler run
+  of the image-tree distro calls, an `ImageInfoFactory.delete` test (the
+  deletion path is covered through `ImageTreeManager.deleteImageTrees`).

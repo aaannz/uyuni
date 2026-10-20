@@ -294,7 +294,7 @@ before starting any step here.
 
 Split into sub-steps across sessions (planning round 9):
 
-#### Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20)
+#### Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20, 3.4a-2 implemented 2026-10-20, E2E pending)
 
 * Design: [`96-step-3.4a-saltboot-image-tree.md`](96-step-3.4a-saltboot-image-tree.md)
   — `KickstartableTree` with nullable `channel_id` + new `image_id`
@@ -317,6 +317,22 @@ Split into sub-steps across sessions (planning round 9):
   tests green incl. 10 new `KickstartImageTreeTest`, upgrade script applied
   twice and replayed on a rebuilt pre-change schema, checkstyle clean for the
   changed files.
+* 3.4a-2 planned in the step doc §5b (planning round 10): generated tree
+  from the inspect hook + a delayed upgrade task, **T6 revised** — image
+  trees own their cobbler distro (saltboot `:S:` naming, existing distros
+  adopted), `createSaltbootDistro` reduced to the profiles (+ legacy fallback),
+  `ImageTreeManager`, five new `kickstart.tree` image-tree calls
+  (`config_admin` RBAC), E2E with seeded fixtures (VM has no OS images).
+  O3 decided (b): only the own generated label is reserved, the
+  generated-shaped-label risk is documented.
+* 3.4a-2 implemented per the step doc §5b (code + unit tests; the VM E2E of §5b.5
+  is still pending): `ImageTreeManager` (generated tree ensured by the inspect
+  hook and the delayed `upgrade_satellite_create_saltboot_trees` task, distro
+  adopt-or-create, user-tree create/update/delete, trees removed with the image),
+  image-aware `CobblerDistroHelper`/`getCobblerDistroName`, `createSaltbootDistro`
+  reduced to the profiles (legacy distro only as fallback), five `kickstart.tree`
+  image-tree calls + RBAC rows (`050-`), queue script `040-`. Verified on the agent
+  VM: 114 + 24 tests green in the affected suites, checkstyle (main + tests) clean.
 
 #### Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)
 
@@ -644,3 +660,10 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   (T1–T3 user, T4–T7 proposed).
 * 2026-10-20 — step 3.4a-1 implemented and verified on the agent VM (details
   under step 3.4a; VM build-cache drift noted in `96-…` changelog).
+* 2026-10-20 — planning round 10 (session 3.4a-2): user decisions L1
+  (generated tree from inspect + upgrade task), T6 revised (image trees own
+  their cobbler distro; `createSaltbootDistro` keeps the profile logic),
+  L3 (own generated label reserved); L4–L9 proposed; O3 (b) — no wider
+  label reservation, risk documented in the step doc §6. 3.4b hand-off
+  noted (`distroOptions(tree)` feeds the generated tree). Plan:
+  `96-step-3.4a-saltboot-image-tree.md` §5b.

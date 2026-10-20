@@ -266,3 +266,11 @@ populated columns — documented values already).
 
 * 2026-10-19 — planning round 9: current state verified, decisions K1–K5
   taken by the user, design written.
+* 2026-10-20 — hand-off from 3.4a-2 planning (`96-…` §5b, T6 revised):
+  the generated image tree owns the saltboot cobbler distro and carries the
+  distro options in its `kernel_options` (shared constant
+  `SaltbootUtils.DISTRO_KERNEL_OPTIONS` until this step). §3.5's
+  "`createSaltbootDistro` keeps `setKernelOptions(…distroOptions(null)…)`"
+  becomes: `ImageTreeManager.ensureGeneratedTree` stores
+  `distroOptions(tree)`; `createSaltbootDistro` builds a distro only in the
+  fallback (generated tree skipped). Revisit §3.1/§3.5 when this step starts.
