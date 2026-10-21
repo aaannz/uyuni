@@ -22,6 +22,8 @@ import org.cobbler.SystemRecord;
  * Implementations produce freshly computed options only; merging with
  * user-typed options (which take precedence) is the caller's job via
  * {@link KernelOptionsList#addMissingOptions(KernelOptionsList)}.
+ * Builders may bind their context (e.g. the saltboot branch and terminal) at
+ * construction instead of deriving it from the method arguments.
  */
 public interface KernelOptionsBuilder {
 
@@ -29,7 +31,8 @@ public interface KernelOptionsBuilder {
      * Distribution related options, persisted into KickstartableTree.kernelOptions(_post)
      * and recomputed on every tree create/edit.
      *
-     * @param tree the distribution tree
+     * @param tree the distribution tree, may be null for builders that do not
+     *             need it
      * @return the computed distro options, empty for unsupported distros
      */
     KernelOptionsList distroOptions(KickstartableTree tree);
@@ -69,7 +72,9 @@ public interface KernelOptionsBuilder {
     /**
      * Per-system options including the installer-selection option
      * (ks=, autoyast= or inst.auto=). Only for boot lines Uyuni composes
-     * entirely itself (initiate path); never written to Cobbler records.
+     * entirely itself (initiate path); never written to Cobbler records of
+     * Cobbler-rendered breeds. Builders for the generic breed own the whole
+     * command line and write it.
      *
      * @param system the system record to boot
      * @return the computed system options

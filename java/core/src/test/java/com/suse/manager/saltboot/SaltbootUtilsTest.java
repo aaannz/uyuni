@@ -405,6 +405,13 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
                 SaltbootUtils.deleteSaltbootProfile(groupWithSystemsProfileName, client));
     }
 
+    private static SaltbootTerminal terminal(MinionServer minion, String bootImage, String kernelParameters) {
+        SaltbootTerminal terminal = new SaltbootTerminal(minion.getId());
+        terminal.setBootImage(bootImage);
+        terminal.setTerminalKernelParameters(kernelParameters);
+        return terminal;
+    }
+
     @Test
     public void testCreateSaltbootSystem() throws Exception {
         // 1. Setup
@@ -423,7 +430,8 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
         String kernelParams = "custom_param=value otherparam=\"quoted value\"";
 
         // 2. Test system creation
-        SaltbootUtils.createSaltbootSystem(minion, "my-image-1.0.0-1", groupName, hwAddresses, kernelParams, client);
+        SaltbootUtils.createSaltbootSystem(minion, terminal(minion, "my-image-1.0.0-1", kernelParams), groupName,
+                hwAddresses, client);
 
         String systemName = SaltbootUtils.makeCobblerName(user.getOrg(), minion.getMinionId());
         SystemRecord system = SystemRecord.lookupByName(client, systemName);
@@ -449,8 +457,8 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
         ImageInfo newImage = createImageHelper(user, "my-new-image", "2.0.0", 1);
         SaltbootUtils.createSaltbootDistro(newImage, Distro.list(client), client);
         String newImageProfileName = SaltbootUtils.makeCobblerNameVR(newImage);
-        SaltbootUtils.createSaltbootSystem(minion, "my-new-image-2.0.0-1",
-                groupName, hwAddresses, kernelParams, client);
+        SaltbootUtils.createSaltbootSystem(minion, terminal(minion, "my-new-image-2.0.0-1", kernelParams),
+                groupName, hwAddresses, client);
 
         system = SystemRecord.lookupByName(client, systemName);
         assertNotNull(system);
@@ -458,10 +466,10 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
 
         // 4. Test error conditions
         assertThrows(SaltbootException.class, () -> SaltbootUtils.createSaltbootSystem(
-                minion, "non-existent-image", groupName, hwAddresses, kernelParams, client),
+                minion, terminal(minion, "non-existent-image", kernelParams), groupName, hwAddresses, client),
                 "Should throw when image profile doesn't exist");
         assertThrows(SaltbootException.class, () -> SaltbootUtils.createSaltbootSystem(
-                minion, imageProfileName, "non-existent-group", hwAddresses, kernelParams, client),
+                minion, terminal(minion, imageProfileName, kernelParams), "non-existent-group", hwAddresses, client),
                 "Should throw when group profile doesn't exist");
 
         // 5. Test MAC conflict resolution
@@ -475,8 +483,8 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
         conflictingSystem.setNetworkInterfaces(List.of(net));
         conflictingSystem.save();
 
-        SaltbootUtils.createSaltbootSystem(conflictingMinion, "my-image-1.0.0-1", groupName,
-                List.of("00:11:22:33:44:55"), "", client);
+        SaltbootUtils.createSaltbootSystem(conflictingMinion, terminal(conflictingMinion, "my-image-1.0.0-1",
+                "root=/dev/sda1"), groupName, List.of("00:11:22:33:44:55"), client);
 
         assertNull(SystemRecord.lookupByName(client,
                 conflictingSystemName), "Conflicting system should be deleted");
@@ -531,8 +539,8 @@ public class SaltbootUtilsTest extends BaseTestCaseWithUser {
                 SaltbootUtils.makeCobblerName(user.getOrg(), "domain-branch-default"));
         assertEquals(SaltbootUtils.makeCobblerName(user.getOrg(), SaltbootUtils.DEFAULT_BOOT_IMAGE),
                 profile.getParent());
-        // no proxy yet: the branch must not advertise a master
-        assertFalse(profile.getKernelOptions().get().containsKey("MASTER"));
+        // no proxy yet: MASTER is a bare flag like the formula always set it, it names no proxy
+        assertEquals("", profile.getKernelOptions().get().get("MASTER"));
     }
 
     @Test

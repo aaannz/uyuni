@@ -21,6 +21,7 @@ import com.suse.manager.autoinstallation.builder.AutoYastKernelOptionsBuilder;
 import com.suse.manager.autoinstallation.builder.KernelOptionsBuilder;
 import com.suse.manager.autoinstallation.builder.KernelOptionsBuilderException;
 import com.suse.manager.autoinstallation.builder.RhelKernelOptionsBuilder;
+import com.suse.manager.autoinstallation.builder.SaltbootKernelOptionsBuilder;
 
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,15 @@ public class KernelOptionsBuilderFactoryTest {
         KickstartInstallType type = new KickstartInstallType();
         type.setLabel(label);
         return type;
+    }
+
+    /**
+     * The saltboot install type routes to the saltboot builder.
+     */
+    @Test
+    public void testSaltbootRoutesToSaltbootBuilder() {
+        assertInstanceOf(SaltbootKernelOptionsBuilder.class,
+                KernelOptionsBuilderFactory.getBuilder(installType("saltboot"), FQDN));
     }
 
     /**

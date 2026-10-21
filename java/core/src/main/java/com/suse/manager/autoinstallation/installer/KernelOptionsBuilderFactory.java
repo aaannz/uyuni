@@ -18,11 +18,12 @@ import com.suse.manager.autoinstallation.builder.AutoYastKernelOptionsBuilder;
 import com.suse.manager.autoinstallation.builder.KernelOptionsBuilder;
 import com.suse.manager.autoinstallation.builder.KernelOptionsBuilderException;
 import com.suse.manager.autoinstallation.builder.RhelKernelOptionsBuilder;
+import com.suse.manager.autoinstallation.builder.SaltbootKernelOptionsBuilder;
 
 /**
  * Factory routing install types to their kernel options builder. The
- * install type is the single routing key: SLE16 is checked before the SUSE
- * branch because opensuse16.1 satisfies isSUSE() as well, and unknown types
+ * install type is the single routing key: saltboot and SLE16 are checked before
+ * the other branches (generic and SUSE types would match them as well), unknown types
  * are rejected instead of defaulted.
  */
 public class KernelOptionsBuilderFactory {
@@ -61,6 +62,9 @@ public class KernelOptionsBuilderFactory {
         }
         if (installType == null) {
             throw new KernelOptionsBuilderException("Install type must not be null");
+        }
+        if (installType.isSaltboot()) {
+            return new SaltbootKernelOptionsBuilder(serverFqdn, user);
         }
         if (installType.isSLES16OrGreater()) {
             return new AgamaKernelOptionsBuilder(serverFqdn, user);

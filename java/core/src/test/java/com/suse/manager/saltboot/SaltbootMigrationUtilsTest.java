@@ -26,6 +26,8 @@ import com.redhat.rhn.domain.server.MinionServerFactoryTest;
 import com.redhat.rhn.domain.server.ServerGroup;
 import com.redhat.rhn.testing.BaseTestCaseWithUser;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
+
 import org.cobbler.CobblerConnection;
 import org.cobbler.Distro;
 import org.cobbler.MockConnection;
@@ -220,7 +222,10 @@ public class SaltbootMigrationUtilsTest extends BaseTestCaseWithUser {
         // Saltboot entries
         SaltbootUtils.createSaltbootDistro(image, List.of(), client);
         SaltbootUtils.createSaltbootProfile(group, image.getName(), false, client);
-        SaltbootUtils.createSaltbootSystem(minion, "POS_Image_JeOS7-7.1.0-3", group.getName(), List.of(), "", client);
+        SaltbootTerminal terminal = new SaltbootTerminal(minion.getId());
+        terminal.setBootImage("POS_Image_JeOS7-7.1.0-3");
+        terminal.setRootDevice("/dev/sda1");
+        SaltbootUtils.createSaltbootSystem(minion, terminal, group.getName(), List.of(), client);
 
         // Expected names
         String orgName = user.getOrg().getName();

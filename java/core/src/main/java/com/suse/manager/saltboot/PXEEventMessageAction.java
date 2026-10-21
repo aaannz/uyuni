@@ -25,16 +25,20 @@ import com.redhat.rhn.domain.server.MinionServerFactory;
 import com.redhat.rhn.domain.server.ServerFactory;
 import com.redhat.rhn.domain.user.User;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.cobbler.XmlRpcException;
 
+import java.util.Date;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 public class PXEEventMessageAction implements MessageAction {
     private static final Logger LOG = LogManager.getLogger(PXEEventMessageAction.class);
+    private static final String RESULT_OK = "OK";
 
     @Override
     public void execute(EventMessage msg) {
@@ -45,30 +49,31 @@ public class PXEEventMessageAction implements MessageAction {
         MinionServer minion = MinionServerFactory.findByMinionId(pxeEvent.getMinionId()).orElseThrow(
                 () -> new SaltbootException("Unable to find minion entry for minion id " + pxeEvent.getMinionId()));
 
+        SaltbootTerminal terminal = null;
         try {
             // Part 1 - update PXE entries
             if (pxeEvent.getRoot().isEmpty()) {
                 throw new SaltbootException("Root device not specified in PXE event for minion " +
                         pxeEvent.getMinionId());
             }
-            String kernelParameters = "root=" + pxeEvent.getRoot();
+            terminal = SaltbootFactory.lookupOrCreateTerminal(minion.getId());
+            terminal.setBootImage(pxeEvent.getBootImage());
+            terminal.setRootDevice(pxeEvent.getRoot());
+            terminal.setSaltDevice(pxeEvent.getSaltDevice().orElse(null));
+            terminal.setTerminalKernelParameters(pxeEvent.getKernelParameters().orElse(null));
+            terminal.setLastPxeUpdate(new Date());
+            SaltbootFactory.save(terminal);
 
-            Optional<String> saltDevice = pxeEvent.getSaltDevice();
-            if (saltDevice.isPresent()) {
-                kernelParameters += " salt_device=" + saltDevice.get();
-            }
-
-            Optional<String> kernelParams = pxeEvent.getKernelParameters();
-            if (kernelParams.isPresent()) {
-                kernelParameters += " " + kernelParams.get();
-            }
-
-            SaltbootUtils.createSaltbootSystem(minion, pxeEvent.getBootImage(),
-                    pxeEvent.getSaltbootGroup(), pxeEvent.getHwAddresses(), kernelParameters);
+            SaltbootUtils.createSaltbootSystem(minion, terminal, pxeEvent.getSaltbootGroup(),
+                    pxeEvent.getHwAddresses());
+            terminal.setLastResult(RESULT_OK);
         }
         catch (SaltbootException | XmlRpcException e) {
             LOG.error("Error during processing saltboot system entry for minion {}: {}",
                     pxeEvent.getMinionId(), e.getMessage());
+            if (terminal != null) {
+                terminal.setLastResult(e.getMessage());
+            }
             NotificationMessage nm = UserNotificationFactory.createNotificationMessage(
                     new PXEEventFailed(minionId, e.getMessage()));
 

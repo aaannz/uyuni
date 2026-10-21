@@ -38,6 +38,8 @@ import com.redhat.rhn.domain.server.ServerGroupFactory;
 import com.redhat.rhn.testing.JMockBaseTestCaseWithUser;
 import com.redhat.rhn.testing.TestUtils;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
 import com.suse.salt.netapi.datatypes.Event;
 
 import org.cobbler.Distro;
@@ -92,6 +94,9 @@ public class PXEEventTest extends JMockBaseTestCaseWithUser {
                                          SaltbootUtils.makeCobblerName(user.getOrg(), SALTBOOT_GROUP),
                                          distro);
         profile.save();
+
+        // the options of the system records are computed from the saltboot group of the branch
+        SaltbootUtilsTest.createSaltbootGroupHelper(user, SALTBOOT_GROUP);
     }
 
         @AfterEach
@@ -433,7 +438,7 @@ public class PXEEventTest extends JMockBaseTestCaseWithUser {
         MinionServer minion = MinionServerFactoryTest.createTestMinionServer(user);
 
         Event event = mock(Event.class);
-        Map<String, Object> data = createTestData(minion.getMinionId(), SALTBOOT_GROUP, "root=/dev/sda1",
+        Map<String, Object> data = createTestData(minion.getMinionId(), SALTBOOT_GROUP, "/dev/sda1",
                 "/dev/sda1", BOOT_IMAGE, "custom=option", true);
         context().checking(new Expectations() {{
             allowing(event).getTag();
@@ -478,8 +483,21 @@ public class PXEEventTest extends JMockBaseTestCaseWithUser {
 
         // System should be registered in cobbler
         assertNotNull(minion.getCobblerId());
-        assertNotNull(SystemRecord.lookupByName(cobblerMock,
-                                                SaltbootUtils.makeCobblerName(user.getOrg(), minion.getMinionId())));
+        SystemRecord system = SystemRecord.lookupByName(cobblerMock,
+                SaltbootUtils.makeCobblerName(user.getOrg(), minion.getMinionId()));
+        assertNotNull(system);
+        Map<String, Object> options = system.getKernelOptions().orElseThrow();
+        assertEquals("/dev/sda1", options.get("root"));
+        assertEquals("option", options.get("custom"));
+        assertEquals("groupPrefix", options.get("MINION_ID_PREFIX"));
+
+        // The reported values are persisted and the result recorded
+        SaltbootTerminal terminal = SaltbootFactory.lookupTerminal(minion.getId()).orElseThrow();
+        assertEquals(BOOT_IMAGE, terminal.getBootImage());
+        assertEquals("/dev/sda1", terminal.getRootDevice());
+        assertEquals("custom=option", terminal.getTerminalKernelParameters());
+        assertNotNull(terminal.getLastPxeUpdate());
+        assertEquals("OK", terminal.getLastResult());
     }
 
     /**

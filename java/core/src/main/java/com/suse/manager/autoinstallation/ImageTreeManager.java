@@ -25,13 +25,14 @@ import com.redhat.rhn.domain.kickstart.KickstartInstallType;
 import com.redhat.rhn.domain.kickstart.KickstartableTree;
 import com.redhat.rhn.domain.org.Org;
 import com.redhat.rhn.domain.user.User;
+import com.redhat.rhn.manager.kickstart.KickstartHostHelper;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerDistroCreateCommand;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerDistroDeleteCommand;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerDistroEditCommand;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerDistroHelper;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
-import com.suse.manager.saltboot.SaltbootUtils;
+import com.suse.manager.autoinstallation.installer.KernelOptionsBuilderFactory;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -134,7 +135,11 @@ public final class ImageTreeManager {
             LOG.warn("Image {} has no kernel and initrd in one directory, skipping its tree", image.getId());
             return null;
         }
-        return newTree(image.getOrg(), label, image, bootDir.get(), SaltbootUtils.DISTRO_KERNEL_OPTIONS, "");
+        KickstartableTree tree = newTree(image.getOrg(), label, image, bootDir.get(), "", "");
+        tree.setKernelOptions(KernelOptionsBuilderFactory
+                .getBuilder(tree.getInstallType(), KickstartHostHelper.getServerFqdn(null))
+                .distroOptions(tree).toString());
+        return tree;
     }
 
     private static KickstartableTree newTree(Org org, String label, ImageInfo image,

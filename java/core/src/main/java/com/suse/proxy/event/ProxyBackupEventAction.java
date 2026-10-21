@@ -33,6 +33,8 @@ import com.redhat.rhn.domain.server.ServerGroup;
 import com.redhat.rhn.domain.server.ServerGroupFactory;
 import com.redhat.rhn.manager.system.SystemManager;
 
+import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
 import com.suse.manager.saltboot.SaltbootException;
 import com.suse.manager.saltboot.SaltbootUtils;
 import com.suse.manager.webui.services.SaltConstants;
@@ -340,8 +342,11 @@ public class ProxyBackupEventAction implements MessageAction {
                 });
 
         try {
-            SaltbootUtils.createSaltbootSystem(minions.get(0), image, branchid,
-                    List.of(mac), entry.get("args"));
+            SaltbootTerminal terminal = SaltbootFactory.lookupOrCreateTerminal(minion.getId());
+            terminal.setBootImage(image);
+            // the legacy args carry the complete command line of the terminal, including root
+            terminal.setTerminalKernelParameters(entry.get("args"));
+            SaltbootUtils.createSaltbootSystem(minion, terminal, branchid, List.of(mac));
         }
         catch (SaltbootException e) {
             messages.add(LocalizationService.getInstance().getMessage("event.pxemigrationsaltboot",

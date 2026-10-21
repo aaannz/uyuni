@@ -14,6 +14,7 @@ package com.suse.manager.autoinstallation;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -295,6 +296,23 @@ public class KernelOptionsList {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns the kernel options as a map for the cobbler API: a single occurrence of a key is a String, a
+     * repeated key a List of Strings and a flag the empty String. Preserves insertion order.
+     *
+     * @return The options map.
+     */
+    public Map<String, Object> toMap() {
+        Map<String, List<String>> values = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : optionsList) {
+            values.computeIfAbsent(entry.getKey(), key -> new ArrayList<>())
+                    .add(entry.getValue() == null ? "" : entry.getValue());
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        values.forEach((key, list) -> result.put(key, list.size() == 1 ? list.get(0) : list));
+        return result;
     }
 
     /**

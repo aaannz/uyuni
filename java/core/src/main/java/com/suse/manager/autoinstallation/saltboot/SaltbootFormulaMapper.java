@@ -57,9 +57,22 @@ public final class SaltbootFormulaMapper {
      * @return the stored branch
      */
     public static SaltbootBranch applyBranchFormula(ServerGroup group, Map<String, Object> formData) {
-        Map<String, Object> saltboot = asMap(formData.get("saltboot"));
         SaltbootBranch branch = SaltbootFactory.lookupBranch(group).orElseGet(() -> new SaltbootBranch(group));
+        fillBranch(branch, formData);
+        branch.setProxy(findProxy(group, blankToNull(asMap(formData.get("saltboot")).get("download_server"))));
+        return SaltbootFactory.save(branch);
+    }
 
+    /**
+     * Fills the settings of a branch from the saltboot-group formula data, except for the proxy. Has no side
+     * effects, the branch is not stored.
+     *
+     * @param branch the branch to fill
+     * @param formData the saved data of the formula
+     * @return the given branch
+     */
+    public static SaltbootBranch fillBranch(SaltbootBranch branch, Map<String, Object> formData) {
+        Map<String, Object> saltboot = asMap(formData.get("saltboot"));
         String naming = String.valueOf(saltboot.get("minion_id_naming"));
         branch.setMinionIdNaming(SaltbootBranch.NAMING_VALUES.contains(naming) ?
                 naming : SaltbootBranch.NAMING_HOSTNAME);
@@ -67,8 +80,7 @@ public final class SaltbootFormulaMapper {
         branch.setDisableUniqueSuffix(Boolean.TRUE.equals(saltboot.get("disable_unique_suffix")));
         branch.setDefaultKernelParameters(blankToNull(saltboot.get("default_kernel_parameters")));
         branch.setDefaultBootImage(bootImage(saltboot));
-        branch.setProxy(findProxy(group, blankToNull(saltboot.get("download_server"))));
-        return SaltbootFactory.save(branch);
+        return branch;
     }
 
     /**

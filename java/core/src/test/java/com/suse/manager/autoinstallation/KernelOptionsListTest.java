@@ -21,6 +21,7 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class KernelOptionsListTest {
@@ -221,5 +222,20 @@ public class KernelOptionsListTest {
         assertEquals("key1=val1 textmode", list.toString());
         list.setFlagIfNotPresent("key1");
         assertEquals("key1=val1 textmode", list.toString());
+    }
+
+    /**
+     * The cobbler map has single values as String, repeated keys as List and flags as empty String,
+     * in insertion order.
+     */
+    @Test
+    public void testToMap() {
+        Map<String, Object> map = new KernelOptionsList("z=1 flag a=2 a=3 q=\"x y\"").toMap();
+        assertEquals(List.of("z", "flag", "a", "q"), List.copyOf(map.keySet()));
+        assertEquals("1", map.get("z"));
+        assertEquals("", map.get("flag"));
+        assertEquals(List.of("2", "3"), map.get("a"));
+        assertEquals("\"x y\"", map.get("q"));
+        assertTrue(new KernelOptionsList().toMap().isEmpty());
     }
 }

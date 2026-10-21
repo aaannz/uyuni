@@ -28,13 +28,20 @@ import com.redhat.rhn.domain.server.CustomDataValue;
 import com.redhat.rhn.domain.server.MinionServer;
 import com.redhat.rhn.domain.server.MinionServerFactory;
 import com.redhat.rhn.domain.server.Pillar;
+import com.redhat.rhn.domain.server.Server;
 import com.redhat.rhn.domain.server.ServerFactory;
 import com.redhat.rhn.domain.server.ServerGroup;
+import com.redhat.rhn.domain.server.ServerGroupFactory;
+import com.redhat.rhn.domain.user.User;
 import com.redhat.rhn.manager.kickstart.cobbler.CobblerXMLRPCHelper;
 
 import com.suse.manager.autoinstallation.ImageTreeManager;
+import com.suse.manager.autoinstallation.builder.KernelOptionsBuilderException;
+import com.suse.manager.autoinstallation.builder.SaltbootKernelOptionsBuilder;
 import com.suse.manager.autoinstallation.saltboot.SaltbootBranch;
 import com.suse.manager.autoinstallation.saltboot.SaltbootFactory;
+import com.suse.manager.autoinstallation.saltboot.SaltbootFormulaMapper;
+import com.suse.manager.autoinstallation.saltboot.SaltbootTerminal;
 import com.suse.manager.autoinstallation.saltboot.SaltbootTerminalResolver;
 import com.suse.manager.webui.services.pillar.SaltbootPillarGenerator;
 
@@ -50,7 +57,6 @@ import org.cobbler.SystemRecord;
 import org.cobbler.XmlRpcException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +67,6 @@ import java.util.stream.Collectors;
 public final class SaltbootUtils {
     private static final Logger LOG = LogManager.getLogger(SaltbootUtils.class);
     public static final String DEFAULT_BOOT_IMAGE = "DEFAULT_IMAGE";
-    public static final String DISTRO_KERNEL_OPTIONS = "panic=60 splash=silent";
     private SaltbootUtils() { }
 
     private static String makeCobblerFilterNameV(ImageInfo imageInfo) {
@@ -167,29 +172,6 @@ public final class SaltbootUtils {
         return makeCobblerName(org, DEFAULT_BOOT_IMAGE);
     }
 
-    private static Map<String, String> splitStringIgnoreQuotes(String input) {
-        Map<String, String> result = new HashMap<>();
-        // This regex matches tokens separated by whitespace, respecting quotes.
-        // One match for single options, up to two for the key=value options.
-        String regex = "(?:[^\\s\"']+|\"[^\"]+\"|'[^']+'){1,2}";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(input);
-
-        while (matcher.find()) {
-            String tmp = matcher.group();
-            // Now we should have individual options, let's get key=value
-            String[] keyvalues = tmp.split("=", 2);
-            if (keyvalues.length != 2) {
-                result.put(keyvalues[0], "");
-            }
-            else {
-                result.put(keyvalues[0], keyvalues[1]);
-            }
-        }
-        return result;
-    }
-
-
     /**
      * Create saltboot profiles based on provided image and boot image info
      * The distro is the one of the image tree, see {@link ImageTreeManager#ensureGeneratedTree}. A legacy
@@ -288,7 +270,7 @@ public final class SaltbootUtils {
             .setName(nameVR)
             .setInitrd(initrd)
             .setKernel(kernel)
-            .setKernelOptions(Optional.of(DISTRO_KERNEL_OPTIONS))
+            .setKernelOptions(Optional.of(new SaltbootKernelOptionsBuilder(null, null).distroOptions(null).toString()))
             .setArch(imageInfo.getImageArch().getName()).setBreed("generic")
             .build(con);
         cd.setComment("Distro for image " + nameVR + " belonging to organization " + imageInfo.getOrg().getName());
@@ -400,7 +382,7 @@ public final class SaltbootUtils {
             throw new SaltbootException("Unable to find parent profile " + parentProfile);
         }
 
-        Map<String, String> kernelOptions = getKernelOptions(saltbootGroup);
+        Map<String, Object> kernelOptions = branchBuilder(saltbootGroup, null).profileOptions(null).toMap();
         Org org = saltbootGroup.getOrg();
         String name = makeCobblerName(org, saltbootGroup.getName());
 
@@ -414,60 +396,33 @@ public final class SaltbootUtils {
             }
             gp.setParent(parentProfile);
         }
-        gp.<Map<String, String>>setKernelOptions(Optional.of(kernelOptions));
+        gp.<Map<String, Object>>setKernelOptions(Optional.of(kernelOptions));
         gp.setComment("Saltboot group " + saltbootGroup.getName() +
               " of organization " + org.getName() + " default profile");
         gp.save();
     }
 
-    private static Map<String, String> getKernelOptions(ServerGroup group) {
-        // While the formula is assigned it is authoritative, the domain branch takes over afterwards
+    /**
+     * Creates the kernel options builder for a branch, from the saltboot formula while it is assigned to the
+     * group (authoritative) or the saltboot branch of the domain otherwise.
+     */
+    private static SaltbootKernelOptionsBuilder branchBuilder(ServerGroup group, SaltbootTerminal terminal) {
         Optional<Pillar> formula = group.getPillarByCategory(FormulaFactory.SALTBOOT_PILLAR);
         if (formula.isPresent()) {
-            Map<String, Object> saltboot = (Map<String, Object>) formula.get().getPillar().get("saltboot");
-            Map<String, String> kernelOptions = getKernelOptions(group.getName(),
-                    (String) saltboot.get("download_server"),
-                    Boolean.TRUE.equals(saltboot.get("disable_id_prefix")),
-                    Boolean.TRUE.equals(saltboot.get("disable_unique_suffix")),
-                    (String) saltboot.get("minion_id_naming"), (String) saltboot.get("default_kernel_parameters"));
-            // the formula always set the master, even when the download server is left empty
-            kernelOptions.putIfAbsent("MASTER", null);
-            return kernelOptions;
+            Map<String, Object> formData = formula.get().getPillar();
+            // the branch is only a carrier of the formula settings and is never stored
+            SaltbootBranch branch = SaltbootFormulaMapper.fillBranch(new SaltbootBranch(group), formData);
+            Map<String, Object> saltboot = (Map<String, Object>) formData.get("saltboot");
+            String downloadServer = (String) saltboot.get("download_server");
+            User proxyCreator = StringUtils.isEmpty(downloadServer) ? null :
+                    ServerFactory.listByFqdn(downloadServer).stream().filter(Server::isProxy).findFirst()
+                            .map(Server::getCreator).orElse(null);
+            return new SaltbootKernelOptionsBuilder(downloadServer, proxyCreator, branch, terminal);
         }
         SaltbootBranch branch = SaltbootFactory.lookupBranch(group)
                 .orElseThrow(() -> new SaltbootException("Missing saltboot group pillar"));
-        return getKernelOptions(group.getName(), SaltbootTerminalResolver.proxyFqdn(branch).orElse(null),
-                branch.isDisableIdPrefix(), branch.isDisableUniqueSuffix(), branch.getMinionIdNaming(),
-                branch.getDefaultKernelParameters());
-    }
-
-    private static Map<String, String> getKernelOptions(String groupName, String downloadServer,
-            boolean disableIdPrefix, boolean disableUniqueSuffix, String minionIdNaming,
-            String defaultBranchOptions) {
-        Map<String, String> kernelOptions = new HashMap<>();
-        kernelOptions.put("MINION_ID_PREFIX", groupName);
-        if (downloadServer != null) {
-            kernelOptions.put("MASTER", downloadServer);
-        }
-        if (disableIdPrefix) {
-            kernelOptions.put("DISABLE_ID_PREFIX", "1");
-        }
-        if (disableUniqueSuffix) {
-            kernelOptions.put("DISABLE_UNIQUE_SUFFIX", "1");
-        }
-        if ("FQDN".equals(minionIdNaming)) {
-            kernelOptions.put("USE_FQDN_MINION_ID", "1");
-        }
-        else if ("HWType".equals(minionIdNaming)) {
-            kernelOptions.put("DISABLE_HOSTNAME_ID", "1");
-        }
-        else if ("MAC".equals(minionIdNaming)) {
-            kernelOptions.put("USE_MAC_MINION_ID", "1");
-        }
-        if (defaultBranchOptions != null && !defaultBranchOptions.isEmpty()) {
-            kernelOptions.putAll(splitStringIgnoreQuotes(defaultBranchOptions));
-        }
-        return kernelOptions;
+        return new SaltbootKernelOptionsBuilder(SaltbootTerminalResolver.proxyFqdn(branch).orElse(null),
+                Optional.ofNullable(branch.getProxy()).map(Server::getCreator).orElse(null), branch, terminal);
     }
 
     static Optional<String> getGroupImageName(ServerGroup group) {
@@ -605,33 +560,35 @@ public final class SaltbootUtils {
      * Create saltboot system record
      * Tied with one particular terminal and contains boot instructions for this terminal
      * @param minion MinionServer
-     * @param bootImage Image name including version and revision, used for image profile lookup
+     * @param terminal the state of the terminal, with the boot image (name including version and revision, used
+     *                 for image profile lookup) and the kernel options reported by it
      * @param saltbootGroup Name of the saltboot group this system belongs to
      * @param hwAddresses List of Strings with hardware addresses
-     * @param kernelParams String with kernel parameters for the system
      * @throws SaltbootException
      */
-    public static void createSaltbootSystem(MinionServer minion, String bootImage, String saltbootGroup,
-                                            List<String> hwAddresses, String kernelParams) throws SaltbootException {
+    public static void createSaltbootSystem(MinionServer minion, SaltbootTerminal terminal, String saltbootGroup,
+                                            List<String> hwAddresses) throws SaltbootException {
         CobblerConnection con = CobblerXMLRPCHelper.getAutomatedConnection();
-        createSaltbootSystem(minion, bootImage, saltbootGroup, hwAddresses, kernelParams, con);
+        createSaltbootSystem(minion, terminal, saltbootGroup, hwAddresses, con);
     }
+
     /**
      * Create saltboot system record
      * Tied with one particular terminal and contains boot instructions for this terminal
      * @param minion MinionServer
-     * @param bootImage Image name including version and revision, used for image profile lookup
+     * @param terminal the state of the terminal, with the boot image (name including version and revision, used
+     *                 for image profile lookup) and the kernel options reported by it
      * @param saltbootGroup Name of the saltboot group this system belongs to
      * @param hwAddresses List of Strings with hardware addresses
-     * @param kernelParams String with kernel parameters for the system
      * @param con CobblerConnection
      * @throws SaltbootException
      */
-    public static void createSaltbootSystem(MinionServer minion, String bootImage, String saltbootGroup,
-                                            List<String> hwAddresses, String kernelParams, CobblerConnection con)
+    public static void createSaltbootSystem(MinionServer minion, SaltbootTerminal terminal, String saltbootGroup,
+                                            List<String> hwAddresses, CobblerConnection con)
             throws SaltbootException {
         String minionId = minion.getMinionId();
         Org org = minion.getOrg();
+        String bootImage = terminal.getBootImage();
 
         Profile profile = Profile.lookupByName(con, makeCobblerName(org, bootImage));
         if (profile == null) {
@@ -639,14 +596,18 @@ public final class SaltbootUtils {
         }
 
         Profile group = Profile.lookupByName(con, makeCobblerName(org, saltbootGroup));
-        if (group == null) {
+        ServerGroup branchGroup = ServerGroupFactory.lookupByNameAndOrg(saltbootGroup, org);
+        if (group == null || branchGroup == null) {
             throw new SaltbootException("Unable to find profile for saltboot group " + saltbootGroup);
         }
 
-        // We need to append associated saltboot group settings, particularly MASTER
-        Map<String, Object> kernelOptions = group.getKernelOptions().orElse(new HashMap<>());
-        if (kernelParams != null && !kernelParams.isEmpty()) {
-            kernelOptions.putAll(splitStringIgnoreQuotes(kernelParams));
+        // The record has the image profile as parent, so it needs the settings of the branch, particularly MASTER
+        Map<String, Object> kernelOptions;
+        try {
+            kernelOptions = branchBuilder(branchGroup, terminal).systemOptions(null).toMap();
+        }
+        catch (KernelOptionsBuilderException e) {
+            throw new SaltbootException(e.getMessage(), e);
         }
 
         String name = makeCobblerName(org, minionId);
