@@ -499,7 +499,7 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   image-tree calls + RBAC rows (<code>050-</code>), queue script <code>040-</code>. Verified on the agent
   VM: 114 + 24 tests green in the affected suites, checkstyle (main + tests) clean.</li>
 </ul>
-<h4 id="step-34b-saltboot-builder-status-planned-after-34a">Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)</h4>
+<h4 id="step-34b-saltboot-builder-status-implemented-2026-10-21-tests-green-on-the-vm-e2e-pending">Step 3.4b — Saltboot builder (status: IMPLEMENTED 2026-10-21 — tests green on the VM; E2E pending)</h4>
 <ul>
 <li>Plan: <a href="97-step-3.4b-saltboot-kernel-options.md"><code>97-step-3.4b-saltboot-kernel-options.md</code></a>
   — <code>SaltbootKernelOptionsBuilder</code> joins the <code>KernelOptionsBuilder</code> interface,
@@ -508,6 +508,26 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   user); <code>pxe_update</code> persists into <code>SaltbootTerminal</code> first; system records
   recompute branch options (no cobbler read-back); cobbler transport stays
   a <code>Map</code> (decisions K1–K5).</li>
+<li>Implemented per the step doc (session 2026-10-21): <code>SaltbootKernelOptionsBuilder</code>
+  (factory routes <code>isSaltboot()</code> first; 2-arg constructor = distro-only builder,
+  4-arg = bound branch/terminal), <code>KernelOptionsList#toMap()</code>, <code>SaltbootUtils</code>
+  (<code>branchBuilder</code>, group profile and system record via the builder,
+  <code>createSaltbootSystem(minion, terminal, group, hwAddresses)</code>, parser and
+  <code>DISTRO_KERNEL_OPTIONS</code> removed), <code>SaltbootFormulaMapper#fillBranch</code>,
+  <code>PXEEventMessageAction</code>/<code>ProxyBackupEventAction</code> persist the <code>SaltbootTerminal</code>
+  first (<code>last_result</code> <code>OK</code>/failure message), generated image tree gets its
+  options from the builder. New <code>SaltbootKernelOptionsBuilderTest</code> (DB-free) plus
+  updated <code>SaltbootUtilsTest</code>/<code>SaltbootMigrationUtilsTest</code>/<code>PXEEventTest</code>.</li>
+<li>Verified on agentvm2 with Maven (VM proxy config fixed; obs-to-maven could not
+  fetch the Uyuni repo there — its redirect hits a blocked mirror — so the
+  <code>repository/uyuni</code> jars were produced locally and rsynced; two servlet-API
+  <code>@Override</code>s in unrelated test helpers dropped in the VM copy only): main +
+  test tree compile, 612 tests green in the saltboot/autoinstallation/kickstart/
+  tree/proxy/pillar suites against the pgsql-4eclipse container (mock cobbler),
+  checkstyle clean on all changed files (CLI 10.12.7). One test expectation
+  changed: <code>testDomainBranchWithoutImageUsesTheDefaultImage</code> now expects the bare
+  <code>MASTER</code> flag for a proxy-less branch (design §3.4). <strong>Not run:</strong> real-cobbler
+  mode and the E2E of the step doc §5.</li>
 </ul>
 <p>Original step scope:</p>
 <ul>

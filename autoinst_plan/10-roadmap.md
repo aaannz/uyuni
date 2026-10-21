@@ -334,7 +334,7 @@ Split into sub-steps across sessions (planning round 9):
   image-tree calls + RBAC rows (`050-`), queue script `040-`. Verified on the agent
   VM: 114 + 24 tests green in the affected suites, checkstyle (main + tests) clean.
 
-#### Step 3.4b — Saltboot builder (status: PLANNED — after 3.4a)
+#### Step 3.4b — Saltboot builder (status: IMPLEMENTED 2026-10-21 — tests green on the VM; E2E pending)
 
 * Plan: [`97-step-3.4b-saltboot-kernel-options.md`](97-step-3.4b-saltboot-kernel-options.md)
   — `SaltbootKernelOptionsBuilder` joins the `KernelOptionsBuilder` interface,
@@ -343,6 +343,26 @@ Split into sub-steps across sessions (planning round 9):
   user); `pxe_update` persists into `SaltbootTerminal` first; system records
   recompute branch options (no cobbler read-back); cobbler transport stays
   a `Map` (decisions K1–K5).
+* Implemented per the step doc (session 2026-10-21): `SaltbootKernelOptionsBuilder`
+  (factory routes `isSaltboot()` first; 2-arg constructor = distro-only builder,
+  4-arg = bound branch/terminal), `KernelOptionsList#toMap()`, `SaltbootUtils`
+  (`branchBuilder`, group profile and system record via the builder,
+  `createSaltbootSystem(minion, terminal, group, hwAddresses)`, parser and
+  `DISTRO_KERNEL_OPTIONS` removed), `SaltbootFormulaMapper#fillBranch`,
+  `PXEEventMessageAction`/`ProxyBackupEventAction` persist the `SaltbootTerminal`
+  first (`last_result` `OK`/failure message), generated image tree gets its
+  options from the builder. New `SaltbootKernelOptionsBuilderTest` (DB-free) plus
+  updated `SaltbootUtilsTest`/`SaltbootMigrationUtilsTest`/`PXEEventTest`.
+* Verified on agentvm2 with Maven (VM proxy config fixed; obs-to-maven could not
+  fetch the Uyuni repo there — its redirect hits a blocked mirror — so the
+  `repository/uyuni` jars were produced locally and rsynced; two servlet-API
+  `@Override`s in unrelated test helpers dropped in the VM copy only): main +
+  test tree compile, 612 tests green in the saltboot/autoinstallation/kickstart/
+  tree/proxy/pillar suites against the pgsql-4eclipse container (mock cobbler),
+  checkstyle clean on all changed files (CLI 10.12.7). One test expectation
+  changed: `testDomainBranchWithoutImageUsesTheDefaultImage` now expects the bare
+  `MASTER` flag for a proxy-less branch (design §3.4). **Not run:** real-cobbler
+  mode and the E2E of the step doc §5.
 
 Original step scope:
 

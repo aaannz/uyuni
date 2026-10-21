@@ -169,7 +169,7 @@ option sources from the saltboot domain. Closes the Phase 1 deferral
 </tr>
 <tr>
 <td>Status</td>
-<td>PLANNED (planning round 9)</td>
+<td>IMPLEMENTED 2026-10-21 (612 tests green on agentvm2, checkstyle clean; E2E pending)</td>
 </tr>
 <tr>
 <td>Related</td>
@@ -501,6 +501,26 @@ populated columns — documented values already).</p>
   becomes: <code>ImageTreeManager.ensureGeneratedTree</code> stores
   <code>distroOptions(tree)</code>; <code>createSaltbootDistro</code> builds a distro only in the
   fallback (generated tree skipped). Revisit §3.1/§3.5 when this step starts.</li>
+<li>2026-10-21 — implemented (session 3.4b). Settled at start: the factory
+  routes <code>isSaltboot()</code> (first) to <code>SaltbootKernelOptionsBuilder(serverFqdn,
+  user)</code> (distro-only; used by <code>ImageTreeManager</code> for the generated tree via
+  <code>KickstartHostHelper.getServerFqdn(null)</code>), while <code>SaltbootUtils</code> constructs
+  the 4-arg builder (proxy FQDN, proxy creator, branch, terminal) directly —
+  branch/terminal are not derivable from an install type. Deviations from §3:
+  <code>createSaltbootSystem</code> takes the <code>SaltbootTerminal</code> (boot image from it) and
+  maps <code>KernelOptionsBuilderException</code> to <code>SaltbootException</code>; a missing
+  <code>ServerGroup</code> of the branch name is reported with the missing-group-profile
+  message; on a failed event <code>last_result</code> is only written when the terminal
+  row was already updated (an empty-root event touches nothing).
+  <code>DISTRO_KERNEL_OPTIONS</code> and <code>splitStringIgnoreQuotes</code> are gone.
+  <code>PXEEventTest#setUp</code> now creates the branch group (system options are
+  computed from it, not read back from cobbler). <strong>Verification</strong> (agentvm2, 2026-10-21): Maven build with the VM proxy;
+  <code>repository/uyuni</code> produced locally (obs-to-maven on the VM is redirected to
+  a blocked mirror) and rsynced. 612 tests green (saltboot, autoinstallation,
+  kickstart, tree, XML-RPC kickstart/saltboot, proxy, pillar suites) on the
+  pgsql-4eclipse container in mock-cobbler mode; checkstyle clean. Test change:
+  the proxy-less domain branch now expects the bare <code>MASTER</code> flag (§3.4).
+  Open: real-cobbler mode, E2E (§5).</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>97-step-3.4b-saltboot-kernel-options.md</code> — do not edit by hand; run

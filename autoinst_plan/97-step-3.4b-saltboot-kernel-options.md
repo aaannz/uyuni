@@ -22,7 +22,7 @@
 |---|---|
 | Branch | `sles16_agama` |
 | Created | 2026-10-19 |
-| Status | PLANNED (planning round 9) |
+| Status | IMPLEMENTED 2026-10-21 (612 tests green on agentvm2, checkstyle clean; E2E pending) |
 | Related | `00-goals.md` §G0/§G3/§5.9, `20-kernel-options.md` §2/§6, `90-step-3.1-saltboot-model.md` §6.2, `95-step-3.2-saltboot-implementation.md` (S1) |
 
 ---
@@ -274,3 +274,23 @@ populated columns — documented values already).
   becomes: `ImageTreeManager.ensureGeneratedTree` stores
   `distroOptions(tree)`; `createSaltbootDistro` builds a distro only in the
   fallback (generated tree skipped). Revisit §3.1/§3.5 when this step starts.
+* 2026-10-21 — implemented (session 3.4b). Settled at start: the factory
+  routes `isSaltboot()` (first) to `SaltbootKernelOptionsBuilder(serverFqdn,
+  user)` (distro-only; used by `ImageTreeManager` for the generated tree via
+  `KickstartHostHelper.getServerFqdn(null)`), while `SaltbootUtils` constructs
+  the 4-arg builder (proxy FQDN, proxy creator, branch, terminal) directly —
+  branch/terminal are not derivable from an install type. Deviations from §3:
+  `createSaltbootSystem` takes the `SaltbootTerminal` (boot image from it) and
+  maps `KernelOptionsBuilderException` to `SaltbootException`; a missing
+  `ServerGroup` of the branch name is reported with the missing-group-profile
+  message; on a failed event `last_result` is only written when the terminal
+  row was already updated (an empty-root event touches nothing).
+  `DISTRO_KERNEL_OPTIONS` and `splitStringIgnoreQuotes` are gone.
+  `PXEEventTest#setUp` now creates the branch group (system options are
+  computed from it, not read back from cobbler). **Verification** (agentvm2, 2026-10-21): Maven build with the VM proxy;
+  `repository/uyuni` produced locally (obs-to-maven on the VM is redirected to
+  a blocked mirror) and rsynced. 612 tests green (saltboot, autoinstallation,
+  kickstart, tree, XML-RPC kickstart/saltboot, proxy, pillar suites) on the
+  pgsql-4eclipse container in mock-cobbler mode; checkstyle clean. Test change:
+  the proxy-less domain branch now expects the bare `MASTER` flag (§3.4).
+  Open: real-cobbler mode, E2E (§5).
