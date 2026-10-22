@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05-agent-vms — Autoinstallation Overhaul</title>
+<style>
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1f2430; --muted: #6b7280;
+  --accent: #30ba78; --accent-dark: #0c6b3d; --border: #e3e6ea;
+  --code-bg: #f0f2f5; --chip: #eef6f1;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.layout { display: flex; max-width: 1400px; margin: 0 auto; }
+nav#toc {
+  width: 280px; flex-shrink: 0; position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto; padding: 28px 18px;
+  border-right: 1px solid var(--border); background: var(--paper);
+}
+nav#toc .toc-title {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 10px;
+}
+nav#toc a {
+  display: block; padding: 3px 8px; border-left: 2px solid transparent;
+  color: var(--ink); text-decoration: none; font-size: 13px; border-radius: 0 4px 4px 0;
+}
+nav#toc a:hover { background: var(--chip); }
+nav#toc a.h2 { font-weight: 600; }
+nav#toc a.h3 { padding-left: 24px; color: var(--muted); font-size: 12.5px; }
+nav#toc a.active { border-left-color: var(--accent); background: var(--chip); }
+main { flex: 1; min-width: 0; padding: 40px 56px 80px; }
+article { max-width: 900px; margin: 0 auto; background: var(--paper);
+  border: 1px solid var(--border); border-radius: 10px; padding: 48px 56px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h1 + p { color: var(--muted); }
+h2 {
+  font-size: 20px; margin: 40px 0 12px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h3 { font-size: 16px; margin: 26px 0 8px; }
+h4 { font-size: 14px; margin: 20px 0 6px; }
+a { color: var(--accent-dark); }
+blockquote {
+  margin: 14px 0; padding: 10px 16px; background: var(--chip);
+  border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+}
+blockquote p { margin: 4px 0; }
+code {
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: #23272e; color: #e6e9ef; padding: 14px 18px; border-radius: 8px;
+  overflow-x: auto; line-height: 1.5;
+}
+pre code { background: none; border: none; color: inherit; padding: 0; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--chip); font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfc; }
+hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 3px 0; }
+.doc-meta table { width: auto; }
+footer.note {
+  max-width: 900px; margin: 14px auto 0; color: var(--muted);
+  font-size: 12px; text-align: center;
+}
+.menu-toggle, #toc-backdrop { display: none; }
+@media (max-width: 980px) {
+  .layout { display: block; }
+  nav#toc {
+    position: fixed; inset: 0 auto 0 0; width: 290px; z-index: 30;
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: 0 0 24px rgba(0,0,0,.15);
+  }
+  body.toc-open nav#toc { transform: none; }
+  .menu-toggle {
+    display: block; position: fixed; top: 12px; right: 12px; z-index: 40;
+    background: var(--paper); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; cursor: pointer;
+  }
+  #toc-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  body.toc-open #toc-backdrop { opacity: 1; pointer-events: auto; }
+  main { padding: 20px; }
+  article { padding: 26px 20px; }
+}
+@media print {
+  nav#toc, .menu-toggle, #toc-backdrop, footer.note { display: none; }
+  body { background: #fff; }
+  .layout { display: block; max-width: none; }
+  main { padding: 0; }
+  article { border: none; padding: 0; max-width: none; }
+  pre { white-space: pre-wrap; }
+  h2 { break-after: avoid; }
+  table, blockquote, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<button class="menu-toggle" type="button" aria-label="Toggle table of contents">&#9776; Contents</button>
+<div id="toc-backdrop"></div>
+<div class="layout">
+<nav id="toc" aria-label="Table of contents">
+<p class="toc-title">05-agent-vms</p>
+<a class="h2" href="#1-the-two-vms">1. The two VMs</a>
+<a class="h2" href="#2-network-proxy-and-what-it-lets-through">2. Network: proxy and what it lets through</a>
+<a class="h2" href="#3-session-start-detect-a-recycle-restore-the-tooling">3. Session start: detect a recycle, restore the tooling</a>
+<a class="h2" href="#4-scripts-autoinst_planvm">4. Scripts (autoinst_plan/vm/)</a>
+<a class="h2" href="#5-unit-tests-agentvm2">5. Unit tests (agentvm2)</a>
+<a class="h2" href="#6-build-deploy-and-e2e-agentvm">6. Build, deploy and E2E (agentvm)</a>
+<a class="h2" href="#7-known-pitfalls">7. Known pitfalls</a>
+</nav>
+<main>
+<article>
+<h1 id="agent-vms-development-and-e2e-guide">Agent VMs — Development and E2E Guide</h1>
+<blockquote>
+<p>How to use <strong>agentvm</strong> and <strong>agentvm2</strong> for builds, unit tests and E2E
+validation in this plan, and how to recover after a VM is recycled.
+Read this before any VM work (session protocol <code>00-goals.md</code> §1, item 6).
+General environment facts (SSH key, deployed-instance internals, XML-RPC,
+minion registration) are in <code>AGENTS_CUSTOM.md</code> §3 and <code>AGENTS_XMLRPC.md</code>.
+Verified 2026-10-22.</p>
+</blockquote>
+<h2 id="1-the-two-vms">1. The two VMs</h2>
+<p>Both VMs are reserved for this plan (user decision 2026-10-22). They can
+still be <strong>recycled (restored from a snapshot) at any time without notice</strong>,
+so never rely on state left by an earlier session: run the session-start
+check (§3) every time.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>agentvm</th>
+<th>agentvm2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Address</td>
+<td><code>192.168.200.207</code> (<code>agentvm.ai.local</code>)</td>
+<td><code>192.168.200.217</code> (<code>agentvm2.ai.local</code>)</td>
+</tr>
+<tr>
+<td>Role</td>
+<td>Deployed Uyuni server: <strong>E2E target</strong>; builds the backend it deploys</td>
+<td><strong>Build + unit tests</strong> (pgsql-4eclipse test container); spare client host</td>
+</tr>
+<tr>
+<td>OS</td>
+<td>openSUSE Tumbleweed, SELinux enforcing</td>
+<td>same</td>
+</tr>
+<tr>
+<td>Disk</td>
+<td>24 GB root (≈15 GB free); a 150 GB <code>vdb</code> is attached but <strong>unused</strong></td>
+<td>44 GB root (btrfs over <code>vda3</code> + 20 GB <code>vdb</code>)</td>
+</tr>
+<tr>
+<td>Uyuni</td>
+<td><code>uyuni-server</code> + <code>uyuni-db</code> containers, stock 5.3.1 (<code>spacewalk-java-5.3.1-260400.1.2.uyuni6</code>, cobbler 3.3.3 <strong>without</strong> the <code>opensuse16.1</code> signature, PR #177)</td>
+<td>none (only <code>mgradm</code> installed)</td>
+</tr>
+<tr>
+<td>Default <code>java</code></td>
+<td>21 (JDK 17 added by the check script)</td>
+<td>17</td>
+</tr>
+</tbody>
+</table>
+<p>Why this split: unit tests need port 5432/80, which the deployed stack holds
+on agentvm (<code>mgradm stop</code> there takes the E2E target down). On agentvm2 the
+test container can stay up all session. agentvm builds what it deploys so
+<code>deploy.sh</code> runs in local container mode — no SSH key has to be copied
+between the VMs.</p>
+<p>From the sandbox use the <strong>IP addresses</strong>; <code>agentvm2</code>/<code>agentvm2.ai.local</code>
+do not resolve here. On the VMs both <code>.ai.local</code> names resolve.</p>
+<pre><code class="language-bash">VM1=192.168.200.207; VM2=192.168.200.217
+SSH=&quot;ssh -i ~/workbase/id_ssh_agents -o StrictHostKeyChecking=no&quot;
+</code></pre>
+<h2 id="2-network-proxy-and-what-it-lets-through">2. Network: proxy and what it lets through</h2>
+<p>All outbound traffic goes through the HTTP proxy <strong><code>http://192.168.200.1:3128</code></strong>
+(<code>/etc/sysconfig/proxy</code>, <code>~/.m2/settings.xml</code>; the check script enforces
+both and adds the VM addresses and <code>.ai.local</code> to <code>no_proxy</code>). There is no
+NTP. Tested 2026-10-22:</p>
+<table>
+<thead>
+<tr>
+<th>Reachable</th>
+<th>Blocked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>download.opensuse.org</code>, <code>cdn.opensuse.org</code>, <code>ftp.gwdg.de</code></td>
+<td>every other openSUSE mirror tried (<code>ftp.fau.de</code>, <code>ftp.tu-chemnitz.de</code>, <code>opensuse.schlundtech.de</code>, <code>opensuse.mirror.iphh.net</code>, <code>mirror.23m.com</code>)</td>
+</tr>
+<tr>
+<td><code>registry.opensuse.org</code> (podman pulls)</td>
+<td><code>repo1.maven.org</code></td>
+</tr>
+<tr>
+<td><code>repo.maven.apache.org</code> (Maven&rsquo;s default Central URL)</td>
+<td><code>github.com</code>, <code>objects.githubusercontent.com</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>registry.npmjs.org</code> → <strong>no frontend (<code>npm</code>) builds on the VMs</strong></td>
+</tr>
+<tr>
+<td>sandbox ↔ VMs, VM ↔ VM (SSH, HTTPS API)</td>
+<td>NTP (UDP 123), <code>pool.ntp.org</code></td>
+</tr>
+</tbody>
+</table>
+<p>Consequences:</p>
+<ul>
+<li><code>download.opensuse.org</code> 302-redirects downloads to a random mirror. The
+  Uyuni OBS project happens to land on <code>ftp.gwdg.de</code>, the Leap 16.0
+  distribution repo usually does not — this is what made obs-to-maven fail
+  &ldquo;at random&rdquo; in earlier sessions (<code>Tunnel connection failed: 403
+  Forbidden</code>). <code>prepare-java-build.sh</code> (§4) pins Leap to <code>ftp.gwdg.de</code>.</li>
+<li>Maven Central works (<code>repo.maven.apache.org</code>). The ant/ivy harness
+  (<code>java-unittests-pgsql.sh</code>) still fails at <code>ivy-retrieve</code> — use Maven.</li>
+<li>zypper and podman work through the proxy; Tumbleweed and Uyuni repos are
+  fine.</li>
+</ul>
+<h2 id="3-session-start-detect-a-recycle-restore-the-tooling">3. Session start: detect a recycle, restore the tooling</h2>
+<p>Signs of a recycled VM: clock days/hours off, <code>mvn</code>/<code>obs-to-maven</code> missing,
+no <code>/root/worktree</code>, on agentvm a stock <code>rhn.jar</code> (August mtime) and no
+<code>saltboot</code> row in <code>rhnKSInstallType</code>. Do not diagnose — just run the check
+on <strong>both</strong> VMs; it is idempotent and finishes in seconds when nothing is
+missing:</p>
+<pre><code class="language-bash">$SSH root@$VM1 'bash -s' &lt; autoinst_plan/vm/ensure-vm-tooling.sh
+$SSH root@$VM2 'bash -s' &lt; autoinst_plan/vm/ensure-vm-tooling.sh
+</code></pre>
+<p>It enforces the proxy settings, sets the clock from the HTTP <code>Date</code> header
+of <code>download.opensuse.org</code> (no NTP; on 2026-10-22 agentvm was 20 days and
+agentvm2 2 hours behind), adds the <code>uyuni-utils</code> repo (for obs-to-maven)
+and installs whatever is missing of <code>java-17-openjdk-devel maven
+obs-to-maven rsync libxml2-tools git-core tar</code>, pins Maven to JDK 17 via
+<code>/root/.mavenrc</code> (agentvm defaults to java 21), writes <code>~/.m2/settings.xml</code>
+and prints a state summary (deployed versions, containers) — paste it into
+the session record.</p>
+<h2 id="4-scripts-autoinst_planvm">4. Scripts (<code>autoinst_plan/vm/</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Runs on</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ensure-vm-tooling.sh</code></td>
+<td>VM (stdin)</td>
+<td>§3: proxy, clock, packages, Maven config</td>
+</tr>
+<tr>
+<td><code>sync-worktree.sh &lt;vm-ip&gt;</code></td>
+<td>sandbox</td>
+<td>rsync this checkout to <code>/root/worktree/uyuni-autoinst_phase2</code> (excludes <code>target/</code>, <code>node_modules</code>, <code>.git</code>, the VM-local test <code>rhn.conf</code> and obs-to-maven output)</td>
+</tr>
+<tr>
+<td><code>prepare-java-build.sh</code></td>
+<td>VM (stdin)</td>
+<td>install <code>uyuni-java-parent</code> + <code>branding</code>, run obs-to-maven with Leap pinned to <code>ftp.gwdg.de</code>, apply the servlet-API workaround (§7)</td>
+</tr>
+<tr>
+<td><code>reset-test-db.sh</code></td>
+<td>VM (stdin)</td>
+<td>(re)create <code>uyuni-test-pgsql</code> from the worktree&rsquo;s schema (incl. <code>upgrade/next</code>); waits until ready, ~2 min</td>
+</tr>
+<tr>
+<td><code>deploy-branch-backend.sh</code></td>
+<td>agentvm (stdin)</td>
+<td>branch DB deltas + <code>deploy.sh backend -m container</code> + in-container restart + jar fingerprint check (§6)</td>
+</tr>
+</tbody>
+</table>
+<p>VM scripts take an optional worktree path argument
+(<code>'bash -s' &lt; script.sh /root/worktree/&lt;dir&gt;</code>); the default is
+<code>/root/worktree/uyuni-autoinst_phase2</code>. The VMs have no git checkout:
+<strong>re-run <code>sync-worktree.sh</code> after every local change</strong> before building or
+testing. <code>agentvm2:/root/worktree/uyuni</code> is a stale copy from an earlier
+session — ignore it.</p>
+<h2 id="5-unit-tests-agentvm2">5. Unit tests (agentvm2)</h2>
+<pre><code class="language-bash">autoinst_plan/vm/sync-worktree.sh $VM2
+$SSH root@$VM2 'bash -s' &lt; autoinst_plan/vm/prepare-java-build.sh   # first time ~3 min, then seconds
+$SSH root@$VM2 'bash -s' &lt; autoinst_plan/vm/reset-test-db.sh        # after a recycle or a schema change
+$SSH root@$VM2 'cd /root/worktree/uyuni-autoinst_phase2/java/core &amp;&amp;
+  mvn -B test -DskipTests=false -Dtest=&quot;SaltbootUtilsTest,PXEEventTest&quot; &gt; /root/test.log 2&gt;&amp;1;
+  grep -E &quot;Tests run:|BUILD|ERROR\]&quot; /root/test.log | tail -20'
+</code></pre>
+<p>Validated 2026-10-22 on a freshly prepared agentvm2:
+<code>KickstartImageTreeTest</code>, <code>SaltbootKernelOptionsBuilderTest</code>,
+<code>SaltbootUtilsTest</code>, <code>PXEEventTest</code> — 54 tests green, sources unmodified.</p>
+<ul>
+<li>Recreate the test container (<code>reset-test-db.sh</code>) whenever
+  <code>schema/</code> changed; the container builds the schema only at start.</li>
+<li>Real-cobbler mode: <code>podman exec uyuni-test-pgsql
+  /manager/java/buildconf/test/cobbler/setup-cobbler-test.sh</code>, add
+  <code>cobbler.port = 8080</code> to <code>java/buildconf/test/rhn.conf</code> on the VM, run
+  Maven with <code>-Duse.real.cobbler=true</code> (details <code>AGENTS_CUSTOM.md</code> §3).</li>
+<li>Checkstyle runs on either VM: <code>mvn -B -f java checkstyle:check</code> (after
+  <code>prepare-java-build.sh</code>).</li>
+<li>Long runs: start with <code>nohup … &gt; /root/test.log 2&gt;&amp;1 &amp;</code> and poll the log;
+  SSH sessions can drop.</li>
+</ul>
+<h2 id="6-build-deploy-and-e2e-agentvm">6. Build, deploy and E2E (agentvm)</h2>
+<pre><code class="language-bash">autoinst_plan/vm/sync-worktree.sh $VM1
+$SSH root@$VM1 'bash -s' &lt; autoinst_plan/vm/prepare-java-build.sh
+$SSH root@$VM1 'cd /root/worktree/uyuni-autoinst_phase2 &amp;&amp; mvn -B -q -f java package'   # ~1 min
+$SSH root@$VM1 'bash -s' &lt; autoinst_plan/vm/deploy-branch-backend.sh
+</code></pre>
+<p>Status 2026-10-22: tooling, obs-to-maven and <code>mvn -f java package</code>
+(spacewalk-java 5.3.3) are <strong>validated</strong> on agentvm from an empty <code>~/.m2</code>.
+<code>deploy-branch-backend.sh</code> is <strong>not yet validated</strong> — its first run was
+blocked by the permission classifier, so agentvm still runs the stock 5.3.1
+backend. Watch its first real run closely.</p>
+<p>What the deploy script does, and why (quirks from <code>AGENTS_CUSTOM.md</code> §3):</p>
+<ol>
+<li><strong>DB deltas by hand.</strong> The stock 5.3.1 <code>spacewalk-schema-upgrade</code> does not
+   know <code>upgrade/next/</code>, and a container boot applies upgrades only when the
+   schema package version changes. The script applies the versioned
+   directories newer than the deployed schema (today
+   <code>5.3.1-to-5.3.2</code>) once per DB (marker files in
+   <code>/root/.branch-schema-applied/</code>), then all <code>upgrade/next/*.sql</code> and the
+   RBAC access data (<code>namespace</code>, <code>accessGroup</code>, <code>endpoint</code>,
+   <code>endpointNamespace</code>, <code>accessGroupNamespace</code> — all idempotent; without
+   them SparkFilter fails at boot). The reportdb upgrades are not applied
+   (not needed for autoinstallation work).</li>
+<li><strong>No <code>deploy.sh -r</code>.</strong> <code>uyuni-server.service</code> runs the container with
+   <code>--rm --health-on-failure=stop</code>; a tomcat restart through <code>rctomcat</code> fails
+   the healthcheck, podman recreates the container from the image and the
+   deploy (written to <code>/usr/share</code>) is gone. The script restarts with
+   <code>podman exec uyuni-server systemctl restart tomcat taskomatic</code>, which does
+   not cycle the container.</li>
+<li><strong>Fingerprint check.</strong> <code>rpm -q spacewalk-java</code> does not see overlay
+   deploys; the script compares the sha1 of <code>/usr/share/rhn/lib/rhn.jar</code> in
+   the container with the build output. Re-check after any container restart
+   (<code>podman ps</code> &ldquo;Up&rdquo; time) — a recreated container silently runs stock code
+   again; then just re-run the deploy script (DB deltas are not lost, they
+   live in the <code>uyuni-db</code> volume).</li>
+</ol>
+<p>E2E practicalities for steps 3.4a/3.4b:</p>
+<ul>
+<li><strong>XML-RPC</strong> works straight from the sandbox:
+  <code>https://192.168.200.207/rpc/api</code> (self-signed — skip verification),
+  admin <code>admin</code>/<code>admin</code>; harness and pitfalls in <code>AGENTS_XMLRPC.md</code>. From
+  agentvm2 use <code>https://agentvm.ai.local/rpc/api</code> (<code>no_proxy</code> covers it).</li>
+<li><strong>Server-side checks:</strong> <code>podman exec uyuni-server cobbler distro report</code> /
+  <code>profile report</code> / <code>system report</code>; DB via
+  <code>podman exec uyuni-db psql -U spacewalk -d susemanager</code>; logs in
+  <code>/var/log/rhn/</code> inside <code>uyuni-server</code>.</li>
+<li><strong>Fixtures:</strong> the fresh server has no channels, systems, images or image
+  stores. Seed Kiwi <code>ImageInfo</code>/<code>ImageFile</code> rows and dummy files under
+  <code>/srv/www/os-images/&lt;org&gt;/&lt;name-version-revision&gt;/</code> as described in
+  <code>96-step-3.4a-saltboot-image-tree.md</code> §5b.5. <code>/srv/www</code>, <code>/var/lib/cobbler</code>
+  and <code>/etc/*</code> are volumes (survive container recreation).</li>
+<li><strong>A minion for <code>pxe_update</code>:</strong> register agentvm2 as a Salt minion of
+  agentvm with <code>venv-salt-minion</code> (<code>AGENTS_CUSTOM.md</code> §3, &ldquo;Salt Minion Test
+  Registration&rdquo;, with <code>master: agentvm.ai.local</code>). There is no proxy system;
+  a branch without a proxy yields the bare <code>MASTER</code> flag — record the
+  proxy-FQDN case as a gap.</li>
+<li><strong>Disk:</strong> ≈15 GB free on agentvm root. Before large fixtures or real
+  images, ask the user about putting the unused 150 GB <code>vdb</code> to use
+  (<code>mgr-storage-server</code> from <code>uyuni-storage-setup-server</code> is installed; it
+  moves the container volumes, i.e. disruptive).</li>
+<li><strong>Restore</strong> after the E2E: the server can stay on the branch build; record
+  the deployed rhn.jar sha1 and the applied deltas with the results.</li>
+</ul>
+<h2 id="7-known-pitfalls">7. Known pitfalls</h2>
+<ul>
+<li><strong>Servlet API shadowing (upstream, not branch-specific).</strong> The OBS pom of
+  <code>jakarta.servlet.jsp.jstl-api</code> 3.0.2 pulls <code>jakarta.servlet-api</code> 6.0.0
+  from Central; it precedes <code>tomcat-servlet-api</code> (Servlet 6.1) and
+  test-compile fails: &ldquo;method does not override or implement a method from a
+  supertype&rdquo; at <code>RhnMockHttpServletResponse.java:304</code> and
+  <code>SimpleTestingResponse.java:204</code> (<code>sendRedirect(String, int, boolean)</code>).
+  CI (ant/ivy) is unaffected. <code>prepare-java-build.sh</code> overwrites the 6.0.0
+  jar in the VM&rsquo;s <code>~/.m2</code> with the tomcat jar. Do <strong>not</strong> edit the test
+  sources in the VM copy (earlier workaround) — the next sync reverts it.</li>
+<li><strong>SELinux:</strong> host bind mounts into containers need <code>:Z</code>.</li>
+<li><strong>Clock:</strong> a wrong clock breaks TLS, Maven timestamps and session expiry —
+  <code>ensure-vm-tooling.sh</code> fixes it; after a recycle it is wrong again.</li>
+<li><strong><code>mgradm stop</code> on agentvm</strong> frees 5432/80 for a test container but takes
+  the E2E server down; prefer agentvm2 for unit tests. Restore with
+  <code>mgradm start</code>.</li>
+<li><strong>SLE16 PXE/cobbler:</strong> the deployed cobbler lacks PR #177 — SLE16 distro
+  creation is rejected (documented caveat, phase 1).</li>
+</ul>
+</article>
+<footer class="note">Generated from <code>05-agent-vms.md</code> — do not edit by hand; run
+<code>autoinst_plan/build_html.py</code> to regenerate.</footer>
+</main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var body = document.body;
+  var toggle = document.querySelector('.menu-toggle');
+  var backdrop = document.getElementById('toc-backdrop');
+  if (toggle) toggle.addEventListener('click', function () { body.classList.toggle('toc-open'); });
+  if (backdrop) backdrop.addEventListener('click', function () { body.classList.remove('toc-open'); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav#toc a'));
+  var heads = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  function highlight() {
+    var idx = -1, y = window.scrollY + 90;
+    for (var i = 0; i < heads.length; i++) { if (heads[i] && heads[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+});
+</script>
+</body>
+</html>

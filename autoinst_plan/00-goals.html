@@ -205,12 +205,14 @@ hinders another.</p>
    UI steps), update the step status in <code>10-roadmap.md</code>.</li>
 <li>If a required change would violate a guardrail (§4) or a locked decision
    (§5), stop and update this document first, with justification.</li>
-<li>For steps that change runtime behavior, validate end-to-end on the provided
-   agent VM (see <code>AGENTS_CUSTOM.md</code> §3). There is exactly <strong>one VM</strong> and it is
-   <strong>manually recycled</strong> — when multiple agents work in parallel, they must
-   coordinate its use (deployment/verification windows) and record the deployed
-   package version together with their results. Note the VM&rsquo;s Cobbler may lack
-   the Agama support PR (see §5.1) — check before SLE16 E2E validation.</li>
+<li>For steps that change runtime behavior, validate end-to-end on the agent
+   VMs following <a href="05-agent-vms.md"><code>05-agent-vms.md</code></a>: agentvm is the deployed
+   server (E2E), agentvm2 builds and runs unit tests. Both can be <strong>recycled
+   at any time</strong> — start every VM session with its tooling check script, and
+   record the deployed package version (and jar fingerprint) together with
+   the results; when multiple agents work in parallel, they must coordinate
+   VM use. Note the VM&rsquo;s Cobbler may lack the Agama support PR (see §5.1) —
+   check before SLE16 E2E validation.</li>
 </ol>
 <hr />
 <h2 id="2-goal-overview">2. Goal overview</h2>

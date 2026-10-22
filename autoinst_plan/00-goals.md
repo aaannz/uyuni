@@ -41,12 +41,14 @@ hinders another.
    UI steps), update the step status in `10-roadmap.md`.
 5. If a required change would violate a guardrail (§4) or a locked decision
    (§5), stop and update this document first, with justification.
-6. For steps that change runtime behavior, validate end-to-end on the provided
-   agent VM (see `AGENTS_CUSTOM.md` §3). There is exactly **one VM** and it is
-   **manually recycled** — when multiple agents work in parallel, they must
-   coordinate its use (deployment/verification windows) and record the deployed
-   package version together with their results. Note the VM's Cobbler may lack
-   the Agama support PR (see §5.1) — check before SLE16 E2E validation.
+6. For steps that change runtime behavior, validate end-to-end on the agent
+   VMs following [`05-agent-vms.md`](05-agent-vms.md): agentvm is the deployed
+   server (E2E), agentvm2 builds and runs unit tests. Both can be **recycled
+   at any time** — start every VM session with its tooling check script, and
+   record the deployed package version (and jar fingerprint) together with
+   the results; when multiple agents work in parallel, they must coordinate
+   VM use. Note the VM's Cobbler may lack the Agama support PR (see §5.1) —
+   check before SLE16 E2E validation.
 
 ---
 

@@ -292,7 +292,10 @@ before starting any step here.
 
 ### Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)
 
-Split into sub-steps across sessions (planning round 9):
+Split into sub-steps across sessions (planning round 9). The pending E2E
+runs of 3.4a-2 and 3.4b use the VM workflow in
+[`05-agent-vms.md`](05-agent-vms.md) (agentvm2: unit tests; agentvm: branch
+deploy + E2E).
 
 #### Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20, 3.4a-2 implemented 2026-10-20, E2E pending)
 
@@ -478,8 +481,9 @@ Phase 1 (kernel options) ──► Phase 2 (raw-only + UI)
 9. Session: steps 3.4–3.5.
 10. Sessions: Phase 4 steps; Phase 5 interleaved when design capacity allows.
 
-E2E validation on the agent VM follows the protocol in `00-goals.md` §1
-(single VM, manually recycled — coordinate across parallel agents).
+E2E validation on the agent VMs follows the protocol in `00-goals.md` §1
+and the VM guide [`05-agent-vms.md`](05-agent-vms.md) (two VMs, recycled at
+any time — run the tooling check first; coordinate across parallel agents).
 
 ---
 
@@ -687,3 +691,16 @@ E2E validation on the agent VM follows the protocol in `00-goals.md` §1
   label reservation, risk documented in the step doc §6. 3.4b hand-off
   noted (`distroOptions(tree)` feeds the generated tree). Plan:
   `96-step-3.4a-saltboot-image-tree.md` §5b.
+* 2026-10-22 — agent-VM investigation (prerequisite for the 3.4a-2/3.4b E2E):
+  agentvm had been recycled (stock Uyuni 5.3.1, clock 20 days behind, no JDK
+  17/Maven/obs-to-maven); agentvm2 still had the toolchain. Root causes of
+  the earlier VM trouble documented: obs-to-maven failures = random redirects
+  of the Leap repo to proxy-blocked mirrors (only `ftp.gwdg.de` allowed);
+  test-compile failures = upstream classpath shadowing of the Servlet 6.1 API
+  by `jakarta.servlet-api` 6.0.0 (via the OBS `jstl-api` pom); Maven Central
+  is reachable as `repo.maven.apache.org`. New guide `05-agent-vms.md` plus
+  idempotent scripts under `autoinst_plan/vm/` (tooling check, sync, build
+  prep, test DB reset, branch deploy). Validated: tooling + `mvn -f java
+  package` on agentvm from an empty `~/.m2`; 54 saltboot/image-tree tests and
+  checkstyle on agentvm2. Not yet validated: the branch deploy script (run
+  blocked by the permission classifier; agentvm still on stock 5.3.1).

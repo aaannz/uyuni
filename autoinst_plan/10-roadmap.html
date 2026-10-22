@@ -458,7 +458,10 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   group/terminal targeting, image selection, status; formula form replaced.</li>
 </ul>
 <h3 id="step-34-pxekernel-options-via-builders-status-in-progress-split-2026-10-19">Step 3.4 — PXE/kernel options via builders (status: IN PROGRESS — split 2026-10-19)</h3>
-<p>Split into sub-steps across sessions (planning round 9):</p>
+<p>Split into sub-steps across sessions (planning round 9). The pending E2E
+runs of 3.4a-2 and 3.4b use the VM workflow in
+<a href="05-agent-vms.md"><code>05-agent-vms.md</code></a> (agentvm2: unit tests; agentvm: branch
+deploy + E2E).</p>
 <h4 id="step-34a-saltboot-distro-as-image-based-tree-status-in-progress-34a-1-done-2026-10-20-34a-2-implemented-2026-10-20-e2e-pending">Step 3.4a — Saltboot distro as image-based tree (status: IN PROGRESS — 3.4a-1 DONE 2026-10-20, 3.4a-2 implemented 2026-10-20, E2E pending)</h4>
 <ul>
 <li>Design: <a href="96-step-3.4a-saltboot-image-tree.md"><code>96-step-3.4a-saltboot-image-tree.md</code></a>
@@ -636,8 +639,9 @@ the prerequisite for the saltboot UI (step 3.3).</p>
 <li>Session: steps 3.4–3.5.</li>
 <li>Sessions: Phase 4 steps; Phase 5 interleaved when design capacity allows.</li>
 </ol>
-<p>E2E validation on the agent VM follows the protocol in <code>00-goals.md</code> §1
-(single VM, manually recycled — coordinate across parallel agents).</p>
+<p>E2E validation on the agent VMs follows the protocol in <code>00-goals.md</code> §1
+and the VM guide <a href="05-agent-vms.md"><code>05-agent-vms.md</code></a> (two VMs, recycled at
+any time — run the tooling check first; coordinate across parallel agents).</p>
 <hr />
 <h2 id="5-open-questions-register">§5 Open questions register</h2>
 <h3 id="feature-tiering-decided-in-step-20-initial-proposals-here">Feature tiering (decided in step 2.0; initial proposals here)</h3>
@@ -881,6 +885,19 @@ the prerequisite for the saltboot UI (step 3.3).</p>
   label reservation, risk documented in the step doc §6. 3.4b hand-off
   noted (<code>distroOptions(tree)</code> feeds the generated tree). Plan:
   <code>96-step-3.4a-saltboot-image-tree.md</code> §5b.</li>
+<li>2026-10-22 — agent-VM investigation (prerequisite for the 3.4a-2/3.4b E2E):
+  agentvm had been recycled (stock Uyuni 5.3.1, clock 20 days behind, no JDK
+  17/Maven/obs-to-maven); agentvm2 still had the toolchain. Root causes of
+  the earlier VM trouble documented: obs-to-maven failures = random redirects
+  of the Leap repo to proxy-blocked mirrors (only <code>ftp.gwdg.de</code> allowed);
+  test-compile failures = upstream classpath shadowing of the Servlet 6.1 API
+  by <code>jakarta.servlet-api</code> 6.0.0 (via the OBS <code>jstl-api</code> pom); Maven Central
+  is reachable as <code>repo.maven.apache.org</code>. New guide <code>05-agent-vms.md</code> plus
+  idempotent scripts under <code>autoinst_plan/vm/</code> (tooling check, sync, build
+  prep, test DB reset, branch deploy). Validated: tooling + <code>mvn -f java
+  package</code> on agentvm from an empty <code>~/.m2</code>; 54 saltboot/image-tree tests and
+  checkstyle on agentvm2. Not yet validated: the branch deploy script (run
+  blocked by the permission classifier; agentvm still on stock 5.3.1).</li>
 </ul>
 </article>
 <footer class="note">Generated from <code>10-roadmap.md</code> — do not edit by hand; run
