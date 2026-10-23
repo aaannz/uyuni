@@ -20,6 +20,7 @@ import com.google.gson.annotations.SerializedName;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -342,6 +343,7 @@ public class OSImageInspectSlsResult {
     private Bundle bundle;
     private List<Bundle> bundles;
     private List<Package> packages;
+    private Map<String, Checksum> files;
 
     /**
      * The type Package.
@@ -402,6 +404,13 @@ public class OSImageInspectSlsResult {
      */
     public List<Package> getPackages() {
         return packages;
+    }
+
+    /**
+     * @return the checksums of the collected files, by file name
+     */
+    public Map<String, Checksum> getFiles() {
+        return files != null ? files : Collections.emptyMap();
     }
 
     /**

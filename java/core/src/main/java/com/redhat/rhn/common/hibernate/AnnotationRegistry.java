@@ -189,6 +189,7 @@ import com.redhat.rhn.domain.errata.Severity;
 import com.redhat.rhn.domain.image.DeltaImageInfo;
 import com.redhat.rhn.domain.image.DockerfileProfile;
 import com.redhat.rhn.domain.image.ImageFile;
+import com.redhat.rhn.domain.image.ImageFileType;
 import com.redhat.rhn.domain.image.ImageInfo;
 import com.redhat.rhn.domain.image.ImageInfoCustomDataValue;
 import com.redhat.rhn.domain.image.ImageOverview;
@@ -529,6 +530,7 @@ public class AnnotationRegistry {
             ImageBuildActionDetails.class,
             ImageBuildActionResult.class,
             ImageFile.class,
+            ImageFileType.class,
             ImageInfo.class,
             ImageInfoCustomDataValue.class,
             ImageInspectAction.class,
